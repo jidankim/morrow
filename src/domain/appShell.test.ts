@@ -12,11 +12,8 @@ import {
   saveAppShellState
 } from "./appShell"
 
-const selectedChat = {
-  id: "chat-alpha",
-  label: "Chat alpha",
-  backfillPromptEnabled: true
-} as const
+const discoveredChat = { id: "messages-chat-11111111111111111111111111111111", label: "Chat alpha", participantCount: 2, participantIds: ["messages-participant-11111111111111111111111111111111", "messages-participant-22222222222222222222222222222222"], latestActivityTimestamp: 1_783_000_000 } as const
+const selectedChat = { ...discoveredChat, backfillPromptEnabled: true } as const
 
 describe("app shell state", () => {
   it("persists pause and resume state across reloads", () => {
@@ -41,7 +38,11 @@ describe("app shell state", () => {
       type: "updateConfig",
       config: { ...setupNeeded.config, permissionsGranted: true }
     })
-    const scanning = { ...setupOnly, selectedChats: [selectedChat] }
+    const scanning = {
+      ...setupOnly,
+      discovery: { status: "ready", chats: [discoveredChat] },
+      selectedChats: [selectedChat]
+    } as const
     const paused = reduceAppShellState(scanning, { type: "pause" })
     const error = reduceAppShellState(paused, {
       type: "fail",
@@ -70,7 +71,11 @@ describe("app shell state", () => {
       type: "updateConfig",
       config: { ...initial.config, permissionsGranted: true }
     })
-    const ready = { ...setupOnly, selectedChats: [selectedChat] }
+    const ready = {
+      ...setupOnly,
+      discovery: { status: "ready", chats: [discoveredChat] },
+      selectedChats: [selectedChat]
+    } as const
 
     expect(isOnboardingComplete(initial)).toBe(false)
     expect(getOnboardingWarnings(initial)).toContain("Select at least one chat before scanning.")
@@ -87,6 +92,52 @@ describe("app shell state", () => {
     })
 
     expect(selected.selectedChats).toEqual([])
+  })
+
+  it("selects and persists discovered chat metadata across reloads", () => {
+    const storage = new Map<string, string>()
+    const initial = {
+      ...createDefaultAppShellState(),
+      discovery: { status: "ready", chats: [discoveredChat] }
+    } as const
+
+    const selected = reduceAppShellState(initial, {
+      type: "toggleSelectedChat",
+      chatId: discoveredChat.id
+    })
+    saveAppShellState(selected, storage)
+    const reloaded = loadAppShellState(storage)
+
+    expect(reloaded.selectedChats).toEqual([selectedChat])
+    expect(storage.get(APP_SHELL_STATE_KEY)).toContain("messages-participant-11111111111111111111111111111111")
+  })
+
+  it("keeps onboarding incomplete when discovery is not ready despite stale selections", () => {
+    const defaultState = createDefaultAppShellState()
+    const staleSelectedState = {
+      ...defaultState,
+      config: { ...defaultState.config, permissionsGranted: true },
+      selectedChats: [selectedChat]
+    }
+    const states = [
+      staleSelectedState,
+      { ...staleSelectedState, discovery: { status: "loading", chats: [] } },
+      { ...staleSelectedState, discovery: { status: "permissionDenied", chats: [] } },
+      { ...staleSelectedState, discovery: { status: "unavailable", chats: [] } },
+      { ...staleSelectedState, discovery: { status: "empty", chats: [] } },
+      {
+        ...staleSelectedState,
+        discovery: {
+          status: "ready",
+          chats: [{ ...discoveredChat, id: "messages-chat-22222222222222222222222222222222" }]
+        }
+      }
+    ] as const
+
+    for (const state of states) {
+      expect(isOnboardingComplete(state)).toBe(false)
+      expect(isSyncNowEnabled(state)).toBe(false)
+    }
   })
 
   it("defaults privacy controls to no telemetry and scrubbed crash logs", () => {
@@ -181,4 +232,39 @@ describe("app shell state", () => {
 
     expect(() => loadAppShellState(storage)).toThrow()
   })
+
+  it("rejects private-shaped selected chat metadata in local storage", () => {
+    const storage = new Map<string, string>([
+      [
+        APP_SHELL_STATE_KEY,
+        JSON.stringify({
+          mode: "scanning",
+          config: {
+            referenceTimezone: "Asia/Seoul",
+            calendarSource: "apple-calendar",
+            permissionsGranted: true,
+            launchAtLogin: false,
+            sourceExcerptsEnabled: true,
+            firstProposalGuidanceEnabled: true
+          },
+          discovery: { status: "unverified", chats: [] },
+          selectedChats: [
+            {
+              id: "messages-chat-11111111111111111111111111111111",
+              label: "Chat alpha",
+              participantCount: 1,
+              participantIds: ["person@example.com"],
+              latestActivityTimestamp: 1_783_000_000,
+              backfillPromptEnabled: true,
+              phone: "+15551234567"
+            }
+          ],
+          pendingProposalCount: 0
+        })
+      ]
+    ])
+
+    expect(() => loadAppShellState(storage)).toThrow()
+  })
+
 })

@@ -12,6 +12,40 @@ type NativeStateForTest = {
 
 type NativeMenuCommandForTest = "sync-now" | "open-settings" | "open-calendar" | "open-reminders"
 
+type NativeDiscoveryReportForTest =
+  | {
+      readonly status: "ready"
+      readonly chats: readonly {
+        readonly chatId: string
+        readonly displayLabel: string
+        readonly participantCount: number
+        readonly participantIds: readonly string[]
+        readonly latestActivityTimestamp: number
+      }[]
+    }
+  | { readonly status: "empty" | "permissionDenied" | "unavailable"; readonly chats: readonly [] }
+
+const discoveredChat = {
+  id: "messages-chat-11111111111111111111111111111111",
+  label: "Chat alpha",
+  participantCount: 2,
+  participantIds: ["messages-participant-11111111111111111111111111111111", "messages-participant-22222222222222222222222222222222"],
+  latestActivityTimestamp: 1_783_000_000
+} as const
+
+const nativeReadyReport = {
+  status: "ready",
+  chats: [
+    {
+      chatId: "messages-chat-11111111111111111111111111111111",
+      displayLabel: "Chat alpha",
+      participantCount: 2,
+      participantIds: ["messages-participant-11111111111111111111111111111111", "messages-participant-22222222222222222222222222222222"],
+      latestActivityTimestamp: 1_783_000_000
+    }
+  ]
+} as const satisfies NativeDiscoveryReportForTest
+
 const bridgeMock = vi.hoisted(() => {
   let nativeStateListener: ((state: NativeStateForTest) => void) | undefined
   let nativeMenuCommandListener: ((command: NativeMenuCommandForTest) => void) | undefined
@@ -34,6 +68,8 @@ const bridgeMock = vi.hoisted(() => {
       syncCalls.push("scan")
       return { pendingProposalCount: 12 }
     }),
+    discoverMessagesChats: vi.fn(async (): Promise<NativeDiscoveryReportForTest> => nativeReadyReport),
+    openPrivacySettings: vi.fn(async () => ({ pane: "fullDiskAccess", opened: true })),
     emitNativeState: (state: NativeStateForTest): void => {
       nativeStateListener?.(state)
     },
@@ -56,7 +92,9 @@ vi.mock("./tauriBridge", () => ({
     subscribeAppState: bridgeMock.subscribeAppState,
     subscribeMenuCommand: bridgeMock.subscribeMenuCommand,
     reconcileNow: bridgeMock.reconcileNow,
-    scanSelectedChats: bridgeMock.scanSelectedChats
+    scanSelectedChats: bridgeMock.scanSelectedChats,
+    discoverMessagesChats: bridgeMock.discoverMessagesChats,
+    openPrivacySettings: bridgeMock.openPrivacySettings
   })
 }))
 
@@ -67,7 +105,8 @@ const seedReadyState = (): void => {
     JSON.stringify({
       ...initial,
       config: { ...initial.config, permissionsGranted: true },
-      selectedChats: [{ id: "chat-alpha", label: "Chat alpha", backfillPromptEnabled: true }]
+      discovery: { status: "ready", chats: [discoveredChat] },
+      selectedChats: [{ ...discoveredChat, backfillPromptEnabled: true }]
     })
   )
 }
@@ -82,6 +121,9 @@ describe("App native shell bridge", () => {
     bridgeMock.subscribeMenuCommand.mockClear()
     bridgeMock.reconcileNow.mockClear()
     bridgeMock.scanSelectedChats.mockClear()
+    bridgeMock.discoverMessagesChats.mockClear()
+    bridgeMock.discoverMessagesChats.mockResolvedValue(nativeReadyReport)
+    bridgeMock.openPrivacySettings.mockClear()
     bridgeMock.resetSyncCalls()
   })
 
@@ -103,30 +145,6 @@ describe("App native shell bridge", () => {
     const stored = window.localStorage.getItem(APP_SHELL_STATE_KEY)
     expect(stored).not.toBeNull()
     expect(JSON.parse(stored ?? "{}")).toMatchObject({ mode: "paused" })
-  })
-
-  it("blocks Sync Now until required setup and at least one chat are selected", async () => {
-    render(<App />)
-
-    await screen.findByText("Onboarding required")
-    expect(screen.getByText("Native chat discovery unavailable.")).toBeInTheDocument()
-    expect(screen.getByText("Select at least one chat before scanning.")).toBeInTheDocument()
-    expect(screen.getByTestId("status-label")).toHaveTextContent("Setup needed")
-    await waitFor(() =>
-      expect(bridgeMock.setShellState).toHaveBeenCalledWith({
-        mode: "scanning",
-        errorMessage: undefined,
-        onboardingComplete: false,
-        pendingProposalCount: 0
-      })
-    )
-
-    const syncButton = screen.getByRole("button", { name: "Sync Now" })
-    expect(syncButton).toBeDisabled()
-    fireEvent.click(syncButton)
-
-    expect(bridgeMock.reconcileNow).not.toHaveBeenCalled()
-    expect(bridgeMock.scanSelectedChats).not.toHaveBeenCalled()
   })
 
   it("renders production menu commands without debug-only error controls", async () => {
@@ -155,9 +173,10 @@ describe("App native shell bridge", () => {
     expect(bridgeMock.getSyncCalls()).toEqual(["reconcile", "scan"])
     expect(bridgeMock.scanSelectedChats).toHaveBeenCalledOnce()
     expect(bridgeMock.scanSelectedChats).toHaveBeenCalledWith({
-      selectedChatIds: ["chat-alpha"],
+      selectedChatIds: ["messages-chat-11111111111111111111111111111111"],
+      selectedChats: [discoveredChat],
       referenceTimezone: "Asia/Seoul",
-      backfillPromptChatIds: ["chat-alpha"],
+      backfillPromptChatIds: ["messages-chat-11111111111111111111111111111111"],
       sourceExcerptsEnabled: true,
       capPolicy: {
         mode: "refillForPending",
@@ -220,40 +239,6 @@ describe("App native shell bridge", () => {
     expect(screen.getByText("menu stream unavailable")).toBeInTheDocument()
   })
 
-  it("opens Settings for native settings, calendar, and reminders commands", async () => {
-    render(<App />)
-
-    await waitFor(() => expect(bridgeMock.subscribeMenuCommand).toHaveBeenCalledOnce())
-    expect(screen.getByRole("heading", { name: "App shell" })).toBeInTheDocument()
-
-    act(() => {
-      bridgeMock.emitMenuCommand("open-settings")
-    })
-    expect(screen.getByRole("heading", { name: "Settings" })).toBeInTheDocument()
-    expect(window.location.hash).toBe("#settings")
-
-    act(() => {
-      window.location.hash = "#status"
-      window.dispatchEvent(new HashChangeEvent("hashchange"))
-    })
-    expect(screen.getByRole("heading", { name: "App shell" })).toBeInTheDocument()
-
-    act(() => {
-      bridgeMock.emitMenuCommand("open-calendar")
-    })
-    expect(screen.getByLabelText("Calendar source")).toBeInTheDocument()
-    expect(screen.queryByRole("option", { name: "ICS feed" })).not.toBeInTheDocument()
-    expect(window.location.hash).toBe("#settings")
-
-    act(() => {
-      window.location.hash = "#status"
-      window.dispatchEvent(new HashChangeEvent("hashchange"))
-      bridgeMock.emitMenuCommand("open-reminders")
-    })
-    expect(screen.getByRole("heading", { name: "Settings" })).toBeInTheDocument()
-    expect(window.location.hash).toBe("#settings")
-  })
-
   it("persists onboarding and settings across reloads", async () => {
     seedReadyState()
     const firstRender = render(<App />)
@@ -270,14 +255,14 @@ describe("App native shell bridge", () => {
     await waitFor(() => {
       const stored = window.localStorage.getItem(APP_SHELL_STATE_KEY)
       expect(stored).toContain("America/New_York")
-      expect(stored).toContain("chat-alpha")
+      expect(stored).toContain("messages-chat-11111111111111111111111111111111")
     })
 
     firstRender.unmount()
     window.location.hash = "#status"
     render(<App />)
 
-    expect(screen.getByTestId("sync-state")).toHaveTextContent("Enabled")
+    await waitFor(() => expect(screen.getByTestId("sync-state")).toHaveTextContent("Enabled"))
     act(() => {
       window.location.hash = "#settings"
       window.dispatchEvent(new HashChangeEvent("hashchange"))

@@ -29,13 +29,18 @@ import {
   type PrivacySettingsPane
 } from "./tauriBridge"
 import { assertNeverNativeMenuCommand, loadInitialState, routeFromHash, type Route } from "./appRuntime"
+import { syncScanRequestFromState } from "./messagesDiscoveryBridge"
 import { nativeErrorMessage } from "./nativeErrors"
+import { useMessagesDiscoveryActions } from "./useMessagesDiscovery"
 import { useNativeShellState } from "./useNativeShellState"
 
 export function App(): JSX.Element {
   const storage = useMemo(() => createBrowserShellStorage(window.localStorage), [])
   const nativeBridge = useMemo(() => createNativeShellBridge(), [])
-  const [state, setState] = useState<AppShellState>(() => loadInitialState(storage))
+  const [state, setState] = useState<AppShellState>(() => ({
+    ...loadInitialState(storage),
+    discovery: { status: "loading", chats: [] }
+  }))
   const [route, setRoute] = useState<Route>(() => routeFromHash())
   const [syncing, setSyncing] = useState(false)
   const [deleteAllState, setDeleteAllState] = useState<DeleteAllState>({ status: "idle" })
@@ -101,21 +106,7 @@ export function App(): JSX.Element {
     setSyncing(true)
     void nativeBridge
       .reconcileNow()
-      .then(() =>
-        nativeBridge.scanSelectedChats({
-          selectedChatIds: state.selectedChats.map((chat) => chat.id),
-          referenceTimezone: state.config.referenceTimezone,
-          backfillPromptChatIds: state.selectedChats
-            .filter((chat) => chat.backfillPromptEnabled)
-            .map((chat) => chat.id),
-          sourceExcerptsEnabled: state.config.sourceExcerptsEnabled,
-          capPolicy: {
-            mode: "refillForPending",
-            maxVisible: 10,
-            pendingCount: state.pendingProposalCount
-          }
-        })
-      )
+      .then(() => nativeBridge.scanSelectedChats(syncScanRequestFromState(state)))
       .then((result) => {
         setState((current) =>
           reduceAppShellState(current, {
@@ -181,7 +172,17 @@ export function App(): JSX.Element {
     [nativeBridge]
   )
 
+  const { loadMessagesDiscovery, openFullDiskAccess } = useMessagesDiscoveryActions({
+    nativeBridge,
+    openPrivacySettings,
+    setState
+  })
+
   runSyncNowRef.current = runSyncNow
+
+  useEffect(() => {
+    loadMessagesDiscovery()
+  }, [loadMessagesDiscovery])
 
   useEffect(() => {
     let active = true
@@ -253,6 +254,8 @@ export function App(): JSX.Element {
             onPause={() => setMode("paused")}
             onResume={() => setMode("scanning")}
             onSyncNow={runSyncNow}
+            onRetryChatDiscovery={loadMessagesDiscovery}
+            onOpenFullDiskAccess={openFullDiskAccess}
             onTogglePermissions={(enabled) =>
               updateConfig({ ...state.config, permissionsGranted: enabled })
             }

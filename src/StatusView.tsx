@@ -1,13 +1,12 @@
 import {
   AlertTriangle,
   CheckCircle2,
-  MessageSquare,
   Pause,
   Play,
   RefreshCw
 } from "lucide-react"
+import { ChatDiscoveryControls } from "./ChatDiscoveryControls"
 import {
-  AVAILABLE_CHAT_OPTIONS,
   type AppShellState,
   type ChatId,
   type MenuModel,
@@ -23,6 +22,8 @@ type StatusViewProps = {
   readonly onPause: () => void
   readonly onResume: () => void
   readonly onSyncNow: () => void
+  readonly onRetryChatDiscovery: () => void
+  readonly onOpenFullDiskAccess: () => void
   readonly onTogglePermissions: (enabled: boolean) => void
   readonly onToggleChat: (chatId: ChatId) => void
   readonly onToggleBackfillPrompt: (chatId: ChatId, enabled: boolean) => void
@@ -37,6 +38,8 @@ export function StatusView({
   onPause,
   onResume,
   onSyncNow,
+  onRetryChatDiscovery,
+  onOpenFullDiskAccess,
   onTogglePermissions,
   onToggleChat,
   onToggleBackfillPrompt
@@ -84,26 +87,14 @@ export function StatusView({
           />
           <span>Required permissions complete</span>
         </label>
-        <div className="chat-list" aria-label="Chats to monitor">
-          {AVAILABLE_CHAT_OPTIONS.length === 0 ? (
-            <p className="empty-state">Native chat discovery unavailable.</p>
-          ) : (
-            AVAILABLE_CHAT_OPTIONS.map((chat) => (
-              <ChatChoice
-                chatId={chat.id}
-                key={chat.id}
-                label={chat.label}
-                selected={state.selectedChats.some((selected) => selected.id === chat.id)}
-                backfillEnabled={
-                  state.selectedChats.find((selected) => selected.id === chat.id)
-                    ?.backfillPromptEnabled ?? false
-                }
-                onToggleChat={onToggleChat}
-                onToggleBackfillPrompt={onToggleBackfillPrompt}
-              />
-            ))
-          )}
-        </div>
+        <ChatDiscoveryControls
+          discovery={state.discovery}
+          selectedChats={state.selectedChats}
+          onOpenFullDiskAccess={onOpenFullDiskAccess}
+          onRetry={onRetryChatDiscovery}
+          onToggleBackfillPrompt={onToggleBackfillPrompt}
+          onToggleChat={onToggleChat}
+        />
       </section>
       {state.config.firstProposalGuidanceEnabled ? (
         <p className="guidance">
@@ -147,46 +138,6 @@ function OnboardingWarnings({ warnings }: OnboardingWarningsProps): JSX.Element 
           <p key={warning}>{warning}</p>
         ))}
       </div>
-    </div>
-  )
-}
-
-type ChatChoiceProps = {
-  readonly chatId: ChatId
-  readonly label: string
-  readonly selected: boolean
-  readonly backfillEnabled: boolean
-  readonly onToggleChat: (chatId: ChatId) => void
-  readonly onToggleBackfillPrompt: (chatId: ChatId, enabled: boolean) => void
-}
-
-function ChatChoice({
-  chatId,
-  label,
-  selected,
-  backfillEnabled,
-  onToggleChat,
-  onToggleBackfillPrompt
-}: ChatChoiceProps): JSX.Element {
-  return (
-    <div className="chat-choice">
-      <label className="check-row">
-        <input checked={selected} onChange={() => onToggleChat(chatId)} type="checkbox" />
-        <span>
-          <MessageSquare aria-hidden="true" size={15} />
-          {label}
-        </span>
-      </label>
-      {selected ? (
-        <label className="check-row nested-check">
-          <input
-            checked={backfillEnabled}
-            onChange={(event) => onToggleBackfillPrompt(chatId, event.currentTarget.checked)}
-            type="checkbox"
-          />
-          <span>Ask before backfill</span>
-        </label>
-      ) : null}
     </div>
   )
 }

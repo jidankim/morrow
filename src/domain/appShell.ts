@@ -1,4 +1,18 @@
 import { z } from "zod"
+import {
+  chatDiscoverySchema,
+  chatDiscoveryWarning,
+  defaultChatDiscovery,
+  reconcileSelectedChats,
+  selectedChatsAreVerified,
+  selectedChatSchema,
+  setChatBackfillPromptSelection,
+  toggleSelectedChatSelection,
+  type ChatDiscovery,
+  type ChatId,
+  type DiscoveredChat,
+  type SelectedChat
+} from "./chatDiscovery"
 import { isValidTimeZone } from "./timeZone"
 
 export const APP_SHELL_STATE_KEY = "morrow.appShellState.v1"
@@ -6,11 +20,7 @@ export const APP_SHELL_STATE_KEY = "morrow.appShellState.v1"
 export type AppMode = "scanning" | "paused" | "error"
 export type MenuStatusKind = "setup-needed" | AppMode
 export type CalendarSource = "apple-calendar"
-export type ChatId = string
-
-export type ChatOption = { readonly id: ChatId; readonly label: string }
-
-export type SelectedChat = ChatOption & { readonly backfillPromptEnabled: boolean }
+export type { ChatDiscovery, ChatDiscoveryStatus, ChatId, ChatOption, DiscoveredChat, ParticipantId, SelectedChat } from "./chatDiscovery"
 
 export type AppConfig = {
   readonly referenceTimezone: string
@@ -27,6 +37,7 @@ export type AppShellState = {
   readonly mode: AppMode
   readonly errorMessage?: string | undefined
   readonly config: AppConfig
+  readonly discovery: ChatDiscovery
   readonly selectedChats: readonly SelectedChat[]
   readonly pendingProposalCount: number
 }
@@ -39,7 +50,8 @@ export type AppShellEvent =
   | { readonly type: "fail"; readonly message: string }
   | { readonly type: "clearError" }
   | { readonly type: "updateConfig"; readonly config: AppConfig }
-  | { readonly type: "toggleSelectedChat"; readonly chatId: ChatId }
+  | { readonly type: "updateChatDiscovery"; readonly discovery: ChatDiscovery }
+  | { readonly type: "toggleSelectedChat"; readonly chatId: ChatId; readonly chat?: DiscoveredChat }
   | { readonly type: "setChatBackfillPrompt"; readonly chatId: ChatId; readonly enabled: boolean }
   | { readonly type: "syncCompleted"; readonly pendingProposalCount: number }
 
@@ -57,11 +69,8 @@ export type ShellStorage = {
   readonly set: (key: string, value: string) => void
 }
 
-export const AVAILABLE_CHAT_OPTIONS: readonly ChatOption[] = [] as const
-
 const appModeSchema = z.union([z.literal("scanning"), z.literal("paused"), z.literal("error")])
 const calendarSourceSchema = z.literal("apple-calendar")
-const chatIdSchema = z.string().min(1).max(240)
 
 const timeZoneSchema = z.string().refine((value) => isValidTimeZone(value), {
   message: "Reference timezone must be a supported IANA timezone."
@@ -78,12 +87,11 @@ const appConfigSchema = z.object({
   crashLogExcerptsEnabled: z.literal(false).default(false)
 })
 
-const selectedChatSchema = z.object({ id: chatIdSchema, label: z.string().min(1).max(80), backfillPromptEnabled: z.boolean() })
-
 const appShellStateSchema = z.object({
   mode: appModeSchema,
   errorMessage: z.string().min(1).optional(),
   config: appConfigSchema,
+  discovery: chatDiscoverySchema.default({ status: "unverified", chats: [] }),
   selectedChats: z.array(selectedChatSchema),
   pendingProposalCount: z.number().int().min(0)
 })
@@ -108,6 +116,7 @@ export function createDefaultAppShellState(): AppShellState {
       telemetryEnabled: false,
       crashLogExcerptsEnabled: false
     },
+    discovery: defaultChatDiscovery,
     selectedChats: [],
     pendingProposalCount: 0
   }
@@ -125,10 +134,31 @@ export function reduceAppShellState(state: AppShellState, event: AppShellEvent):
       return { ...state, mode: "scanning", errorMessage: undefined }
     case "updateConfig":
       return { ...state, config: event.config }
+    case "updateChatDiscovery":
+      return {
+        ...state,
+        discovery: event.discovery,
+        selectedChats: reconcileSelectedChats(event.discovery, state.selectedChats)
+      }
     case "toggleSelectedChat":
-      return toggleSelectedChat(state, event.chatId)
+      return {
+        ...state,
+        selectedChats: toggleSelectedChatSelection(
+          state.selectedChats,
+          state.discovery,
+          event.chatId,
+          event.chat
+        )
+      }
     case "setChatBackfillPrompt":
-      return setChatBackfillPrompt(state, event.chatId, event.enabled)
+      return {
+        ...state,
+        selectedChats: setChatBackfillPromptSelection(
+          state.selectedChats,
+          event.chatId,
+          event.enabled
+        )
+      }
     case "syncCompleted":
       return { ...state, pendingProposalCount: event.pendingProposalCount }
     default:
@@ -216,47 +246,18 @@ export function getOnboardingWarnings(state: AppShellState): readonly string[] {
   if (!state.config.permissionsGranted) {
     warnings.push("Complete required permissions before scanning.")
   }
+  const discoveryWarning = chatDiscoveryWarning(state.discovery)
+  if (discoveryWarning !== undefined) warnings.push(discoveryWarning)
   if (state.selectedChats.length === 0) {
     warnings.push("Select at least one chat before scanning.")
+  } else if (!selectedChatsAreVerified(state.discovery, state.selectedChats)) {
+    warnings.push("Refresh chat discovery before scanning selected chats.")
   }
   return warnings
 }
 
 export function formatPendingProposalCount(count: number): string {
   return count >= 9 ? "9+" : String(count)
-}
-
-function toggleSelectedChat(state: AppShellState, chatId: ChatId): AppShellState {
-  const existing = state.selectedChats.find((chat) => chat.id === chatId)
-  if (existing !== undefined) {
-    return {
-      ...state,
-      selectedChats: state.selectedChats.filter((chat) => chat.id !== chatId)
-    }
-  }
-
-  const option = AVAILABLE_CHAT_OPTIONS.find((chat) => chat.id === chatId)
-  if (option === undefined) {
-    return state
-  }
-
-  return {
-    ...state,
-    selectedChats: [...state.selectedChats, { ...option, backfillPromptEnabled: true }]
-  }
-}
-
-function setChatBackfillPrompt(
-  state: AppShellState,
-  chatId: ChatId,
-  enabled: boolean
-): AppShellState {
-  return {
-    ...state,
-    selectedChats: state.selectedChats.map((chat) =>
-      chat.id === chatId ? { ...chat, backfillPromptEnabled: enabled } : chat
-    )
-  }
 }
 
 function assertNever(value: never): never {

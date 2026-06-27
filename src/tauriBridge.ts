@@ -1,7 +1,13 @@
 import { invoke } from "@tauri-apps/api/core"
 import { listen } from "@tauri-apps/api/event"
 import { z } from "zod"
-import type { ChatId, MenuModel, NativeAppShellState } from "./domain/appShell"
+import type { MenuModel, NativeAppShellState } from "./domain/appShell"
+import {
+  parseMessagesDiscoveryReport,
+  parseSyncScanRequest,
+  type MessagesDiscoveryReport,
+  type SyncScanRequest
+} from "./messagesDiscoveryBridge"
 import {
   parseNativePermissionStatuses,
   type NativePermissionStatus
@@ -20,6 +26,8 @@ import {
 } from "./nativePrivacyBridge"
 
 export type { NativePermissionStatus } from "./nativePermissionBridge"
+export { parseMessagesDiscoveryReport } from "./messagesDiscoveryBridge"
+export type { MessagesDiscoveryReport, SyncScanRequest } from "./messagesDiscoveryBridge"
 export type {
   CrashLogReceipt,
   CrashLogRequest,
@@ -35,20 +43,6 @@ const nativeAppShellStateSchema = z.object({
   errorMessage: z.string().min(1).optional(),
   onboardingComplete: z.boolean(),
   pendingProposalCount: z.number().int().min(0)
-})
-
-const chatIdSchema = z.string().min(1).max(240)
-
-const syncScanRequestSchema = z.object({
-  selectedChatIds: z.array(chatIdSchema).min(1),
-  referenceTimezone: z.string().min(1),
-  backfillPromptChatIds: z.array(chatIdSchema),
-  sourceExcerptsEnabled: z.boolean(),
-  capPolicy: z.object({
-    mode: z.literal("refillForPending"),
-    maxVisible: z.number().int().min(0),
-    pendingCount: z.number().int().min(0)
-  })
 })
 
 const syncScanResultSchema = z.object({
@@ -81,17 +75,6 @@ export type MorrowTokenWriteRequest = MorrowTokenLookupRequest & {
 }
 export type MorrowTokenCommandReceipt = z.infer<typeof tokenCommandReceiptSchema>
 export type MorrowTokenReadResponse = z.infer<typeof tokenReadResponseSchema>
-export type SyncScanRequest = {
-  readonly selectedChatIds: readonly ChatId[]
-  readonly referenceTimezone: string
-  readonly backfillPromptChatIds: readonly ChatId[]
-  readonly sourceExcerptsEnabled: boolean
-  readonly capPolicy: {
-    readonly mode: "refillForPending"
-    readonly maxVisible: number
-    readonly pendingCount: number
-  }
-}
 export type SyncScanResult = {
   readonly pendingProposalCount: number
 }
@@ -108,6 +91,7 @@ export type NativeShellBridge = {
   ) => Promise<(() => void) | undefined>
   readonly reconcileNow: () => Promise<void>
   readonly scanSelectedChats: (request: SyncScanRequest) => Promise<SyncScanResult | undefined>
+  readonly discoverMessagesChats: () => Promise<MessagesDiscoveryReport | undefined>
   readonly getPermissionStatuses: () => Promise<readonly NativePermissionStatus[] | undefined>
   readonly storeMorrowToken: (
     request: MorrowTokenWriteRequest
@@ -141,10 +125,6 @@ const nativeMenuCommandEvents: readonly {
 
 function parseNativeAppShellState(value: unknown): NativeAppShellState {
   return nativeAppShellStateSchema.parse(value)
-}
-
-function parseSyncScanRequest(value: unknown): SyncScanRequest {
-  return syncScanRequestSchema.parse(value)
 }
 
 function parseSyncScanResult(value: unknown): SyncScanResult {
@@ -209,6 +189,13 @@ export function createNativeShellBridge(): NativeShellBridge {
       }
       const result = await invoke<unknown>("scan_selected_chats", { request: parseSyncScanRequest(request) })
       return parseSyncScanResult(result)
+    },
+    discoverMessagesChats: async () => {
+      if (!isTauriRuntime()) {
+        return undefined
+      }
+      const report = await invoke<unknown>("discover_messages_chats")
+      return parseMessagesDiscoveryReport(report)
     },
     getPermissionStatuses: async () => {
       if (!isTauriRuntime()) {

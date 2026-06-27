@@ -14,6 +14,18 @@ const bridgeMock = vi.hoisted(() => ({
   subscribeMenuCommand: vi.fn(async () => vi.fn()),
   reconcileNow: vi.fn(async () => undefined),
   scanSelectedChats: vi.fn(async () => ({ pendingProposalCount: 12 })),
+  discoverMessagesChats: vi.fn(async () => ({
+    status: "ready",
+    chats: [
+      {
+        chatId: "messages-chat-11111111111111111111111111111111",
+        displayLabel: "Chat alpha",
+        participantCount: 2,
+        participantIds: ["messages-participant-11111111111111111111111111111111", "messages-participant-22222222222222222222222222222222"],
+        latestActivityTimestamp: 1_783_000_000
+      }
+    ]
+  })),
   openPrivacySettings: vi.fn(async () => ({ pane: "fullDiskAccess", opened: true })),
   deleteMorrowData: vi.fn(async (): Promise<import("./tauriBridge").MorrowDataDeleteReceipt> => ({
     storageSurface: "morrowStore",
@@ -38,18 +50,20 @@ vi.mock("./tauriBridge", () => ({
 
 const seedReadyState = (): void => {
   const initial = createDefaultAppShellState()
+  const chat = {
+    id: "messages-chat-11111111111111111111111111111111",
+    label: "Chat alpha",
+    participantCount: 2,
+    participantIds: ["messages-participant-11111111111111111111111111111111", "messages-participant-22222222222222222222222222222222"],
+    latestActivityTimestamp: 1_783_000_000
+  } as const
   window.localStorage.setItem(
     APP_SHELL_STATE_KEY,
     JSON.stringify({
       ...initial,
       config: { ...initial.config, permissionsGranted: true },
-      selectedChats: [
-        {
-          id: "chat-alpha",
-          label: "Chat alpha",
-          backfillPromptEnabled: true
-        }
-      ]
+      discovery: { status: "ready", chats: [chat] },
+      selectedChats: [{ ...chat, backfillPromptEnabled: true }]
     })
   )
 }
@@ -59,6 +73,7 @@ describe("App privacy controls", () => {
     window.localStorage.clear()
     window.location.hash = ""
     bridgeMock.scanSelectedChats.mockClear()
+    bridgeMock.discoverMessagesChats.mockClear()
     bridgeMock.openPrivacySettings.mockClear()
     bridgeMock.deleteMorrowData.mockClear()
     bridgeMock.recordCrashLog.mockClear()
@@ -77,13 +92,23 @@ describe("App privacy controls", () => {
       window.location.hash = "#status"
       window.dispatchEvent(new HashChangeEvent("hashchange"))
     })
+    await waitFor(() => expect(screen.getByRole("button", { name: "Sync Now" })).toBeEnabled())
     fireEvent.click(screen.getByRole("button", { name: "Sync Now" }))
 
     await waitFor(() => expect(bridgeMock.scanSelectedChats).toHaveBeenCalledOnce())
     expect(bridgeMock.scanSelectedChats).toHaveBeenCalledWith({
-      selectedChatIds: ["chat-alpha"],
+      selectedChatIds: ["messages-chat-11111111111111111111111111111111"],
+      selectedChats: [
+        {
+          id: "messages-chat-11111111111111111111111111111111",
+          label: "Chat alpha",
+          participantCount: 2,
+          participantIds: ["messages-participant-11111111111111111111111111111111", "messages-participant-22222222222222222222222222222222"],
+          latestActivityTimestamp: 1_783_000_000
+        }
+      ],
       referenceTimezone: "Asia/Seoul",
-      backfillPromptChatIds: ["chat-alpha"],
+      backfillPromptChatIds: ["messages-chat-11111111111111111111111111111111"],
       sourceExcerptsEnabled: false,
       capPolicy: {
         mode: "refillForPending",
