@@ -115,4 +115,3 @@ CREATE TABLE IF NOT EXISTS replay_cursors (
 
 INSERT OR IGNORE INTO replay_cursors (stream, cursor_value, updated_at)
 VALUES ('calendar_proposals', 0, strftime('%s', 'now'));
-
