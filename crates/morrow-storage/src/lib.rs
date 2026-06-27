@@ -1,3 +1,4 @@
+mod calendar_payload;
 mod caps;
 mod delete_all;
 mod error;
@@ -17,6 +18,6 @@ pub use error::StorageError;
 pub use ids::CandidateId;
 pub use store::Store;
 pub use types::{
-    AuditEntry, CandidateDraft, CandidateKind, CandidateState, ExternalObjectMapping,
-    ExternalSource, PrivacySummary, QuietLogDraft, ReplayStream,
+    AuditEntry, CalendarProposalPayload, CandidateDraft, CandidateKind, CandidateState,
+    ExternalObjectMapping, ExternalSource, PrivacySummary, QuietLogDraft, ReplayStream,
 };

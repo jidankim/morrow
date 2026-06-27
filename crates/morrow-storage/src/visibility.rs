@@ -32,7 +32,7 @@ impl Store {
         rows.into_iter()
             .map(|row| {
                 let candidate_id = row_value(&row, 0, "queued.id")?;
-                let kind = parse_candidate_kind(row_value(&row, 1, "queued.kind")?)?;
+                let kind = CandidateKind::parse(row_value(&row, 1, "queued.kind")?)?;
                 let chat_guid = row_value(&row, 2, "queued.chat_guid")?;
                 let confidence = row_value(&row, 3, "queued.confidence_millis")?
                     .parse::<i64>()
@@ -50,22 +50,5 @@ impl Store {
                 )
             })
             .collect()
-    }
-}
-
-fn parse_candidate_kind(raw: &str) -> Result<CandidateKind, StorageError> {
-    match raw {
-        "calendar_event" => Ok(CandidateKind::CalendarEvent),
-        "task_reminder" => Ok(CandidateKind::TaskReminder),
-        "event_update" => Ok(CandidateKind::EventUpdate),
-        "event_reschedule" => Ok(CandidateKind::EventReschedule),
-        "event_cancellation" => Ok(CandidateKind::EventCancellation),
-        "reminder_update" => Ok(CandidateKind::ReminderUpdate),
-        "reminder_reschedule" => Ok(CandidateKind::ReminderReschedule),
-        "reminder_cancellation" => Ok(CandidateKind::ReminderCancellation),
-        other => Err(StorageError::InvalidInput {
-            field: "candidate_kind",
-            reason: format!("unknown kind {other}"),
-        }),
     }
 }

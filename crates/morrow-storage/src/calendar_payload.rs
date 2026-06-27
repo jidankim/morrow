@@ -1,0 +1,99 @@
+use crate::sqlite_cli::{row_value, sql_text};
+use crate::types::{CalendarProposalPayload, CandidateKind, CandidateState, ExternalSource};
+use crate::{CandidateId, StorageError, Store};
+
+const SELECTED_MESSAGES_SOURCE_ID: &str = "morrow-selected-messages";
+const NATIVE_SCAN_TITLE: &str = "Messages event candidate";
+
+impl Store {
+    pub fn calendar_proposal_payloads(
+        &self,
+        candidate_ids: &[CandidateId],
+    ) -> Result<Vec<CalendarProposalPayload>, StorageError> {
+        let mut payloads = Vec::new();
+        for candidate_id in candidate_ids {
+            if let Some(payload) = self.calendar_proposal_payload(candidate_id)? {
+                payloads.push(payload);
+            }
+        }
+        Ok(payloads)
+    }
+
+    fn calendar_proposal_payload(
+        &self,
+        candidate_id: &CandidateId,
+    ) -> Result<Option<CalendarProposalPayload>, StorageError> {
+        let sql = format!(
+            "SELECT c.id, c.kind, c.normalized_time
+             FROM candidates c
+             LEFT JOIN external_object_mappings m
+               ON m.candidate_id = c.id AND m.source = {source}
+             WHERE c.id = {id}
+               AND c.state = {state}
+               AND c.kind = {kind}
+               AND m.id IS NULL;",
+            id = sql_text(candidate_id.as_str())?,
+            source = sql_text(ExternalSource::Calendar.as_str())?,
+            state = sql_text(CandidateState::CreatingExternal.as_str())?,
+            kind = sql_text(CandidateKind::CalendarEvent.as_str())?,
+        );
+        let rows = self.sqlite.query_rows(&sql)?;
+        let Some(row) = rows.first() else {
+            return Ok(None);
+        };
+        let normalized_time = row_value(row, 2, "calendar_payload.normalized_time")?;
+        if !is_normalized_calendar_time(normalized_time) {
+            return Ok(None);
+        }
+        Ok(Some(CalendarProposalPayload {
+            candidate_id: CandidateId::from_storage(row_value(row, 0, "calendar_payload.id")?)?,
+            kind: CandidateKind::parse(row_value(row, 1, "calendar_payload.kind")?)?,
+            normalized_time: normalized_time.to_owned(),
+            title: NATIVE_SCAN_TITLE.to_owned(),
+            source_id: SELECTED_MESSAGES_SOURCE_ID.to_owned(),
+        }))
+    }
+}
+
+fn is_normalized_calendar_time(value: &str) -> bool {
+    let bytes = value.as_bytes();
+    is_utc_normalized_calendar_time(bytes) || is_timezone_normalized_calendar_time(bytes)
+}
+
+fn is_utc_normalized_calendar_time(bytes: &[u8]) -> bool {
+    bytes.len() == 20 && calendar_datetime_fields(bytes) && bytes[19] == b'Z'
+}
+
+fn is_timezone_normalized_calendar_time(bytes: &[u8]) -> bool {
+    bytes.len() > 21
+        && calendar_datetime_fields(bytes)
+        && bytes[19] == b'['
+        && bytes[bytes.len() - 1] == b']'
+        && timezone_name(&bytes[20..bytes.len() - 1])
+}
+
+fn calendar_datetime_fields(bytes: &[u8]) -> bool {
+    bytes.len() >= 19
+        && digits(&bytes[0..4])
+        && bytes[4] == b'-'
+        && digits(&bytes[5..7])
+        && bytes[7] == b'-'
+        && digits(&bytes[8..10])
+        && bytes[10] == b'T'
+        && digits(&bytes[11..13])
+        && bytes[13] == b':'
+        && digits(&bytes[14..16])
+        && bytes[16] == b':'
+        && digits(&bytes[17..19])
+}
+
+fn digits(bytes: &[u8]) -> bool {
+    bytes.iter().all(u8::is_ascii_digit)
+}
+
+fn timezone_name(bytes: &[u8]) -> bool {
+    !bytes.is_empty()
+        && bytes
+            .iter()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'/' | b'_' | b'-'))
+}

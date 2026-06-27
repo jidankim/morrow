@@ -25,6 +25,23 @@ impl CandidateKind {
             Self::ReminderCancellation => "reminder_cancellation",
         }
     }
+
+    pub fn parse(raw: &str) -> Result<Self, crate::StorageError> {
+        match raw {
+            "calendar_event" => Ok(Self::CalendarEvent),
+            "task_reminder" => Ok(Self::TaskReminder),
+            "event_update" => Ok(Self::EventUpdate),
+            "event_reschedule" => Ok(Self::EventReschedule),
+            "event_cancellation" => Ok(Self::EventCancellation),
+            "reminder_update" => Ok(Self::ReminderUpdate),
+            "reminder_reschedule" => Ok(Self::ReminderReschedule),
+            "reminder_cancellation" => Ok(Self::ReminderCancellation),
+            other => Err(crate::StorageError::InvalidInput {
+                field: "candidate_kind",
+                reason: format!("unknown kind {other}"),
+            }),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -133,6 +150,15 @@ pub struct ExternalObjectMapping {
     pub external_object_id: String,
     pub external_source_id: String,
     pub mapped_at: i64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CalendarProposalPayload {
+    pub candidate_id: CandidateId,
+    pub kind: CandidateKind,
+    pub normalized_time: String,
+    pub title: String,
+    pub source_id: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
