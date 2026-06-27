@@ -29,6 +29,7 @@ morrow-storage = { path = "../crates/morrow-storage" }
 serde = { version = "1", features = ["derive"] }
 sha2 = "0.10"
 tauri = { version = "2", features = [] }
+time = { version = "0.3.51", features = ["parsing"] }
 
 [dev-dependencies]
 serde_json = "1"
