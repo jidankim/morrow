@@ -266,5 +266,4 @@ describe("app shell state", () => {
 
     expect(() => loadAppShellState(storage)).toThrow()
   })
-
 })

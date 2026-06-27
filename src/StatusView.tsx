@@ -10,7 +10,10 @@ import {
   type AppShellState,
   type ChatId,
   type MenuModel,
-  type MenuStatusKind
+  type MenuStatusKind,
+  type SyncReadinessItem,
+  type SyncReadinessItemStatus,
+  getSyncReadinessItems
 } from "./domain/appShell"
 
 type StatusViewProps = {
@@ -45,6 +48,9 @@ export function StatusView({
   onToggleBackfillPrompt
 }: StatusViewProps): JSX.Element {
   const isPaused = state.mode === "paused"
+  const readinessItems = getSyncReadinessItems(state, { syncing })
+  const setupReadinessItems = readinessItems.filter(isSetupReadinessItem)
+  const syncReadinessMessage = getSyncReadinessMessage(syncEnabled, readinessItems)
 
   return (
     <div className="panel">
@@ -64,7 +70,9 @@ export function StatusView({
         </button>
         <button
           className="button secondary"
+          data-visual-qa-control="sync-now"
           disabled={!syncEnabled || syncing}
+          aria-describedby="sync-readiness-summary"
           onClick={onSyncNow}
           type="button"
         >
@@ -72,16 +80,29 @@ export function StatusView({
           {syncing ? "Syncing" : "Sync Now"}
         </button>
       </div>
+      <p
+        className="sync-readiness-summary"
+        data-visual-qa-text="sync-readiness-summary"
+        id="sync-readiness-summary"
+      >
+        {syncReadinessMessage}
+      </p>
       <dl className="state-grid">
         <Metric label="Scanning state" testId="status-label" value={menu.statusLabel} />
         <Metric label="Sync Now" testId="sync-state" value={syncEnabled ? "Enabled" : "Disabled"} />
         <Metric label="Pending proposals" testId="pending-count" value={menu.pendingProposalLabel} />
       </dl>
       <section className="setup-section" aria-labelledby="setup-heading">
-        <h3 id="setup-heading">Onboarding</h3>
+        <h3 id="setup-heading">Setup readiness</h3>
+        <ul className="readiness-list" aria-label="Sync Now setup checklist">
+          {setupReadinessItems.map((item) => (
+            <ReadinessItem item={item} key={item.id} />
+          ))}
+        </ul>
         <label className="check-row">
           <input
             checked={state.config.permissionsGranted}
+            data-visual-qa-control="permission-checkbox"
             onChange={(event) => onTogglePermissions(event.currentTarget.checked)}
             type="checkbox"
           />
@@ -89,6 +110,7 @@ export function StatusView({
         </label>
         <ChatDiscoveryControls
           discovery={state.discovery}
+          referenceTimezone={state.config.referenceTimezone}
           selectedChats={state.selectedChats}
           onOpenFullDiskAccess={onOpenFullDiskAccess}
           onRetry={onRetryChatDiscovery}
@@ -102,6 +124,26 @@ export function StatusView({
         </p>
       ) : null}
     </div>
+  )
+}
+
+type ReadinessItemProps = {
+  readonly item: SyncReadinessItem
+}
+
+function ReadinessItem({ item }: ReadinessItemProps): JSX.Element {
+  return (
+    <li
+      className={`readiness-item ${item.status}`}
+      aria-label={`${item.label}: ${formatReadinessStatus(item.status)}. ${item.detail}`}
+    >
+      {readinessStatusIcon(item.status)}
+      <span>
+        <strong data-visual-qa-text={`setup-${item.id}-label`}>{item.label}</strong>
+        <small>{formatReadinessStatus(item.status)}</small>
+        <span>{item.detail}</span>
+      </span>
+    </li>
   )
 }
 
@@ -142,6 +184,58 @@ function OnboardingWarnings({ warnings }: OnboardingWarningsProps): JSX.Element 
   )
 }
 
+function getSyncReadinessMessage(
+  syncEnabled: boolean,
+  readinessItems: readonly SyncReadinessItem[]
+): string {
+  if (syncEnabled) {
+    return "Sync Now ready: All setup checks are complete."
+  }
+  const blockingItem = readinessItems.find((item) => item.status === "blocking")
+  return `Sync Now disabled: ${blockingItem?.detail ?? "Complete setup before scanning."}`
+}
+
+function isSetupReadinessItem(item: SyncReadinessItem): boolean {
+  switch (item.id) {
+    case "permissions":
+    case "discovery":
+    case "chat-selection":
+    case "selected-chat-verification":
+      return true
+    case "pause-state":
+    case "sync-activity":
+      return false
+    default:
+      return assertNever(item.id)
+  }
+}
+
+function formatReadinessStatus(status: SyncReadinessItemStatus): string {
+  switch (status) {
+    case "complete":
+      return "Complete"
+    case "blocking":
+      return "Needs action"
+    case "pending":
+      return "Pending"
+    default:
+      return assertNever(status)
+  }
+}
+
+function readinessStatusIcon(status: SyncReadinessItemStatus): JSX.Element {
+  switch (status) {
+    case "complete":
+      return <CheckCircle2 aria-hidden="true" size={15} />
+    case "blocking":
+      return <AlertTriangle aria-hidden="true" size={15} />
+    case "pending":
+      return <RefreshCw aria-hidden="true" size={15} />
+    default:
+      return assertNever(status)
+  }
+}
+
 type StatusPillProps = {
   readonly statusKind: MenuStatusKind
   readonly label: string
@@ -157,4 +251,8 @@ function StatusPill({ statusKind, label }: StatusPillProps): JSX.Element {
       {label}
     </span>
   )
+}
+
+function assertNever(value: never): never {
+  throw new Error(`Unhandled readiness variant: ${String(value)}`)
 }

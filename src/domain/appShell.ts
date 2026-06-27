@@ -14,6 +14,7 @@ import {
   type SelectedChat
 } from "./chatDiscovery"
 import { isValidTimeZone } from "./timeZone"
+export { getSyncReadinessItems, type SyncReadinessItem, type SyncReadinessItemId, type SyncReadinessItemStatus, type SyncReadinessOptions } from "./syncReadiness"
 
 export const APP_SHELL_STATE_KEY = "morrow.appShellState.v1"
 

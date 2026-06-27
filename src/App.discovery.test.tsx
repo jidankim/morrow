@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor, act } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { App } from "./App"
+import { ChatDiscoveryControls } from "./ChatDiscoveryControls"
 import { APP_SHELL_STATE_KEY, createDefaultAppShellState } from "./domain/appShell"
 
 type NativeDiscoveryReportForTest =
@@ -16,6 +17,12 @@ type NativeDiscoveryReportForTest =
     }
   | { readonly status: "empty" | "permissionDenied" | "unavailable"; readonly chats: readonly [] }
 
+type NativeReadyChatForTest = Extract<NativeDiscoveryReportForTest, { readonly status: "ready" }>["chats"][number]
+type ChatFixtureForTest = Pick<NativeReadyChatForTest, "participantCount" | "participantIds" | "latestActivityTimestamp"> & {
+  readonly id: string
+  readonly label: string
+}
+
 const discoveredChat = {
   id: "messages-chat-11111111111111111111111111111111",
   label: "Chat alpha",
@@ -24,43 +31,27 @@ const discoveredChat = {
   latestActivityTimestamp: 1_783_000_000
 } as const
 
-const nativeReadyReport = {
-  status: "ready",
-  chats: [
-    {
-      chatId: discoveredChat.id,
-      displayLabel: discoveredChat.label,
-      participantCount: discoveredChat.participantCount,
-      participantIds: discoveredChat.participantIds,
-      latestActivityTimestamp: discoveredChat.latestActivityTimestamp
-    }
-  ]
-} as const satisfies NativeDiscoveryReportForTest
-
 const rediscoveredChat = {
   id: "messages-chat-11111111111111111111111111111111",
   label: "Updated alpha",
   participantCount: 3,
-  participantIds: [
-    "messages-participant-66666666666666666666666666666666",
-    "messages-participant-77777777777777777777777777777777",
-    "messages-participant-88888888888888888888888888888888"
-  ],
+  participantIds: ["messages-participant-66666666666666666666666666666666", "messages-participant-77777777777777777777777777777777", "messages-participant-88888888888888888888888888888888"],
   latestActivityTimestamp: 1_783_001_000
 } as const
 
-const changedNativeReadyReport = {
-  status: "ready",
-  chats: [
-    {
-      chatId: rediscoveredChat.id,
-      displayLabel: rediscoveredChat.label,
-      participantCount: rediscoveredChat.participantCount,
-      participantIds: rediscoveredChat.participantIds,
-      latestActivityTimestamp: rediscoveredChat.latestActivityTimestamp
-    }
-  ]
-} as const satisfies NativeDiscoveryReportForTest
+const fixtureReferenceTimezone = "Asia/Seoul"
+
+const nativeChatFromFixture = (chat: ChatFixtureForTest): NativeReadyChatForTest => ({
+  chatId: chat.id,
+  displayLabel: chat.label,
+  participantCount: chat.participantCount,
+  participantIds: chat.participantIds,
+  latestActivityTimestamp: chat.latestActivityTimestamp
+})
+
+const nativeReadyReport = { status: "ready", chats: [nativeChatFromFixture(discoveredChat)] } as const
+
+const changedNativeReadyReport = { status: "ready", chats: [nativeChatFromFixture(rediscoveredChat)] } as const
 
 const bridgeMock = vi.hoisted(() => ({
   getState: vi.fn(async () => undefined),
@@ -83,15 +74,23 @@ vi.mock("./tauriBridge", () => ({
 
 const seedSelectedChat = (): void => {
   const initial = createDefaultAppShellState()
-  window.localStorage.setItem(
-    APP_SHELL_STATE_KEY,
-    JSON.stringify({
-      ...initial,
-      config: { ...initial.config, permissionsGranted: true },
-      discovery: { status: "ready", chats: [discoveredChat] },
-      selectedChats: [{ ...discoveredChat, backfillPromptEnabled: true }]
-    })
-  )
+  const ready = { ...initial, config: { ...initial.config, permissionsGranted: true, referenceTimezone: fixtureReferenceTimezone }, discovery: { status: "ready", chats: [discoveredChat] }, selectedChats: [{ ...discoveredChat, backfillPromptEnabled: true }] }
+  window.localStorage.setItem(APP_SHELL_STATE_KEY, JSON.stringify(ready))
+}
+
+const seedPermissionsGranted = (): void => {
+  const initial = createDefaultAppShellState()
+  const ready = { ...initial, config: { ...initial.config, permissionsGranted: true } }
+  window.localStorage.setItem(APP_SHELL_STATE_KEY, JSON.stringify(ready))
+}
+
+const idleDiscoveryControlProps = {
+  referenceTimezone: "UTC",
+  selectedChats: [],
+  onOpenFullDiskAccess: () => undefined,
+  onRetry: () => undefined,
+  onToggleBackfillPrompt: () => undefined,
+  onToggleChat: () => undefined
 }
 
 describe("App Messages chat discovery onboarding", () => {
@@ -111,14 +110,67 @@ describe("App Messages chat discovery onboarding", () => {
 
     await screen.findByText("Onboarding required")
     expect(await screen.findByRole("checkbox", { name: /Chat alpha/ })).toBeInTheDocument()
-    expect(screen.getByText("Select at least one chat before scanning.")).toBeInTheDocument()
+    expect(screen.getByText("Sync Now disabled: Complete required permissions before scanning.")).toBeInTheDocument()
+    expect(screen.getByText("Required permissions")).toBeInTheDocument()
+    expect(screen.getAllByText("Complete required permissions before scanning.").length).toBeGreaterThan(1)
+    expect(screen.getByText("Messages discovery found 1 eligible chat.")).toBeInTheDocument()
+    expect(screen.getAllByText("Select at least one chat before scanning.").length).toBeGreaterThan(1)
+    expect(screen.getByText("Select a chat to verify it for scanning.")).toBeInTheDocument()
     expect(screen.getByTestId("status-label")).toHaveTextContent("Setup needed")
     expect(screen.getByRole("button", { name: "Sync Now" })).toBeDisabled()
     expect(bridgeMock.reconcileNow).not.toHaveBeenCalled()
     expect(bridgeMock.scanSelectedChats).not.toHaveBeenCalled()
   })
 
-  it("shows loading then an empty discovery state without enabling Sync Now", async () => {
+  it("shows Sync Now readiness checklist for a ready selected chat", async () => {
+    seedSelectedChat()
+    render(<App />)
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Sync Now" })).toBeEnabled())
+    expect(screen.getByText("Sync Now ready: All setup checks are complete.")).toBeInTheDocument()
+    expect(screen.getByText("Required permissions are complete.")).toBeInTheDocument()
+    expect(screen.getByText("Messages discovery found 1 eligible chat.")).toBeInTheDocument()
+    expect(screen.getByText("1 chat selected.")).toBeInTheDocument()
+    expect(screen.getByText("Selected chats are verified for scanning.")).toBeInTheDocument()
+  })
+
+  it("renders Messages source summary with selected count and latest activity", async () => {
+    const initial = createDefaultAppShellState()
+    window.localStorage.setItem(APP_SHELL_STATE_KEY, JSON.stringify({ ...initial, config: { ...initial.config, referenceTimezone: fixtureReferenceTimezone } }))
+    bridgeMock.discoverMessagesChats.mockResolvedValueOnce({
+      status: "ready",
+      chats: [
+        nativeChatFromFixture({ id: "messages-chat-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", label: "Messages chat", participantCount: 1, participantIds: ["messages-participant-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"], latestActivityTimestamp: 1_783_000_000 }),
+        nativeChatFromFixture({ id: "messages-chat-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", label: "Messages chat", participantCount: 2, participantIds: ["messages-participant-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "messages-participant-cccccccccccccccccccccccccccccccc"], latestActivityTimestamp: 1_783_000_000 })
+      ]
+    })
+
+    render(<App />)
+
+    const chatCheckboxes = await screen.findAllByRole("checkbox", { name: /Messages chat/ })
+    expect(chatCheckboxes).toHaveLength(2)
+    expect(screen.getByText("Messages source: 2 eligible chats, 0 selected.")).toBeInTheDocument()
+    expect(screen.getByText("1 participant")).toBeInTheDocument()
+    expect(screen.getByText("2 participants")).toBeInTheDocument()
+    expect(screen.getAllByText("Last active Jul 2, 2026, 10:46 PM")).toHaveLength(2)
+    expect(screen.getAllByText("Not selected")).toHaveLength(2)
+    const firstChatCheckbox = chatCheckboxes[0]
+    if (firstChatCheckbox === undefined) {
+      throw new Error("Expected a Messages chat checkbox.")
+    }
+    fireEvent.click(firstChatCheckbox)
+
+    expect(screen.getByText("Messages source: 2 eligible chats, 1 selected.")).toBeInTheDocument()
+    expect(screen.getByText("Selected")).toBeInTheDocument()
+    expect(screen.getByRole("checkbox", { name: "Ask before backfilling older messages" })).toBeChecked()
+    expect(screen.getByText("Morrow asks before using older messages from this chat.")).toBeInTheDocument()
+    expect(document.body).not.toHaveTextContent("iMessage;-;")
+    expect(document.body).not.toHaveTextContent("person@example.com")
+    expect(document.body).not.toHaveTextContent("+15555550103")
+    expect(document.body).not.toHaveTextContent("See you at 7")
+  })
+
+  it("renders distinct empty discovery copy", async () => {
     let resolveDiscovery: (report: NativeDiscoveryReportForTest) => void = () => undefined
     bridgeMock.discoverMessagesChats.mockReturnValueOnce(
       new Promise<NativeDiscoveryReportForTest>((resolve) => {
@@ -127,18 +179,31 @@ describe("App Messages chat discovery onboarding", () => {
     )
     render(<App />)
 
-    expect(await screen.findByText("Loading Messages chats...")).toBeInTheDocument()
+    expect((await screen.findAllByText("Morrow is checking local Messages access.")).length).toBeGreaterThan(1)
     await act(async () => resolveDiscovery({ status: "empty", chats: [] }))
 
-    expect(screen.getByText("No Messages chats found.")).toBeInTheDocument()
+    expect(screen.getByText("Messages discovery finished, but found no eligible chats.")).toBeInTheDocument()
+    expect(screen.getByText("Messages discovery found no eligible chats.")).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Sync Now" })).toBeDisabled()
   })
 
-  it("offers Full Disk Access recovery when discovery is denied", async () => {
+  it("shows Full Disk Access recovery when Messages discovery is denied", async () => {
+    seedPermissionsGranted()
     bridgeMock.discoverMessagesChats.mockResolvedValueOnce({ status: "permissionDenied", chats: [] })
     render(<App />)
 
-    expect(await screen.findByText("Messages access denied.")).toBeInTheDocument()
+    expect(await screen.findByText("Morrow needs Full Disk Access to read Messages.")).toBeInTheDocument()
+    expect(screen.getByText("Sync Now disabled: Grant Full Disk Access, then retry chat discovery.")).toBeInTheDocument()
+    expect(screen.getAllByText("Grant Full Disk Access, then retry chat discovery.").length).toBeGreaterThan(1)
+    expect(screen.getByRole("button", { name: "Open Full Disk Access" })).toBeInTheDocument()
+  })
+
+  it("renders distinct denied discovery recovery copy", async () => {
+    bridgeMock.discoverMessagesChats.mockResolvedValueOnce({ status: "permissionDenied", chats: [] })
+    render(<App />)
+
+    expect(await screen.findByText("Morrow needs Full Disk Access to read Messages.")).toBeInTheDocument()
+    expect(screen.getAllByText("Grant Full Disk Access, then retry chat discovery.").length).toBeGreaterThan(1)
     fireEvent.click(screen.getByRole("button", { name: "Open Full Disk Access" }))
 
     await waitFor(() =>
@@ -154,9 +219,10 @@ describe("App Messages chat discovery onboarding", () => {
       .mockResolvedValueOnce(nativeReadyReport)
     render(<App />)
 
-    expect(await screen.findByText("Messages discovery unavailable.")).toBeInTheDocument()
+    expect(await screen.findByText("Morrow could not read Messages.")).toBeInTheDocument()
+    expect(screen.getAllByText("Retry chat discovery or check local Messages access.").length).toBeGreaterThan(1)
     fireEvent.click(screen.getByRole("button", { name: "Retry chat discovery" }))
-    expect(await screen.findByText("No Messages chats found.")).toBeInTheDocument()
+    expect(await screen.findByText("Messages discovery finished, but found no eligible chats.")).toBeInTheDocument()
     fireEvent.click(screen.getByRole("button", { name: "Retry chat discovery" }))
 
     expect(await screen.findByRole("checkbox", { name: /Chat alpha/ })).toBeInTheDocument()
@@ -190,7 +256,7 @@ describe("App Messages chat discovery onboarding", () => {
     expect(bridgeMock.scanSelectedChats).toHaveBeenCalledWith({
       selectedChatIds: ["messages-chat-11111111111111111111111111111111"],
       selectedChats: [rediscoveredChat],
-      referenceTimezone: "Asia/Seoul",
+      referenceTimezone: fixtureReferenceTimezone,
       backfillPromptChatIds: ["messages-chat-11111111111111111111111111111111"],
       sourceExcerptsEnabled: true,
       capPolicy: { mode: "refillForPending", maxVisible: 10, pendingCount: 0 }
@@ -204,11 +270,20 @@ describe("App Messages chat discovery onboarding", () => {
       .mockResolvedValueOnce(nativeReadyReport)
     render(<App />)
 
-    expect(await screen.findByText("No Messages chats found.")).toBeInTheDocument()
+    expect(await screen.findByText("Messages discovery finished, but found no eligible chats.")).toBeInTheDocument()
+    expect(screen.getAllByText("Refresh chat discovery before scanning selected chats.").length).toBeGreaterThan(1)
+    expect(screen.queryByRole("checkbox", { name: /Chat alpha/ })).not.toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Sync Now" })).toBeDisabled()
     fireEvent.click(screen.getByRole("button", { name: "Retry chat discovery" }))
 
     expect(await screen.findByRole("checkbox", { name: /Chat alpha/ })).toBeChecked()
     await waitFor(() => expect(screen.getByRole("button", { name: "Sync Now" })).toBeEnabled())
+  })
+
+  it("renders distinct unverified discovery copy", () => {
+    render(<ChatDiscoveryControls {...idleDiscoveryControlProps} discovery={{ status: "unverified", chats: [] }} />)
+
+    expect(screen.getByText("Messages discovery has not completed yet.")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Retry chat discovery" })).toBeInTheDocument()
   })
 })

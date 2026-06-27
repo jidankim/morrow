@@ -21,6 +21,7 @@
   margin: 0;
   font-size: 15px;
   font-weight: 650;
+  overflow-wrap: anywhere;
 }
 
 .warning-surface {
@@ -32,6 +33,10 @@
   border-radius: 8px;
   background: color-mix(in srgb, var(--status-warning) 10%, var(--surface-secondary));
   color: var(--text-primary);
+}
+
+.warning-surface > div {
+  min-width: 0;
 }
 
 .warning-surface h3,
@@ -49,16 +54,85 @@
   line-height: 1.45;
 }
 
+.sync-readiness-summary {
+  margin: var(--space-3) 0 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
 .setup-section {
   margin-top: var(--space-6);
   padding-top: var(--space-5);
   border-top: 1px solid var(--border-subtle);
 }
 
+.readiness-list {
+  display: grid;
+  gap: 0;
+  margin: var(--space-4) 0 var(--space-5);
+  padding: 0;
+  border-top: 1px solid var(--border-subtle);
+  list-style: none;
+}
+
+.readiness-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-2);
+  align-items: flex-start;
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.readiness-item.complete {
+  color: var(--status-success);
+}
+
+.readiness-item.blocking {
+  color: var(--status-warning);
+}
+
+.readiness-item.pending {
+  color: var(--status-info);
+}
+
+.readiness-item span {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-2);
+  min-width: 0;
+  color: var(--text-primary);
+}
+
+.readiness-item strong {
+  font-size: 13px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.readiness-item small {
+  color: var(--text-tertiary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.readiness-item span > span {
+  flex-basis: 100%;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
 .chat-list {
   display: grid;
   gap: var(--space-2);
   margin-top: var(--space-4);
+  min-width: 0;
 }
 
 .discovery-state {
@@ -72,12 +146,23 @@
 .empty-state {
   display: inline-flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: var(--space-2);
   margin: 0;
   color: var(--text-secondary);
   font-size: 13px;
   font-weight: 600;
   line-height: 1.45;
+}
+
+.discovery-detail,
+.chat-source-summary,
+.backfill-prompt p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
 }
 
 .discovery-actions {
@@ -87,27 +172,78 @@
 }
 
 .chat-choice {
-  padding: var(--space-3) 0;
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-3) var(--space-2);
   border-top: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  transition:
+    background-color 120ms ease-out,
+    border-color 120ms ease-out;
 }
 
-.chat-choice span {
-  display: inline-flex;
+.chat-choice:hover,
+.chat-choice:focus-within {
+  background: color-mix(in srgb, var(--accent-primary) 5%, var(--surface-secondary));
+}
+
+.chat-choice.selected {
+  background: color-mix(in srgb, var(--accent-primary) 7%, var(--surface-secondary));
+}
+
+.chat-choice.selected:hover,
+.chat-choice.selected:focus-within {
+  background: color-mix(in srgb, var(--accent-primary) 11%, var(--surface-secondary));
+}
+
+.chat-choice-main {
+  margin-top: 0;
+}
+
+.chat-choice-main > span {
+  display: grid;
+  grid-template-columns: auto minmax(8rem, 1fr) minmax(7.5rem, auto) minmax(13rem, auto) max-content;
   align-items: center;
-  flex-wrap: wrap;
-  gap: var(--space-2);
+  gap: var(--space-1) var(--space-2);
+  min-width: 0;
+  width: 100%;
+}
+
+.chat-choice strong {
+  color: var(--text-primary);
+  font-size: 13px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
 }
 
 .chat-choice small {
   color: var(--text-tertiary);
   font-size: 13px;
   font-weight: 400;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.chat-selection-state {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.backfill-prompt {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
 }
 
 .nested-check {
-  margin-top: var(--space-3);
+  margin-top: 0;
   padding-left: var(--space-6);
   color: var(--text-tertiary);
+}
+
+.backfill-prompt p {
+  padding-left: calc(var(--space-6) + 24px);
 }
 
 .guidance {
