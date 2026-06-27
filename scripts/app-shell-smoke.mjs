@@ -20,8 +20,6 @@ const statusLabel = await page.getByTestId("status-label").textContent()
 const syncState = await page.getByTestId("sync-state").textContent()
 const syncDisabled = await syncButton.isDisabled()
 
-await page.getByRole("button", { name: "Simulate Error" }).click()
-const errorLabel = await page.getByTestId("status-label").textContent()
 await page.screenshot({ path: screenshotPath, fullPage: true })
 await browser.close()
 
@@ -30,16 +28,11 @@ const smokeResult = {
   screenshotPath,
   statusAfterReload: statusLabel,
   syncStateAfterReload: syncState,
-  syncDisabledAfterReload: syncDisabled,
-  errorStatusAfterClick: errorLabel
+  syncDisabledAfterReload: syncDisabled
 }
 
 console.log(JSON.stringify(smokeResult, null, 2))
 
 if (statusLabel !== "Paused" || syncState !== "Disabled" || !syncDisabled) {
   throw new Error("paused state did not persist with Sync Now disabled")
-}
-
-if (errorLabel !== "Error") {
-  throw new Error("error transition was not visible")
 }

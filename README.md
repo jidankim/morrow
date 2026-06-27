@@ -8,7 +8,7 @@ This repository is prepared as a v0.1 source snapshot. Local OMO planning and ev
 
 1. Synthetic pipeline QA passes: fake Messages fixtures can become typed candidates and fake Calendar/Reminders proposals.
 2. Real Calendar surface QA passes: this machine can create, read back, and clean up a synthetic EventKit event in `Morrow Proposed`.
-3. Real Messages to real Calendar is not wired end to end yet: the production Tauri scan path currently uses an unavailable Messages source/provider boundary and records local proposal mappings instead of calling EventKit from `Sync Now`.
+3. Real Messages discovery and selected-chat scanning are wired through the production Tauri path, but real Messages to real Calendar event creation is not wired end to end yet: `Sync Now` still needs the production provider/LLM path and Calendar/EventKit proposal creation before it can create a real event from a real message.
 
 Because of that, do not treat synthetic e2e success as proof that a real message has created a real Calendar event.
 
@@ -16,7 +16,7 @@ Because of that, do not treat synthetic e2e success as proof that a real message
 
 To run a true manual QA pass from Messages to Calendar, the app needs all of these pieces working in the production Tauri path:
 
-- A real `MessagesDataSource` that reads selected Messages threads after Full Disk Access is granted.
+- Messages discovery and selected-thread scanning after Full Disk Access is granted.
 - A configured LLM/provider path that can return strict scheduling candidates. Codex OAuth, if used, belongs here as the personal-prototype LLM auth path. It is not needed for Calendar/EventKit write QA by itself.
 - A native Calendar proposal adapter in `scan_selected_chats` that creates EventKit events, not only local external-object mappings.
 - macOS Calendar permission for the app or terminal process running real EventKit QA.
@@ -43,6 +43,8 @@ macOS permissions needed for real-surface QA:
 - Full Disk Access for Terminal/Codex when running Messages QA from terminal.
 - Calendar access for the app or Terminal/Codex when creating real EventKit test events.
 - Reminders access only for Reminders QA.
+
+To recover from a Messages permission denial, open System Settings, go to Privacy & Security, then Full Disk Access, and enable the terminal app or the signed Morrow app that will run the QA. Restart that app after changing the permission. The Messages smoke below intentionally prints only metadata and aggregate counts.
 
 ## QA Commands
 
@@ -94,6 +96,22 @@ crates/morrow-calendar/scripts/calendar_lifecycle_real_qa.sh
 ```
 
 Use this when validating proposed-item approval/rejection behavior against the real Calendar surface.
+
+Real Messages discovery smoke:
+
+```bash
+scripts/messages-discovery-real-qa.sh
+```
+
+This opens `~/Library/Messages/chat.db` through `sqlite3 -readonly` with `PRAGMA query_only = ON`, reports schema compatibility, aggregate row/chat counts, timestamp conversion mode, and whether the metadata-only discovery query can run. It must end with either `PASS messages_discovery_real_qa` or `BLOCKED: Full Disk Access required`. The output must not include message bodies, raw handles, phone numbers, emails, or chat transcripts.
+
+Privacy inspection for the real Messages smoke evidence:
+
+```bash
+scripts/privacy-inspect.sh /tmp/morrow-native-messages-discovery.sqlite .omo/evidence/native-messages-discovery .omo/evidence/native-messages-discovery-forbidden-tokens.txt
+```
+
+The real Messages discovery smoke does not prove true message-to-calendar QA. That still requires the production LLM/provider path and Calendar/EventKit event creation wiring in addition to Messages discovery.
 
 ## Manual QA Script Once Production Wiring Exists
 
