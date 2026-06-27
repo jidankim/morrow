@@ -8,7 +8,7 @@ This repository is prepared as a v0.1 source snapshot. Local OMO planning and ev
 
 1. Synthetic pipeline QA passes: fake Messages fixtures can become typed candidates and fake Calendar/Reminders proposals.
 2. Real Calendar surface QA passes: this machine can create, read back, and clean up a synthetic EventKit event in `Morrow Proposed`.
-3. Real Messages discovery and selected-chat scanning are wired through the production Tauri path, but real Messages to real Calendar event creation is not wired end to end yet: `Sync Now` still needs the production provider/LLM path and Calendar/EventKit proposal creation before it can create a real event from a real message.
+3. Real Messages discovery and selected-chat scanning are wired through the production Tauri path. "Production-wired" means the app can use the native Tauri path for local Messages discovery, selected-chat metadata, and selected-chat scanning after local permissions are complete. It does not mean real Messages-to-Calendar event creation is verified end to end yet: `Sync Now` still needs the production provider/LLM path and Calendar/EventKit proposal creation before it can create a real event from a real message.
 
 Because of that, do not treat synthetic e2e success as proof that a real message has created a real Calendar event.
 
@@ -17,10 +17,14 @@ Because of that, do not treat synthetic e2e success as proof that a real message
 To run a true manual QA pass from Messages to Calendar, the app needs all of these pieces working in the production Tauri path:
 
 - Messages discovery and selected-thread scanning after Full Disk Access is granted.
-- A configured LLM/provider path that can return strict scheduling candidates. Codex OAuth, if used, belongs here as the personal-prototype LLM auth path. It is not needed for Calendar/EventKit write QA by itself.
+- A configured LLM/provider path that can return strict scheduling candidates. Codex OAuth, if used, belongs here as the personal-prototype LLM auth path. It is not needed for native Messages discovery or Calendar/EventKit write QA by itself.
 - A native Calendar proposal adapter in `scan_selected_chats` that creates EventKit events, not only local external-object mappings.
 - macOS Calendar permission for the app or terminal process running real EventKit QA.
 - At least one explicitly selected chat, a reference timezone, and setup marked complete.
+
+No OAuth is required for native Messages discovery. Messages discovery is a local macOS read of the Messages database, so Full Disk Access is the relevant prerequisite for discovery and selected-chat scanning. OAuth or provider auth only belongs to a later LLM/provider path.
+
+The latest-message body preview is not part of the default MVP. Discovery rows should remain limited to privacy-safe metadata such as a sanitized chat label, participant count, latest activity timestamp, and selected/verified state.
 
 ## Local Setup
 
@@ -45,6 +49,18 @@ macOS permissions needed for real-surface QA:
 - Reminders access only for Reminders QA.
 
 To recover from a Messages permission denial, open System Settings, go to Privacy & Security, then Full Disk Access, and enable the terminal app or the signed Morrow app that will run the QA. Restart that app after changing the permission. The Messages smoke below intentionally prints only metadata and aggregate counts.
+
+## Native Messages Discovery Onboarding QA
+
+Use this flow when validating the native Messages setup surface:
+
+1. Grant Full Disk Access to the app, or to Terminal/Codex when running terminal QA.
+2. Start the app and open the setup surface. Messages discovery should show a distinct state while Morrow checks local Messages access.
+3. If discovery is denied or unavailable, use `Retry chat discovery` after fixing local permissions. The recovery copy should point to Full Disk Access when permission is denied.
+4. When eligible chats appear, use the chat checkboxes to `Select at least one chat`. Newly selected chats keep `Ask before backfilling older messages` enabled by default.
+5. Confirm the setup checklist shows required permissions complete, Messages discovery ready, chat selection complete, and selected-chat verification complete.
+6. Confirm `Sync Now` is enabled by checking the `Sync Now` metric for `Enabled` and by checking that the `Sync Now` button is no longer disabled.
+7. Treat any real event creation from Messages as out of scope unless the production provider/LLM path and Calendar/EventKit proposal adapter have also been verified in the same QA pass.
 
 ## QA Commands
 
