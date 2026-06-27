@@ -2,6 +2,7 @@ mod crash_log;
 mod delete_all;
 mod delete_all_protocol;
 mod eventkit_cleanup;
+pub mod eventkit_proposal;
 mod fake;
 mod keychain;
 pub mod messages_sqlite;

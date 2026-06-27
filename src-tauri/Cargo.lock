@@ -1754,6 +1754,7 @@ dependencies = [
  "cc",
  "core-foundation 0.9.4",
  "embed_plist",
+ "morrow-calendar",
  "morrow-detection",
  "morrow-messages",
  "morrow-storage",
@@ -1766,6 +1767,10 @@ dependencies = [
  "tauri-build",
  "tempfile",
 ]
+
+[[package]]
+name = "morrow-calendar"
+version = "0.1.0"
 
 [[package]]
 name = "morrow-detection"
