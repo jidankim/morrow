@@ -1,0 +1,19 @@
+node_modules/
+dist/
+target/
+crates/*/target/
+src-tauri/target/
+src-tauri/gen/
+
+# Local planning/evidence artifacts
+.omo/
+.debug-journal.md
+
+# Private source/export material used during planning
+chats/
+
+# Local machine and secret material
+.DS_Store
+.env
+.env.*
+!.env.example
