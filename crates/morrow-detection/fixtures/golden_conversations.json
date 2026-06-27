@@ -1,0 +1,115 @@
+{
+  "reference_time": "2026-06-25T09:00:00",
+  "timezone": "Asia/Seoul",
+  "threshold_millis": 550,
+  "scenarios": [
+    {
+      "name": "negative",
+      "messages": [
+        {
+          "chat_guid": "chat-negative",
+          "message_guid": "msg-negative-1",
+          "timestamp": 1782350000,
+          "participant_count": 2,
+          "tapback_signal": false,
+          "excerpt": "That movie was funny.",
+          "evidence_pointer": "messages://chat-negative/msg-negative-1"
+        }
+      ],
+      "provider_response": null,
+      "expected_candidate_count": 0,
+      "expected_quiet_count": 1,
+      "expected_provider_calls": 0
+    },
+    {
+      "name": "complete_deterministic_candidate",
+      "messages": [
+        {
+          "chat_guid": "chat-complete",
+          "message_guid": "msg-complete-1",
+          "timestamp": 1782350100,
+          "participant_count": 2,
+          "tapback_signal": false,
+          "excerpt": "Let's meet 2026-06-27 14:00 for lunch.",
+          "evidence_pointer": "messages://chat-complete/msg-complete-1"
+        }
+      ],
+      "provider_response": null,
+      "expected_candidate_count": 1,
+      "expected_quiet_count": 0,
+      "expected_provider_calls": 0
+    },
+    {
+      "name": "ambiguous_provider_routed_candidate",
+      "messages": [
+        {
+          "chat_guid": "chat-ambiguous",
+          "message_guid": "msg-ambiguous-1",
+          "timestamp": 1782350200,
+          "participant_count": 2,
+          "tapback_signal": true,
+          "excerpt": "Can we meet Friday afternoon?",
+          "evidence_pointer": "messages://chat-ambiguous/msg-ambiguous-1"
+        }
+      ],
+      "provider_response": "{\"kind\":\"calendar_event\",\"title\":\"Meet Friday afternoon\",\"confidence_millis\":720,\"normalized_time\":\"2026-06-26T15:00:00[Asia/Seoul]\",\"anchor_message_guid\":\"msg-ambiguous-1\",\"evidence_message_guids\":[\"msg-ambiguous-1\"]}",
+      "expected_candidate_count": 1,
+      "expected_quiet_count": 0,
+      "expected_provider_calls": 1
+    },
+    {
+      "name": "invalid_json",
+      "messages": [
+        {
+          "chat_guid": "chat-invalid-json",
+          "message_guid": "msg-invalid-json-1",
+          "timestamp": 1782350300,
+          "participant_count": 2,
+          "tapback_signal": true,
+          "excerpt": "Can we meet Friday afternoon?",
+          "evidence_pointer": "messages://chat-invalid-json/msg-invalid-json-1"
+        }
+      ],
+      "provider_response": "{not-json",
+      "expected_candidate_count": 0,
+      "expected_quiet_count": 1,
+      "expected_provider_calls": 1
+    },
+    {
+      "name": "hallucinated_evidence",
+      "messages": [
+        {
+          "chat_guid": "chat-hallucinated",
+          "message_guid": "msg-hallucinated-1",
+          "timestamp": 1782350400,
+          "participant_count": 2,
+          "tapback_signal": true,
+          "excerpt": "Can we meet Friday afternoon?",
+          "evidence_pointer": "messages://chat-hallucinated/msg-hallucinated-1"
+        }
+      ],
+      "provider_response": "{\"kind\":\"calendar_event\",\"title\":\"Meet Friday afternoon\",\"confidence_millis\":720,\"normalized_time\":\"2026-06-26T15:00:00[Asia/Seoul]\",\"anchor_message_guid\":\"msg-made-up\",\"evidence_message_guids\":[\"msg-made-up\"]}",
+      "expected_candidate_count": 0,
+      "expected_quiet_count": 1,
+      "expected_provider_calls": 1
+    },
+    {
+      "name": "parser_provider_conflict",
+      "messages": [
+        {
+          "chat_guid": "chat-conflict",
+          "message_guid": "msg-conflict-1",
+          "timestamp": 1782350500,
+          "participant_count": 2,
+          "tapback_signal": true,
+          "excerpt": "Maybe meet 2026-06-28 15:00?",
+          "evidence_pointer": "messages://chat-conflict/msg-conflict-1"
+        }
+      ],
+      "provider_response": "{\"kind\":\"calendar_event\",\"title\":\"Meet Sunday\",\"confidence_millis\":800,\"normalized_time\":\"2026-06-28T16:00:00[Asia/Seoul]\",\"anchor_message_guid\":\"msg-conflict-1\",\"evidence_message_guids\":[\"msg-conflict-1\"]}",
+      "expected_candidate_count": 0,
+      "expected_quiet_count": 1,
+      "expected_provider_calls": 1
+    }
+  ]
+}
