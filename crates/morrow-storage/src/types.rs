@@ -1,0 +1,150 @@
+use crate::CandidateId;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CandidateKind {
+    CalendarEvent,
+    TaskReminder,
+    EventUpdate,
+    EventReschedule,
+    EventCancellation,
+    ReminderUpdate,
+    ReminderReschedule,
+    ReminderCancellation,
+}
+
+impl CandidateKind {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::CalendarEvent => "calendar_event",
+            Self::TaskReminder => "task_reminder",
+            Self::EventUpdate => "event_update",
+            Self::EventReschedule => "event_reschedule",
+            Self::EventCancellation => "event_cancellation",
+            Self::ReminderUpdate => "reminder_update",
+            Self::ReminderReschedule => "reminder_reschedule",
+            Self::ReminderCancellation => "reminder_cancellation",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CandidateState {
+    Queued,
+    CreatingExternal,
+    Visible,
+    Approved,
+    Completed,
+    Rejected,
+    Expired,
+    Suppressed,
+    Unknown,
+    Failed,
+}
+
+impl CandidateState {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Queued => "queued",
+            Self::CreatingExternal => "creating_external",
+            Self::Visible => "visible",
+            Self::Approved => "approved",
+            Self::Completed => "completed",
+            Self::Rejected => "rejected",
+            Self::Expired => "expired",
+            Self::Suppressed => "suppressed",
+            Self::Unknown => "unknown",
+            Self::Failed => "failed",
+        }
+    }
+
+    pub fn parse(raw: &str) -> Result<Self, crate::StorageError> {
+        match raw {
+            "queued" => Ok(Self::Queued),
+            "creating_external" => Ok(Self::CreatingExternal),
+            "visible" => Ok(Self::Visible),
+            "approved" => Ok(Self::Approved),
+            "completed" => Ok(Self::Completed),
+            "rejected" => Ok(Self::Rejected),
+            "expired" => Ok(Self::Expired),
+            "suppressed" => Ok(Self::Suppressed),
+            "unknown" => Ok(Self::Unknown),
+            "failed" => Ok(Self::Failed),
+            other => Err(crate::StorageError::InvalidInput {
+                field: "candidate_state",
+                reason: format!("unknown state {other}"),
+            }),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExternalSource {
+    Calendar,
+    Reminders,
+}
+
+impl ExternalSource {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Calendar => "calendar",
+            Self::Reminders => "reminders",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ReplayStream {
+    CalendarProposals,
+}
+
+impl ReplayStream {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::CalendarProposals => "calendar_proposals",
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct CandidateDraft {
+    pub kind: CandidateKind,
+    pub chat_guid: String,
+    pub anchor_message_guid: String,
+    pub title: String,
+    pub confidence_millis: i64,
+    pub normalized_time: String,
+    pub evidence_excerpt: String,
+    pub observed_at: i64,
+}
+
+#[derive(Debug, Clone)]
+pub struct QuietLogDraft {
+    pub chat_guid: String,
+    pub anchor_message_guid: String,
+    pub reason: String,
+    pub excerpt: String,
+    pub created_at: i64,
+}
+
+#[derive(Debug, Clone)]
+pub struct ExternalObjectMapping {
+    pub candidate_id: CandidateId,
+    pub source: ExternalSource,
+    pub external_object_id: String,
+    pub external_source_id: String,
+    pub mapped_at: i64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AuditEntry {
+    pub from_state: CandidateState,
+    pub to_state: CandidateState,
+    pub reason: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PrivacySummary {
+    pub table_count: usize,
+    pub full_message_body_columns: usize,
+    pub max_excerpt_len: usize,
+}
