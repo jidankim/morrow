@@ -61,8 +61,8 @@ const syncScanRequestSchema = z.object({
     mode: z.literal("refillForPending"),
     maxVisible: z.number().int().min(0),
     pendingCount: z.number().int().min(0)
-  })
-})
+  }).strict()
+}).strict()
 
 export type SyncScanRequest = {
   readonly selectedChatIds: readonly ChatId[]

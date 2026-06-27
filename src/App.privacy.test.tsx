@@ -23,6 +23,14 @@ const bridgeMock = vi.hoisted(() => ({
         participantCount: 2,
         participantIds: ["messages-participant-11111111111111111111111111111111", "messages-participant-22222222222222222222222222222222"],
         latestActivityTimestamp: 1_783_000_000
+      },
+      {
+        chatId: "messages-chat-33333333333333333333333333333333",
+        displayLabel: "Messages chat",
+        participantCount: 1,
+        participantIds: ["messages-participant-33333333333333333333333333333333"],
+        latestActivityTimestamp: 1_783_000_100,
+        latestMessageBody: "private clinic visit"
       }
     ]
   })),
@@ -93,6 +101,10 @@ describe("App privacy controls", () => {
       window.dispatchEvent(new HashChangeEvent("hashchange"))
     })
     await waitFor(() => expect(screen.getByRole("button", { name: "Sync Now" })).toBeEnabled())
+    await waitFor(() => expect(screen.getByText("Messages chat")).toBeInTheDocument())
+    expect(document.body).not.toHaveTextContent("messages-chat-33333333333333333333333333333333")
+    expect(document.body).not.toHaveTextContent("messages-participant-33333333333333333333333333333333")
+    expect(document.body).not.toHaveTextContent("private clinic visit")
     fireEvent.click(screen.getByRole("button", { name: "Sync Now" }))
 
     await waitFor(() => expect(bridgeMock.scanSelectedChats).toHaveBeenCalledOnce())

@@ -154,6 +154,51 @@ describe("createNativeShellBridge scan command", () => {
     expect(parsed).toEqual(report)
   })
 
+  it("rejects raw native handles in discovered chat labels", async () => {
+    // Given
+    const { chatDisplayMetadata } = await import("./chatDisplay")
+    const { parseMessagesDiscoveryReport } = await import("./tauriBridge")
+    const fallbackLabelReport = {
+      status: "ready",
+      chats: [
+        {
+          chatId: "messages-chat-55555555555555555555555555555555",
+          displayLabel: "Messages chat",
+          participantCount: 1,
+          participantIds: ["messages-participant-55555555555555555555555555555555"],
+          latestActivityTimestamp: 1_783_000_000
+        }
+      ]
+    } as const
+    const unsafeDisplayMetadata = chatDisplayMetadata(
+      {
+        id: "messages-chat-66666666666666666666666666666666",
+        label: "person@example.com",
+        participantCount: 1,
+        participantIds: ["messages-participant-66666666666666666666666666666666"],
+        latestActivityTimestamp: 1_783_000_000
+      },
+      "UTC"
+    )
+
+    // When / Then
+    expect(parseMessagesDiscoveryReport(fallbackLabelReport)).toEqual(fallbackLabelReport)
+    expect(Object.values(unsafeDisplayMetadata).join(" ")).not.toContain("person@example.com")
+    for (const displayLabel of ["person@example.com", "+1 (555) 123-4567", "iMessage;-;+15555550103"] as const) {
+      expect(() =>
+        parseMessagesDiscoveryReport({
+          status: "ready",
+          chats: [
+            {
+              ...fallbackLabelReport.chats[0],
+              displayLabel
+            }
+          ]
+        })
+      ).toThrow(/raw handles/)
+    }
+  })
+
   it("rejects malformed or private-shaped discovery payloads", async () => {
     // Given
     const { parseMessagesDiscoveryReport } = await import("./tauriBridge")
@@ -170,6 +215,11 @@ describe("createNativeShellBridge scan command", () => {
         }
       ]
     }
+    const validNativeChat = {
+      chatId: "messages-chat-77777777777777777777777777777777", displayLabel: "Team planning",
+      participantCount: 1, participantIds: ["messages-participant-77777777777777777777777777777777"],
+      latestActivityTimestamp: 1_783_000_000
+    } as const
 
     // When / Then
     expect(() => parseMessagesDiscoveryReport({ status: "blocked", chats: [] })).toThrow()
@@ -186,6 +236,31 @@ describe("createNativeShellBridge scan command", () => {
             latestActivityTimestamp: 1_783_000_000
           }
         ]
+      })
+    ).toThrow()
+    expect(() =>
+      parseMessagesDiscoveryReport({
+        status: "ready",
+        chats: [
+          {
+            chatId: validNativeChat.chatId,
+            displayLabel: validNativeChat.displayLabel,
+            participantCount: validNativeChat.participantCount,
+            participantIds: validNativeChat.participantIds
+          }
+        ]
+      })
+    ).toThrow()
+    expect(() =>
+      parseMessagesDiscoveryReport({
+        status: "ready",
+        chats: [{ ...validNativeChat, latestActivityTimestamp: undefined }]
+      })
+    ).toThrow()
+    expect(() =>
+      parseMessagesDiscoveryReport({
+        status: "ready",
+        chats: [{ ...validNativeChat, latestActivityTimestamp: -1 }]
       })
     ).toThrow()
     expect(() =>

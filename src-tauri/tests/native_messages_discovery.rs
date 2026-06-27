@@ -72,6 +72,12 @@ fn discovery_command_serializes_opaque_chat_ids_when_raw_guid_is_handle_shaped(
     // Then
     let chat_id = &command_report.chats[0].chat_id;
     assert_eq!(chat_id, "messages-chat-8b96e568c027a42d3b5c9e6e7710201f");
+    assert!(serialized.contains("\"displayLabel\":\"Messages chat\""));
+    assert!(!serialized.contains("display_label"));
+    assert!(!serialized.contains("latestMessageBody"));
+    assert!(!serialized.contains("messagePreview"));
+    assert!(!serialized.contains("private body"));
+    assert!(!serialized.contains("selected body"));
     assert!(!serialized.contains("chatGuid"));
     assert!(!serialized.contains("iMessage;-;+15555550103"));
     assert!(!serialized.contains("+15555550103"));
