@@ -16,6 +16,12 @@ const discoveredChat = { id: "messages-chat-11111111111111111111111111111111", l
 const selectedChat = { ...discoveredChat, backfillPromptEnabled: true } as const
 
 describe("app shell state", () => {
+  it("defaults unsupported browser timezones to UTC", () => {
+    const initial = createDefaultAppShellState("America/Los_Angeles")
+
+    expect(initial.config.referenceTimezone).toBe("UTC")
+  })
+
   it("persists pause and resume state across reloads", () => {
     const storage = new Map<string, string>()
     const initial = createDefaultAppShellState()
@@ -266,4 +272,5 @@ describe("app shell state", () => {
 
     expect(() => loadAppShellState(storage)).toThrow()
   })
+
 })

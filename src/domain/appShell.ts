@@ -13,7 +13,7 @@ import {
   type DiscoveredChat,
   type SelectedChat
 } from "./chatDiscovery"
-import { isValidTimeZone } from "./timeZone"
+import { isSupportedReferenceTimeZone, normalizeReferenceTimeZone } from "./timeZone"
 export { getSyncReadinessItems, type SyncReadinessItem, type SyncReadinessItemId, type SyncReadinessItemStatus, type SyncReadinessOptions } from "./syncReadiness"
 
 export const APP_SHELL_STATE_KEY = "morrow.appShellState.v1"
@@ -73,8 +73,8 @@ export type ShellStorage = {
 const appModeSchema = z.union([z.literal("scanning"), z.literal("paused"), z.literal("error")])
 const calendarSourceSchema = z.literal("apple-calendar")
 
-const timeZoneSchema = z.string().refine((value) => isValidTimeZone(value), {
-  message: "Reference timezone must be a supported IANA timezone."
+const timeZoneSchema = z.string().refine((value) => isSupportedReferenceTimeZone(value), {
+  message: "Reference timezone must be supported by Morrow Calendar replay."
 })
 
 const appConfigSchema = z.object({
@@ -104,11 +104,13 @@ export function createBrowserShellStorage(storage: Storage): ShellStorage {
   }
 }
 
-export function createDefaultAppShellState(): AppShellState {
+export function createDefaultAppShellState(
+  browserTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone
+): AppShellState {
   return {
     mode: "scanning",
     config: {
-      referenceTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      referenceTimezone: normalizeReferenceTimeZone(browserTimeZone),
       calendarSource: "apple-calendar",
       permissionsGranted: false,
       launchAtLogin: false,

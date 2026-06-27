@@ -144,6 +144,24 @@ fn scan_selected_chats_rejects_malformed_selected_metadata() -> Result<(), Strin
     Ok(())
 }
 
+#[test]
+#[rustfmt::skip]
+fn scan_selected_chats_rejects_unsupported_reference_timezone() -> Result<(), String> {
+    // Given
+    let (_dir, db_path) = temp_db("native-scan-timezone.sqlite")?;
+    let state = fake_state(&db_path, native_batch()?);
+    let mut request = scan_request(&[chat("design-partners", 3, &["p1", "p2", "p3"])], &[], true, 1, 0)?;
+    request.reference_timezone = "America/Los_Angeles".to_owned();
+
+    // When
+    let error = state.scan_selected_chats_at(request, &db_path, &db_path).err().ok_or_else(|| "scan unexpectedly succeeded".to_owned())?.to_string();
+
+    // Then
+    assert!(error.contains("unsupported reference timezone"), "{error}");
+    assert!(!error.contains("America/Los_Angeles"), "{error}");
+    Ok(())
+}
+
 #[rustfmt::skip]
 fn temp_db(name: &str) -> Result<(tempfile::TempDir, PathBuf), String> {
     let dir = tempfile::tempdir().map_err(|error| error.to_string())?;

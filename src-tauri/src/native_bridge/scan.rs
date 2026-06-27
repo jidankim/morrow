@@ -19,6 +19,8 @@ use serde::{Deserialize, Serialize};
 const REFERENCE_TIME: &str = "2026-06-26T09:00:00";
 const NATIVE_CANDIDATE_TITLE: &str = "Messages event candidate";
 const HIDDEN_SOURCE_EXCERPT: &str = "Source excerpt hidden by settings.";
+const SUPPORTED_REFERENCE_TIMEZONES: &[&str] =
+    &["Asia/Seoul", "America/New_York", "Europe/London", "UTC"];
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -169,6 +171,14 @@ impl AiProvider for UnavailableProvider {
 fn detection_config(
     request: &ScanSelectedChatsRequest,
 ) -> Result<DetectionConfig, ScanSelectedChatsError> {
+    if !SUPPORTED_REFERENCE_TIMEZONES
+        .iter()
+        .any(|timezone| *timezone == request.reference_timezone)
+    {
+        return Err(ScanSelectedChatsError::Detection(
+            "unsupported reference timezone".to_owned(),
+        ));
+    }
     Ok(DetectionConfig {
         reference: ReferenceTime::parse(REFERENCE_TIME, &request.reference_timezone)
             .map_err(detection_error)?,
