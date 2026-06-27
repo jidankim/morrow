@@ -26,6 +26,7 @@ morrow-detection = { path = "../crates/morrow-detection" }
 morrow-messages = { path = "../crates/morrow-messages" }
 morrow-storage = { path = "../crates/morrow-storage" }
 serde = { version = "1", features = ["derive"] }
+sha2 = "0.10"
 tauri = { version = "2", features = [] }
 
 [dev-dependencies]

@@ -1,11 +1,16 @@
 #![forbid(unsafe_code)]
 
+mod discovery;
 mod error;
 mod ingest;
 mod request;
 mod types;
 mod validation;
 
+pub use discovery::{
+    DiscoveredChat, DiscoveredChatParts, MessagesDiscoveryDataSource, MessagesDiscoveryReport,
+    MessagesDiscoveryStatus,
+};
 pub use error::MessagesError;
 pub use ingest::ingest_selected_threads;
 pub use request::{BackfillDays, IngestionRequest, NativeReadRequest, WhitelistedChat};

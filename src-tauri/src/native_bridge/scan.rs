@@ -3,27 +3,40 @@ mod proposal_replay;
 
 use std::{fmt::Display, path::Path};
 
-use messages::{ingestion_request, UnavailableMessagesDataSource};
+use super::messages_sqlite::MessagesSqliteAdapter;
+use super::public_chat_id::{public_chat_id, public_message_id};
+use messages::ingestion_request;
 use morrow_detection::{
     AiProvider, ConfidenceThreshold, DetectionConfig, DetectionOutcome, DetectionPipeline,
     ProviderError, ProviderIdentity, ProviderRequest, ProviderResponse, ReferenceTime,
     SourceExcerptPolicy,
 };
-use morrow_messages::{ingest_selected_threads, IngestionStatus, MessagesDataSource};
-use morrow_storage::{CandidateId, CapPolicy, Store};
+use morrow_messages::{ingest_selected_threads, ChatGuid, IngestionStatus, MessagesDataSource};
+use morrow_storage::{CandidateDraft, CandidateId, CapPolicy, QuietLogDraft, Store};
 use proposal_replay::{replay_external_proposals, LocalProposalAdapter};
 use serde::{Deserialize, Serialize};
 
 const REFERENCE_TIME: &str = "2026-06-26T09:00:00";
+const NATIVE_CANDIDATE_TITLE: &str = "Messages event candidate";
+const HIDDEN_SOURCE_EXCERPT: &str = "Source excerpt hidden by settings.";
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct ScanSelectedChatsRequest {
     pub selected_chat_ids: Vec<String>,
+    pub selected_chats: Vec<SelectedChatMetadata>,
     pub reference_timezone: String,
     pub backfill_prompt_chat_ids: Vec<String>,
     pub source_excerpts_enabled: bool,
     pub cap_policy: CapPolicyRequest,
+}
+
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct SelectedChatMetadata {
+    pub id: String,
+    pub participant_count: u16,
+    pub participant_ids: Vec<String>,
 }
 
 #[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
@@ -74,9 +87,12 @@ impl Display for ScanSelectedChatsError {
 pub fn scan_selected_chats_at(
     request: ScanSelectedChatsRequest,
     store_path: &Path,
+    messages_db_path: &Path,
 ) -> Result<ScanSelectedChatsResult, ScanSelectedChatsError> {
-    let source = UnavailableMessagesDataSource;
-    scan_selected_chats_with_source(request, store_path, &source)
+    let source = MessagesSqliteAdapter::new(messages_db_path.to_path_buf());
+    let resolved_request =
+        resolve_production_scan_request(request, &source).map_err(messages_error)?;
+    scan_selected_chats_with_source(resolved_request, store_path, &source)
 }
 
 pub fn scan_selected_chats_with_source(
@@ -100,10 +116,12 @@ pub fn scan_selected_chats_with_source(
     for outcome in report.outcomes {
         match outcome {
             DetectionOutcome::Candidate(candidate) => {
+                let candidate = privacy_safe_candidate(candidate)?;
                 let candidate_id = store.create_candidate(candidate).map_err(storage_error)?;
                 created_candidate_ids.push(candidate_id);
             }
             DetectionOutcome::QuietLog(quiet_log) => {
+                let quiet_log = privacy_safe_quiet_log(quiet_log)?;
                 store.record_quiet_log(quiet_log).map_err(storage_error)?;
                 quiet_log_count += 1;
             }
@@ -157,7 +175,7 @@ fn detection_config(
         threshold: ConfidenceThreshold::new(550).map_err(detection_error)?,
         provider: ProviderIdentity::new("native-bridge", "deterministic", "scan-v1")
             .map_err(detection_error)?,
-        source_excerpts: source_excerpt_policy(request.source_excerpts_enabled),
+        source_excerpts: SourceExcerptPolicy::Hide,
     })
 }
 
@@ -174,12 +192,25 @@ const fn empty_scan_result() -> ScanSelectedChatsResult {
     }
 }
 
-const fn source_excerpt_policy(source_excerpts_enabled: bool) -> SourceExcerptPolicy {
-    if source_excerpts_enabled {
-        SourceExcerptPolicy::Include
-    } else {
-        SourceExcerptPolicy::Hide
-    }
+fn privacy_safe_candidate(
+    mut candidate: CandidateDraft,
+) -> Result<CandidateDraft, ScanSelectedChatsError> {
+    candidate.chat_guid =
+        public_chat_id(&ChatGuid::parse(&candidate.chat_guid).map_err(messages_error)?);
+    candidate.anchor_message_guid = public_message_id(&candidate.anchor_message_guid);
+    candidate.title = NATIVE_CANDIDATE_TITLE.to_owned();
+    candidate.evidence_excerpt = HIDDEN_SOURCE_EXCERPT.to_owned();
+    Ok(candidate)
+}
+
+fn privacy_safe_quiet_log(
+    mut quiet_log: QuietLogDraft,
+) -> Result<QuietLogDraft, ScanSelectedChatsError> {
+    quiet_log.chat_guid =
+        public_chat_id(&ChatGuid::parse(&quiet_log.chat_guid).map_err(messages_error)?);
+    quiet_log.anchor_message_guid = public_message_id(&quiet_log.anchor_message_guid);
+    quiet_log.excerpt = HIDDEN_SOURCE_EXCERPT.to_owned();
+    Ok(quiet_log)
 }
 
 fn candidate_ids_for_response(candidate_ids: &[CandidateId]) -> Vec<String> {
@@ -195,6 +226,38 @@ fn detection_error(error: morrow_detection::DetectionError) -> ScanSelectedChats
 
 fn messages_error(error: morrow_messages::MessagesError) -> ScanSelectedChatsError {
     ScanSelectedChatsError::Messages(error.to_string())
+}
+
+fn resolve_production_scan_request(
+    request: ScanSelectedChatsRequest,
+    source: &MessagesSqliteAdapter,
+) -> Result<ScanSelectedChatsRequest, morrow_messages::MessagesError> {
+    let chat_guids = source.resolve_public_chat_ids(&request.selected_chat_ids)?;
+    Ok(request.with_native_chat_guids(&chat_guids))
+}
+
+impl ScanSelectedChatsRequest {
+    fn with_native_chat_guids(mut self, chat_guids: &[ChatGuid]) -> Self {
+        let raw_ids = chat_guids
+            .iter()
+            .map(|chat_guid| chat_guid.as_str().to_owned())
+            .collect::<Vec<_>>();
+        self.selected_chat_ids = raw_ids.clone();
+        self.backfill_prompt_chat_ids = self
+            .backfill_prompt_chat_ids
+            .iter()
+            .filter_map(|public_id| {
+                self.selected_chats
+                    .iter()
+                    .position(|chat| &chat.id == public_id)
+                    .and_then(|index| raw_ids.get(index).cloned())
+            })
+            .collect();
+        for (chat, raw_id) in self.selected_chats.iter_mut().zip(raw_ids) {
+            chat.id = raw_id;
+        }
+        self
+    }
 }
 
 fn storage_error(error: morrow_storage::StorageError) -> ScanSelectedChatsError {

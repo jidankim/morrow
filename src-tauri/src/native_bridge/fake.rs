@@ -1,6 +1,10 @@
 use std::{collections::BTreeMap, path::PathBuf};
 
-use morrow_messages::{MessagesDataSource, MessagesError, NativeBatch, NativeReadRequest};
+use morrow_messages::{
+    DiscoveredChat, MessagesDataSource, MessagesDiscoveryDataSource, MessagesDiscoveryReport,
+    MessagesDiscoveryStatus, MessagesError, NativeBatch, NativeReadRequest,
+};
+use serde::Serialize;
 
 use super::{
     keychain::{
@@ -8,14 +12,94 @@ use super::{
         TokenReadResponse, TokenWriteRequest,
     },
     permissions::{map_permission_status, PermissionKind, PermissionState, PermissionStatus},
+    public_chat_id::public_chat_id,
 };
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct FakeNativeBridge {
     permissions: BTreeMap<PermissionKind, PermissionState>,
     pub(crate) vault: FakeMorrowTokenVault,
     morrow_store_path: Option<PathBuf>,
     messages: Option<NativeBatch>,
+    discovery_report: MessagesDiscoveryReport,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct MessagesDiscoveryCommandReport {
+    pub status: MessagesDiscoveryCommandStatus,
+    pub chats: Vec<MessagesDiscoveryCommandChat>,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum MessagesDiscoveryCommandStatus {
+    Ready,
+    Empty,
+    PermissionDenied,
+    Unavailable,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct MessagesDiscoveryCommandChat {
+    pub chat_id: String,
+    pub display_label: String,
+    pub participant_count: u16,
+    pub participant_ids: Vec<String>,
+    pub latest_activity_timestamp: i64,
+}
+
+impl MessagesDiscoveryCommandReport {
+    pub fn from_report(report: &MessagesDiscoveryReport) -> Self {
+        Self {
+            status: command_status(report.status()),
+            chats: report
+                .chats()
+                .iter()
+                .map(MessagesDiscoveryCommandChat::from_chat)
+                .collect(),
+        }
+    }
+}
+
+impl MessagesDiscoveryCommandChat {
+    fn from_chat(chat: &DiscoveredChat) -> Self {
+        Self {
+            chat_id: public_chat_id(chat.chat_guid()),
+            display_label: chat.display_label().to_owned(),
+            participant_count: chat.participant_count(),
+            participant_ids: chat
+                .participant_ids()
+                .iter()
+                .map(|id| id.as_str().to_owned())
+                .collect(),
+            latest_activity_timestamp: chat.latest_activity_timestamp().as_i64(),
+        }
+    }
+}
+
+const fn command_status(status: MessagesDiscoveryStatus) -> MessagesDiscoveryCommandStatus {
+    match status {
+        MessagesDiscoveryStatus::Ready => MessagesDiscoveryCommandStatus::Ready,
+        MessagesDiscoveryStatus::Empty => MessagesDiscoveryCommandStatus::Empty,
+        MessagesDiscoveryStatus::PermissionDenied => {
+            MessagesDiscoveryCommandStatus::PermissionDenied
+        }
+        MessagesDiscoveryStatus::Unavailable => MessagesDiscoveryCommandStatus::Unavailable,
+    }
+}
+
+impl Default for FakeNativeBridge {
+    fn default() -> Self {
+        Self {
+            permissions: BTreeMap::new(),
+            vault: FakeMorrowTokenVault::default(),
+            morrow_store_path: None,
+            messages: None,
+            discovery_report: MessagesDiscoveryReport::permission_denied(),
+        }
+    }
 }
 
 impl FakeNativeBridge {
@@ -35,6 +119,7 @@ impl FakeNativeBridge {
             vault: FakeMorrowTokenVault::default(),
             morrow_store_path: None,
             messages: None,
+            discovery_report: MessagesDiscoveryReport::permission_denied(),
         }
     }
 
@@ -46,6 +131,11 @@ impl FakeNativeBridge {
 
     pub fn with_messages(mut self, messages: NativeBatch) -> Self {
         self.messages = Some(messages);
+        self
+    }
+
+    pub fn with_discovery_report(mut self, report: MessagesDiscoveryReport) -> Self {
+        self.discovery_report = report;
         self
     }
 
@@ -94,5 +184,11 @@ impl MessagesDataSource for FakeNativeBridge {
             Some(messages) => Ok(messages.clone()),
             None => Err(MessagesError::PermissionDenied),
         }
+    }
+}
+
+impl MessagesDiscoveryDataSource for FakeNativeBridge {
+    fn discover_chats(&self) -> Result<MessagesDiscoveryReport, MessagesError> {
+        Ok(self.discovery_report.clone())
     }
 }

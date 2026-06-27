@@ -1,20 +1,30 @@
+mod crash_log;
 mod delete_all;
 mod delete_all_protocol;
 mod eventkit_cleanup;
 mod fake;
 mod keychain;
+pub mod messages_sqlite;
 mod permissions;
+mod public_chat_id;
 mod scan;
 
+use std::path::{Path, PathBuf};
+
 use eventkit_cleanup::{EventKitProposedItemCleaner, NoopProposedItemCleaner};
-use serde::{Deserialize, Serialize};
+use messages_sqlite::MessagesSqliteAdapter;
+use morrow_messages::{MessagesDiscoveryDataSource, MessagesDiscoveryReport, MessagesError};
 use tauri::{AppHandle, Manager, State};
 
+pub use crash_log::{
+    __cmd__record_crash_log, __tauri_command_name_record_crash_log, record_crash_log,
+    CrashLogReceipt, CrashLogRequest,
+};
 pub use delete_all_protocol::{
     DeleteCleanupAction, DeleteCleanupPlan, DeleteMorrowDataError, DeleteMorrowDataRequest,
     MorrowDataDeleteReceipt, MorrowDataStorageSurface,
 };
-pub use fake::FakeNativeBridge;
+pub use fake::{FakeNativeBridge, MessagesDiscoveryCommandReport};
 pub use keychain::{
     KeychainBridgeError, KeychainErrorCode, MorrowTokenVault, TokenCommandReceipt,
     TokenLookupRequest, TokenReadResponse, TokenStorageSurface, TokenWriteRequest,
@@ -127,7 +137,7 @@ impl NativeBridgeState {
     fn delete_morrow_data_at(
         &self,
         request: DeleteMorrowDataRequest,
-        store_path: &std::path::Path,
+        store_path: &Path,
     ) -> Result<MorrowDataDeleteReceipt, DeleteMorrowDataError> {
         match &self.bridge {
             NativeBridgeBackend::Production(bridge) => delete_all::delete_morrow_data_at(
@@ -148,27 +158,30 @@ impl NativeBridgeState {
     pub fn scan_selected_chats_at(
         &self,
         request: ScanSelectedChatsRequest,
-        store_path: &std::path::Path,
+        store_path: &Path,
+        messages_db_path: &Path,
     ) -> Result<ScanSelectedChatsResult, ScanSelectedChatsError> {
         match &self.bridge {
-            NativeBridgeBackend::Production(_) => scan::scan_selected_chats_at(request, store_path),
+            NativeBridgeBackend::Production(_) => {
+                scan::scan_selected_chats_at(request, store_path, messages_db_path)
+            }
             NativeBridgeBackend::Fake(bridge) => {
                 scan::scan_selected_chats_with_source(request, store_path, bridge)
             }
         }
     }
-}
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-pub struct CrashLogRequest {
-    pub message: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-pub struct CrashLogReceipt {
-    pub stored: bool,
+    pub fn discover_messages_chats_at(
+        &self,
+        db_path: &Path,
+    ) -> Result<MessagesDiscoveryReport, MessagesError> {
+        match &self.bridge {
+            NativeBridgeBackend::Production(_) => {
+                MessagesSqliteAdapter::new(db_path.to_path_buf()).discover_chats()
+            }
+            NativeBridgeBackend::Fake(bridge) => bridge.discover_chats(),
+        }
+    }
 }
 
 #[tauri::command]
@@ -221,11 +234,7 @@ pub fn delete_morrow_data(
     state: State<'_, NativeBridgeState>,
     request: DeleteMorrowDataRequest,
 ) -> Result<MorrowDataDeleteReceipt, String> {
-    let store_path = app
-        .path()
-        .app_data_dir()
-        .map_err(|error| error.to_string())?
-        .join("morrow.sqlite");
+    let store_path = morrow_store_path(&app)?;
     state
         .delete_morrow_data_at(request, &store_path)
         .map_err(|error| error.to_string())
@@ -237,30 +246,43 @@ pub fn scan_selected_chats(
     state: State<'_, NativeBridgeState>,
     request: ScanSelectedChatsRequest,
 ) -> Result<ScanSelectedChatsResult, String> {
-    let store_path = app
-        .path()
-        .app_data_dir()
-        .map_err(|error| error.to_string())?
-        .join("morrow.sqlite");
+    let store_path = morrow_store_path(&app)?;
+    let messages_db_path = messages_database_path()?;
     state
-        .scan_selected_chats_at(request, &store_path)
+        .scan_selected_chats_at(request, &store_path, &messages_db_path)
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn discover_messages_chats(
+    state: State<'_, NativeBridgeState>,
+) -> Result<MessagesDiscoveryCommandReport, String> {
+    let db_path = messages_database_path()?;
+    let report = state
+        .discover_messages_chats_at(&db_path)
+        .map_err(|_error| {
+            "Messages discovery is unavailable. Grant Full Disk Access or try again.".to_owned()
+        })?;
+    Ok(MessagesDiscoveryCommandReport::from_report(&report))
+}
+
+fn messages_database_path() -> Result<PathBuf, String> {
+    std::env::var_os("HOME")
+        .map(|home| PathBuf::from(home).join("Library/Messages/chat.db"))
+        .ok_or_else(|| "Messages discovery is unavailable on this system.".to_owned())
+}
+
+fn morrow_store_path(app: &AppHandle) -> Result<PathBuf, String> {
+    app.path()
+        .app_data_dir()
+        .map(|path| path.join("morrow.sqlite"))
         .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
 pub fn reconcile_now(app: AppHandle) -> Result<(), String> {
-    let store_path = app
-        .path()
-        .app_data_dir()
-        .map_err(|error| error.to_string())?
-        .join("morrow.sqlite");
+    let store_path = morrow_store_path(&app)?;
     morrow_storage::Store::open(&store_path)
         .map(|_| ())
         .map_err(|error| error.to_string())
-}
-
-#[tauri::command]
-pub fn record_crash_log(request: CrashLogRequest) -> Result<CrashLogReceipt, String> {
-    let _request = request;
-    Ok(CrashLogReceipt { stored: false })
 }
