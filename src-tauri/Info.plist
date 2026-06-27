@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleDevelopmentRegion</key>
+  <string>en</string>
+  <key>CFBundleDisplayName</key>
+  <string>Morrow</string>
+  <key>CFBundleExecutable</key>
+  <string>morrow</string>
+  <key>CFBundleIdentifier</key>
+  <string>dev.morrow.desktop</string>
+  <key>CFBundleName</key>
+  <string>Morrow</string>
+  <key>CFBundlePackageType</key>
+  <string>APPL</string>
+  <key>CFBundleShortVersionString</key>
+  <string>0.1.0</string>
+  <key>CFBundleVersion</key>
+  <string>0.1.0</string>
+  <key>NSCalendarsUsageDescription</key>
+  <string>Morrow needs Calendar access to create and clean up proposed scheduling items.</string>
+  <key>NSCalendarsFullAccessUsageDescription</key>
+  <string>Morrow needs full Calendar access to remove proposed Morrow events during privacy reset.</string>
+  <key>NSCalendarsWriteOnlyAccessUsageDescription</key>
+  <string>Morrow needs Calendar write access to create proposed Morrow events.</string>
+  <key>NSRemindersUsageDescription</key>
+  <string>Morrow needs Reminders access to create and clean up proposed task reminders.</string>
+  <key>NSRemindersFullAccessUsageDescription</key>
+  <string>Morrow needs full Reminders access to remove proposed Morrow reminders during privacy reset.</string>
+</dict>
+</plist>
