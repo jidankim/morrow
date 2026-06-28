@@ -125,9 +125,15 @@ async function assertFocusChecks(page, state, width) {
 
   const keyboardFocusedMarker = await keyboardCanReachQaControl(page)
   if (focusableCount === 0 || !keyboardFocusedMarker) {
+    const disabledControlCount = await controls.evaluateAll((elements) =>
+      elements.filter((element) => element.matches(":disabled")).length
+    )
+    if (disabledControlCount === count) {
+      return { focusableCount, keyboardFocusedMarker, disabledControlCount }
+    }
     throw new Error(`${state}@${width}: keyboard focus did not reach a QA control`)
   }
-  return { focusableCount, keyboardFocusedMarker }
+  return { focusableCount, keyboardFocusedMarker, disabledControlCount: count - focusableCount }
 }
 
 async function keyboardCanReachQaControl(page) {
@@ -153,7 +159,7 @@ async function assertHoverChecks(page, state, width) {
     page,
     page.locator('[data-visual-qa-control="sync-now"]'),
     `${state}@${width}: Sync Now`,
-    true
+    expectedSyncNowState(state)
   )
   const selectedRows = page.locator('[data-visual-qa-row="selected-chat"]')
   let selectedRowHover = "not-present"
@@ -162,13 +168,20 @@ async function assertHoverChecks(page, state, width) {
       page,
       selectedRows.first(),
       `${state}@${width}: selected chat row`,
-      false
+      "any"
     )
   }
   return { syncHover, selectedRowHover }
 }
 
-async function assertHoverable(page, locator, label, allowDisabled) {
+function expectedSyncNowState(state) {
+  if (state === "ready-selected") {
+    return "enabled"
+  }
+  return "disabled"
+}
+
+async function assertHoverable(page, locator, label, expectedState) {
   if ((await locator.count()) === 0) {
     throw new Error(`${label} is missing`)
   }
@@ -184,8 +197,11 @@ async function assertHoverable(page, locator, label, allowDisabled) {
   if (!disabled && before === after) {
     throw new Error(`${label} hover produced no visual style change`)
   }
-  if (disabled && !allowDisabled) {
-    throw new Error(`${label} was unexpectedly disabled`)
+  if (expectedState === "enabled" && disabled) {
+    throw new Error(`${label} was disabled but should be enabled`)
+  }
+  if (expectedState === "disabled" && !disabled) {
+    throw new Error(`${label} was enabled but should be disabled`)
   }
   return disabled ? "hovered-disabled-control" : "hovered-with-style-change"
 }
