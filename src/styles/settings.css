@@ -30,6 +30,17 @@
   margin-top: var(--space-4);
 }
 
+.credential-action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}
+
+.provider-token-field {
+  max-width: 480px;
+}
+
 .inline-status {
   margin: var(--space-3) 0 0;
 }

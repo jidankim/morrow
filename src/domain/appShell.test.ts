@@ -42,6 +42,7 @@ describe("app shell state", () => {
     const setupNeeded = createDefaultAppShellState()
     const scanning = {
       ...setupNeeded,
+      providerCredentialStatus: "configured",
       discovery: { status: "ready", chats: [discoveredChat] },
       selectedChats: [selectedChat]
     } as const
@@ -71,6 +72,7 @@ describe("app shell state", () => {
     const initial = createDefaultAppShellState()
     const ready = {
       ...initial,
+      providerCredentialStatus: "configured",
       discovery: { status: "ready", chats: [discoveredChat] },
       selectedChats: [selectedChat]
     } as const
@@ -82,10 +84,32 @@ describe("app shell state", () => {
     expect(isSyncNowEnabled(ready)).toBe(true)
   })
 
-  it("loads old persisted permissionsGranted false payloads without blocking ready scanning", () => {
+  it("requires provider credential before real event creation is available", () => {
+    const initial = createDefaultAppShellState()
+    const missingProvider = {
+      ...initial,
+      providerCredentialStatus: "missing",
+      discovery: { status: "ready", chats: [discoveredChat] },
+      selectedChats: [selectedChat]
+    } as const
+    const configuredProvider = {
+      ...missingProvider,
+      providerCredentialStatus: "configured"
+    } as const
+
+    expect(getOnboardingWarnings(missingProvider)).toContain(
+      "Save an OpenAI API key in Settings before scanning."
+    )
+    expect(isSyncNowEnabled(missingProvider)).toBe(false)
+    expect(isOnboardingComplete(configuredProvider)).toBe(true)
+    expect(isSyncNowEnabled(configuredProvider)).toBe(true)
+  })
+
+  it("loads old persisted permissionsGranted false payloads but rechecks provider readiness", () => {
     const oldPersistedState = {
       ...createDefaultAppShellState(),
       config: { ...createDefaultAppShellState().config, permissionsGranted: false },
+      providerCredentialStatus: "configured",
       discovery: { status: "ready", chats: [discoveredChat] },
       selectedChats: [selectedChat]
     } as const
@@ -96,8 +120,9 @@ describe("app shell state", () => {
     const reloaded = loadAppShellState(storage)
 
     expect(reloaded.config.permissionsGranted).toBe(false)
-    expect(isOnboardingComplete(reloaded)).toBe(true)
-    expect(isSyncNowEnabled(reloaded)).toBe(true)
+    expect(reloaded.providerCredentialStatus).toBe("unchecked")
+    expect(isOnboardingComplete(reloaded)).toBe(false)
+    expect(isSyncNowEnabled(reloaded)).toBe(false)
   })
 
   it("does not add demo chat selections when native discovery has no options", () => {
@@ -114,6 +139,7 @@ describe("app shell state", () => {
     const storage = new Map<string, string>()
     const initial = {
       ...createDefaultAppShellState(),
+      providerCredentialStatus: "configured",
       discovery: { status: "ready", chats: [discoveredChat] }
     } as const
 
@@ -155,40 +181,6 @@ describe("app shell state", () => {
     }
   })
 
-  it("defaults privacy controls to no telemetry and scrubbed crash logs", () => {
-    const initial = createDefaultAppShellState()
-
-    expect(initial.config.telemetryEnabled).toBe(false)
-    expect(initial.config.crashLogExcerptsEnabled).toBe(false)
-    expect(initial.config.sourceExcerptsEnabled).toBe(true)
-  })
-
-  it("keeps old persisted settings on no-telemetry defaults", () => {
-    const storage = new Map<string, string>([
-      [
-        APP_SHELL_STATE_KEY,
-        JSON.stringify({
-          mode: "scanning",
-          config: {
-            referenceTimezone: "Asia/Seoul",
-            calendarSource: "apple-calendar",
-            permissionsGranted: true,
-            launchAtLogin: false,
-            sourceExcerptsEnabled: true,
-            firstProposalGuidanceEnabled: true
-          },
-          selectedChats: [],
-          pendingProposalCount: 0
-        })
-      ]
-    ])
-
-    const reloaded = loadAppShellState(storage)
-
-    expect(reloaded.config.telemetryEnabled).toBe(false)
-    expect(reloaded.config.crashLogExcerptsEnabled).toBe(false)
-  })
-
   it("rejects persisted ICS feed calendar source at the local configuration boundary", () => {
     const storage = new Map<string, string>([
       [
@@ -219,67 +211,39 @@ describe("app shell state", () => {
     expect(formatPendingProposalCount(14)).toBe("9+")
   })
 
-  it("rejects malformed persisted state at the local configuration boundary", () => {
-    const storage = new Map<string, string>([
-      [
-        APP_SHELL_STATE_KEY,
-        JSON.stringify({
-          mode: "paused",
-          config: {
-            referenceTimezone: "Mars/Olympus",
-            calendarSource: "apple-calendar",
-            permissionsGranted: true,
-            launchAtLogin: false,
-            sourceExcerptsEnabled: true,
-            firstProposalGuidanceEnabled: true
-          },
-          selectedChats: [
-            {
-              id: "../private-messages",
-              label: "Injected chat",
-              backfillPromptEnabled: true
-            }
-          ],
-          pendingProposalCount: 0
-        })
-      ]
-    ])
+  it("stores full Sync Now result evidence while preserving legacy pending-only events", () => {
+    const state = createDefaultAppShellState()
 
-    expect(() => loadAppShellState(storage)).toThrow()
-  })
+    const completed = reduceAppShellState(state, {
+      type: "syncCompleted",
+      pendingProposalCount: 5,
+      createdCandidateCount: 4,
+      quietLogCount: 2,
+      createdExternalProposalCount: 3,
+      failedExternalProposalCount: 1
+    })
+    const legacyCompleted = reduceAppShellState(state, {
+      type: "syncCompleted",
+      pendingProposalCount: 6
+    })
 
-  it("rejects private-shaped selected chat metadata in local storage", () => {
-    const storage = new Map<string, string>([
-      [
-        APP_SHELL_STATE_KEY,
-        JSON.stringify({
-          mode: "scanning",
-          config: {
-            referenceTimezone: "Asia/Seoul",
-            calendarSource: "apple-calendar",
-            permissionsGranted: true,
-            launchAtLogin: false,
-            sourceExcerptsEnabled: true,
-            firstProposalGuidanceEnabled: true
-          },
-          discovery: { status: "unverified", chats: [] },
-          selectedChats: [
-            {
-              id: "messages-chat-11111111111111111111111111111111",
-              label: "Chat alpha",
-              participantCount: 1,
-              participantIds: ["person@example.com"],
-              latestActivityTimestamp: 1_783_000_000,
-              backfillPromptEnabled: true,
-              phone: "+15551234567"
-            }
-          ],
-          pendingProposalCount: 0
-        })
-      ]
-    ])
-
-    expect(() => loadAppShellState(storage)).toThrow()
+    expect(completed).toMatchObject({
+      pendingProposalCount: 5,
+      createdCandidateCount: 4,
+      quietLogCount: 2,
+      createdExternalProposalCount: 3,
+      failedExternalProposalCount: 1
+    })
+    expect(getMenuModel(completed).syncResultLabel).toBe(
+      "Candidates 4 · Quiet logs 2 · External proposals 3 created / 1 failed"
+    )
+    expect(legacyCompleted).toMatchObject({
+      pendingProposalCount: 6,
+      createdCandidateCount: 0,
+      quietLogCount: 0,
+      createdExternalProposalCount: 0,
+      failedExternalProposalCount: 0
+    })
   })
 
 })

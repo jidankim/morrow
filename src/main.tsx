@@ -33,6 +33,7 @@ const visualChatDiscoveryStates = {
   empty: true,
   "ready-multiple": true,
   "ready-selected": true,
+  "provider-missing": true,
   "stale-selection": true
 } as const
 
@@ -76,6 +77,7 @@ function VisualChatDiscoveryHarness({
           onPause={noop}
           onResume={noop}
           onSyncNow={noop}
+          onOpenSettings={noop}
           onRetryChatDiscovery={noop}
           onOpenFullDiskAccess={noop}
           onToggleChat={noopChatToggle}
@@ -130,6 +132,13 @@ function visualChatDiscoveryAppState(stateName: VisualChatDiscoveryState): AppSh
         discovery: { status: "ready", chats: visualDiscoveredChats },
         selectedChats: [selectedVisualChat]
       }
+    case "provider-missing":
+      return {
+        ...baseState,
+        providerCredentialStatus: "missing",
+        discovery: { status: "ready", chats: visualDiscoveredChats },
+        selectedChats: [selectedVisualChat]
+      }
     case "stale-selection":
       return {
         ...baseState,
@@ -150,7 +159,12 @@ function createVisualBaseState(): AppShellState {
       referenceTimezone: "Asia/Seoul",
       permissionsGranted: true
     },
-    pendingProposalCount: 2
+    providerCredentialStatus: "configured",
+    pendingProposalCount: 2,
+    createdCandidateCount: 4,
+    quietLogCount: 2,
+    createdExternalProposalCount: 3,
+    failedExternalProposalCount: 1
   }
 }
 

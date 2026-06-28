@@ -2,25 +2,34 @@ import type { AppConfig } from "./domain/appShell"
 import type { DeleteAllOptions } from "./domain/privacyControls"
 import {
   SettingsPrivacyControls,
-  type DeleteAllState
+  type DeleteAllState,
+  type ProviderCredentialState
 } from "./SettingsPrivacyControls"
 import type { PrivacySettingsPane } from "./tauriBridge"
 
-export type { DeleteAllState } from "./SettingsPrivacyControls"
+export type { DeleteAllState, ProviderCredentialState } from "./SettingsPrivacyControls"
 
 type SettingsViewProps = {
   readonly config: AppConfig
   readonly deleteAllState: DeleteAllState
+  readonly providerCredentialState: ProviderCredentialState
   readonly onChange: (config: AppConfig) => void
+  readonly onCheckProviderCredential: () => Promise<void>
+  readonly onDeleteProviderCredential: () => Promise<void>
   readonly onDeleteAll: (options: DeleteAllOptions) => void
+  readonly onSaveProviderCredential: (token: string) => Promise<void>
   readonly onOpenPrivacySettings: (pane: PrivacySettingsPane) => Promise<void>
 }
 
 export function SettingsView({
   config,
   deleteAllState,
+  providerCredentialState,
   onChange,
+  onCheckProviderCredential,
+  onDeleteProviderCredential,
   onDeleteAll,
+  onSaveProviderCredential,
   onOpenPrivacySettings
 }: SettingsViewProps): JSX.Element {
   return (
@@ -82,7 +91,11 @@ export function SettingsView({
       </label>
       <SettingsPrivacyControls
         deleteAllState={deleteAllState}
+        providerCredentialState={providerCredentialState}
+        onCheckProviderCredential={onCheckProviderCredential}
+        onDeleteProviderCredential={onDeleteProviderCredential}
         onDeleteAll={onDeleteAll}
+        onSaveProviderCredential={onSaveProviderCredential}
         onOpenPrivacySettings={onOpenPrivacySettings}
       />
     </div>

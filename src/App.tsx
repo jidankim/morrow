@@ -15,24 +15,27 @@ import {
   type AppConfig,
   type AppMode,
   type AppShellState,
-  type ChatId
+  type ChatId,
+  type ProviderCredentialStatus
 } from "./domain/appShell"
 import {
   DELETE_ALL_CONFIRMATION_TEXT,
   scrubCrashLogText,
   type DeleteAllOptions
 } from "./domain/privacyControls"
-import { privacyPaneName, requireDeleteReceipt } from "./domain/privacySettings"
+import { requireDeleteReceipt } from "./domain/privacySettings"
+import { syncResultCountsFrom } from "./domain/syncResultCounts"
 import {
   createNativeShellBridge,
-  type NativeMenuCommand,
-  type PrivacySettingsPane
+  type NativeMenuCommand
 } from "./tauriBridge"
 import { assertNeverNativeMenuCommand, loadInitialState, routeFromHash, type Route } from "./appRuntime"
 import { syncScanRequestFromState } from "./messagesDiscoveryBridge"
 import { nativeErrorMessage } from "./nativeErrors"
 import { useMessagesDiscoveryActions } from "./useMessagesDiscovery"
 import { useNativeShellState } from "./useNativeShellState"
+import { usePrivacySettingsOpener } from "./usePrivacySettingsOpener"
+import { useProviderCredentialActions } from "./useProviderCredentialActions"
 
 export function App(): JSX.Element {
   const storage = useMemo(() => createBrowserShellStorage(window.localStorage), [])
@@ -44,6 +47,20 @@ export function App(): JSX.Element {
   const [route, setRoute] = useState<Route>(() => routeFromHash())
   const [syncing, setSyncing] = useState(false)
   const [deleteAllState, setDeleteAllState] = useState<DeleteAllState>({ status: "idle" })
+  const setProviderCredentialStatus = useCallback(
+    (providerCredentialStatus: ProviderCredentialStatus): void => {
+      setState((current) =>
+        reduceAppShellState(current, { type: "setProviderCredentialStatus", providerCredentialStatus })
+      )
+    },
+    []
+  )
+  const {
+    providerCredentialState,
+    checkProviderCredential,
+    deleteProviderCredential,
+    saveProviderCredential
+  } = useProviderCredentialActions(nativeBridge, setProviderCredentialStatus)
   const syncInFlight = useRef(false)
   const runSyncNowRef = useRef<() => void>(() => undefined)
   const menu = getMenuModel(state)
@@ -68,10 +85,8 @@ export function App(): JSX.Element {
   useEffect(() => {
     saveAppShellState(state, storage)
     void nativeBridge.setShellState({
-      mode: state.mode,
-      errorMessage: state.errorMessage,
-      onboardingComplete: isOnboardingComplete(state),
-      pendingProposalCount: state.pendingProposalCount
+      mode: state.mode, errorMessage: state.errorMessage,
+      onboardingComplete: isOnboardingComplete(state), pendingProposalCount: state.pendingProposalCount
     })
   }, [nativeBridge, state, storage])
 
@@ -107,21 +122,11 @@ export function App(): JSX.Element {
     void nativeBridge
       .reconcileNow()
       .then(() => nativeBridge.scanSelectedChats(syncScanRequestFromState(state)))
-      .then((result) => {
-        setState((current) =>
-          reduceAppShellState(current, {
-            type: "syncCompleted",
-            pendingProposalCount: result?.pendingProposalCount ?? 0
-          })
-        )
-      })
+      .then((result) => setState((current) => reduceAppShellState(current, { type: "syncCompleted", ...syncResultCountsFrom(result) })))
       .catch((error: unknown) => {
         const message = nativeErrorMessage(error, "Sync Now could not complete.")
         setState((current) =>
-          reduceAppShellState(current, {
-            type: "fail",
-            message
-          })
+          reduceAppShellState(current, { type: "fail", message })
         )
       })
       .finally(() => {
@@ -154,23 +159,12 @@ export function App(): JSX.Element {
         })
         setDeleteAllState({ status: "failed", message })
         setState((current) =>
-          reduceAppShellState(current, {
-            type: "fail",
-            message
-          })
+          reduceAppShellState(current, { type: "fail", message })
         )
       })
   }
 
-  const openPrivacySettings = useCallback(
-    async (pane: PrivacySettingsPane): Promise<void> => {
-      const receipt = await nativeBridge.openPrivacySettings({ pane })
-      if (receipt === undefined || !receipt.opened) {
-        throw new Error(`${privacyPaneName(pane)} could not be opened.`)
-      }
-    },
-    [nativeBridge]
-  )
+  const openPrivacySettings = usePrivacySettingsOpener(nativeBridge)
 
   const { loadMessagesDiscovery, openFullDiskAccess } = useMessagesDiscoveryActions({
     nativeBridge,
@@ -183,6 +177,10 @@ export function App(): JSX.Element {
   useEffect(() => {
     loadMessagesDiscovery()
   }, [loadMessagesDiscovery])
+
+  useEffect(() => {
+    void checkProviderCredential()
+  }, [checkProviderCredential])
 
   useEffect(() => {
     let active = true
@@ -219,10 +217,7 @@ export function App(): JSX.Element {
       .catch((error: unknown) => {
         const message = nativeErrorMessage(error, "Native menu commands could not be read.")
         setState((current) =>
-          reduceAppShellState(current, {
-            type: "fail",
-            message
-          })
+          reduceAppShellState(current, { type: "fail", message })
         )
       })
 
@@ -240,8 +235,12 @@ export function App(): JSX.Element {
           <SettingsView
             config={state.config}
             deleteAllState={deleteAllState}
+            providerCredentialState={providerCredentialState}
             onChange={updateConfig}
+            onCheckProviderCredential={checkProviderCredential}
+            onDeleteProviderCredential={deleteProviderCredential}
             onDeleteAll={deleteAllMorrowData}
+            onSaveProviderCredential={saveProviderCredential}
             onOpenPrivacySettings={openPrivacySettings}
           />
         ) : (
@@ -254,6 +253,7 @@ export function App(): JSX.Element {
             onPause={() => setMode("paused")}
             onResume={() => setMode("scanning")}
             onSyncNow={runSyncNow}
+            onOpenSettings={openSettingsRoute}
             onRetryChatDiscovery={loadMessagesDiscovery}
             onOpenFullDiskAccess={openFullDiskAccess}
             onToggleChat={toggleChat}

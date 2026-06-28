@@ -49,6 +49,12 @@ describe("sync readiness", () => {
         detail: "Selected chats are verified for scanning."
       },
       {
+        id: "provider-credential",
+        label: "Provider credential",
+        status: "complete",
+        detail: "OpenAI API key is configured for scheduling extraction."
+      },
+      {
         id: "pause-state",
         label: "Scanning state",
         status: "complete",
@@ -76,6 +82,26 @@ describe("sync readiness", () => {
     expect(readinessItemIds).not.toContain("permissions")
     expect(items.every((item) => item.status === "complete")).toBe(true)
     expect(isSyncNowEnabled(readyWithoutManualPermission)).toBe(true)
+  })
+
+  it("getSyncReadinessItems blocks real event creation when provider credential is missing", () => {
+    // Given
+    const missingProvider = {
+      ...createReadyAppShellState(),
+      providerCredentialStatus: "missing"
+    } satisfies AppShellState
+
+    // When
+    const items = getSyncReadinessItems(missingProvider)
+
+    // Then
+    expect(items).toContainEqual({
+      id: "provider-credential",
+      label: "Provider credential",
+      status: "blocking",
+      detail: "Save an OpenAI API key in Settings before scanning."
+    })
+    expect(isSyncNowEnabled(missingProvider)).toBe(false)
   })
 
   it("getSyncReadinessItems marks stale selected chats as blocking", () => {
@@ -136,6 +162,11 @@ describe("sync readiness", () => {
         detail: "Select at least one chat before scanning."
       },
       {
+        state: { ...ready, providerCredentialStatus: "missing" },
+        item: "provider-credential",
+        detail: "Save an OpenAI API key in Settings before scanning."
+      },
+      {
         state: reduceAppShellState(ready, { type: "pause" }),
         item: "pause-state",
         detail: "Resume scanning to enable Sync Now."
@@ -173,6 +204,7 @@ function createReadyAppShellState(): AppShellState {
   return {
     ...initial,
     config: { ...initial.config, permissionsGranted: false },
+    providerCredentialStatus: "configured",
     discovery: { status: "ready", chats: [discoveredChat] },
     selectedChats: [selectedChat]
   }

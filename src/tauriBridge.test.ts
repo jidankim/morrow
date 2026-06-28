@@ -51,7 +51,7 @@ describe("createNativeShellBridge scan command", () => {
     const result = await bridge.scanSelectedChats(request)
 
     // Then
-    expect(result).toEqual({ pendingProposalCount: 3 })
+    expect(result).toEqual({ pendingProposalCount: 3, createdCandidateCount: 0, quietLogCount: 0, createdExternalProposalCount: 0, failedExternalProposalCount: 0 })
     expect(tauriMock.invoke).toHaveBeenCalledWith("scan_selected_chats", { request })
   })
 

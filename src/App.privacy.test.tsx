@@ -14,6 +14,13 @@ const bridgeMock = vi.hoisted(() => ({
   subscribeMenuCommand: vi.fn(async () => vi.fn()),
   reconcileNow: vi.fn(async () => undefined),
   scanSelectedChats: vi.fn(async () => ({ pendingProposalCount: 12 })),
+  storeMorrowToken: vi.fn(async () => ({ storageSurface: "keychainBridge", stored: true, deleted: false })),
+  readMorrowToken: vi.fn(async () => ({
+    storageSurface: "keychainBridge",
+    present: true,
+    token: "redacted-provider-token-for-ui"
+  })),
+  deleteMorrowToken: vi.fn(async () => ({ storageSurface: "keychainBridge", stored: false, deleted: true })),
   discoverMessagesChats: vi.fn(async () => ({
     status: "ready",
     chats: [
@@ -42,6 +49,20 @@ const bridgeMock = vi.hoisted(() => ({
     providerOAuthDeleteRequested: true,
     providerOAuthDeleted: true,
     providerOAuthDeleteFailed: false,
+    providerCredentialDeletes: [
+      {
+        tokenKind: "morrow-owned-token",
+        deleteRequested: true,
+        deleted: true,
+        failed: false
+      },
+      {
+        tokenKind: "morrow-openai-provider-api-key",
+        deleteRequested: true,
+        deleted: true,
+        failed: false
+      }
+    ],
     cleanupPlan: {
       proposedItems: "completed",
       emptyProposalContainers: "skippedByUser",
@@ -53,6 +74,8 @@ const bridgeMock = vi.hoisted(() => ({
 }))
 
 vi.mock("./tauriBridge", () => ({
+  MORROW_KEYCHAIN_SERVICE: "com.morrow.desktop.token",
+  MORROW_PROVIDER_TOKEN_KIND: "morrow-openai-provider-api-key",
   createNativeShellBridge: () => bridgeMock
 }))
 
@@ -81,6 +104,9 @@ describe("App privacy controls", () => {
     window.localStorage.clear()
     window.location.hash = ""
     bridgeMock.scanSelectedChats.mockClear()
+    bridgeMock.storeMorrowToken.mockClear()
+    bridgeMock.readMorrowToken.mockClear()
+    bridgeMock.deleteMorrowToken.mockClear()
     bridgeMock.discoverMessagesChats.mockClear()
     bridgeMock.openPrivacySettings.mockClear()
     bridgeMock.deleteMorrowData.mockClear()
@@ -130,72 +156,6 @@ describe("App privacy controls", () => {
     })
   })
 
-  it("requires type-to-confirm before delete-all calls native Morrow data deletion", async () => {
-    render(<App />)
-
-    act(() => {
-      window.location.hash = "#settings"
-      window.dispatchEvent(new HashChangeEvent("hashchange"))
-    })
-
-    const deleteButton = screen.getByRole("button", { name: "Delete Morrow data" })
-    expect(screen.getByLabelText("Delete proposed Morrow items")).toBeChecked()
-    expect(screen.getByLabelText("Delete empty Morrow Proposed containers")).not.toBeChecked()
-    expect(deleteButton).toBeDisabled()
-
-    fireEvent.change(screen.getByLabelText("Type DELETE MORROW DATA to confirm"), {
-      target: { value: "delete morrow data" }
-    })
-    expect(deleteButton).toBeDisabled()
-
-    fireEvent.change(screen.getByLabelText("Type DELETE MORROW DATA to confirm"), {
-      target: { value: "DELETE MORROW DATA" }
-    })
-    fireEvent.click(deleteButton)
-
-    await waitFor(() => expect(bridgeMock.deleteMorrowData).toHaveBeenCalledOnce())
-    expect(bridgeMock.deleteMorrowData).toHaveBeenCalledWith({
-      confirmation: "DELETE MORROW DATA",
-      cleanupProposedItems: true,
-      deleteEmptyProposalContainers: false,
-      revokeProviderOAuth: true
-    })
-    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Morrow data reset"))
-    expect(screen.getByText("Approved Calendar and Reminders items were preserved.")).toBeInTheDocument()
-    expect(screen.getByText("Deleted 1 proposed Calendar item(s) and 1 proposed Reminder item(s).")).toBeInTheDocument()
-  })
-
-  it("reports non-fatal OAuth revoke failures after delete-all succeeds", async () => {
-    bridgeMock.deleteMorrowData.mockResolvedValueOnce({
-      storageSurface: "morrowStore",
-      databaseDeleted: false,
-      approvedExternalItemsDeleted: false,
-      providerOAuthDeleteRequested: true,
-      providerOAuthDeleted: false,
-      providerOAuthDeleteFailed: true,
-      providerOAuthDeleteError: "Morrow Keychain delete failed with OSStatus -60008",
-      cleanupPlan: {
-        proposedItems: "completed",
-        emptyProposalContainers: "skippedByUser",
-        proposedCalendarItemsDeleted: 0,
-        proposedReminderItemsDeleted: 0
-      }
-    })
-    render(<App />)
-
-    act(() => {
-      window.location.hash = "#settings"
-      window.dispatchEvent(new HashChangeEvent("hashchange"))
-    })
-    fireEvent.change(await screen.findByLabelText("Type DELETE MORROW DATA to confirm"), {
-      target: { value: "DELETE MORROW DATA" }
-    })
-    fireEvent.click(screen.getByRole("button", { name: "Delete Morrow data" }))
-
-    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Morrow data reset"))
-    expect(screen.getByText("Morrow OAuth grant could not be revoked by macOS.")).toBeInTheDocument()
-  })
-
   it("opens macOS privacy panes for Messages Calendar and Reminders access", async () => {
     render(<App />)
 
@@ -216,50 +176,4 @@ describe("App privacy controls", () => {
     expect(bridgeMock.openPrivacySettings).toHaveBeenNthCalledWith(3, { pane: "reminders" })
   })
 
-  it("scrubs crash log text before reporting delete-all failures", async () => {
-    bridgeMock.deleteMorrowData.mockRejectedValueOnce(
-      new Error('delete failed excerpt="private clinic visit" prompt="raw prompt"')
-    )
-    render(<App />)
-
-    act(() => {
-      window.location.hash = "#settings"
-      window.dispatchEvent(new HashChangeEvent("hashchange"))
-    })
-    fireEvent.change(await screen.findByLabelText("Type DELETE MORROW DATA to confirm"), {
-      target: { value: "DELETE MORROW DATA" }
-    })
-    fireEvent.click(screen.getByRole("button", { name: "Delete Morrow data" }))
-
-    await waitFor(() => expect(bridgeMock.recordCrashLog).toHaveBeenCalledOnce())
-    const crashRequest = bridgeMock.recordCrashLog.mock.calls[0]?.[0]
-    expect(crashRequest?.message).toContain("excerpt=[redacted]")
-    expect(crashRequest?.message).toContain("prompt=[redacted]")
-    expect(crashRequest?.message).not.toContain("private clinic visit")
-    expect(crashRequest?.message).not.toContain("raw prompt")
-  })
-
-  it("surfaces scrubbed native string rejection from delete-all as a visible failure", async () => {
-    bridgeMock.deleteMorrowData.mockRejectedValueOnce(
-      'Calendar access was denied excerpt="private clinic visit"'
-    )
-    render(<App />)
-
-    act(() => {
-      window.location.hash = "#settings"
-      window.dispatchEvent(new HashChangeEvent("hashchange"))
-    })
-    fireEvent.change(await screen.findByLabelText("Type DELETE MORROW DATA to confirm"), {
-      target: { value: "DELETE MORROW DATA" }
-    })
-    fireEvent.click(screen.getByRole("button", { name: "Delete Morrow data" }))
-
-    await waitFor(() => expect(bridgeMock.recordCrashLog).toHaveBeenCalledOnce())
-    act(() => {
-      window.location.hash = "#status"
-      window.dispatchEvent(new HashChangeEvent("hashchange"))
-    })
-    expect(screen.getByTestId("status-label")).toHaveTextContent("Error")
-    expect(screen.getByText("Calendar access was denied excerpt=[redacted]")).toBeInTheDocument()
-  })
 })

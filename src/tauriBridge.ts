@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core"
 import { listen } from "@tauri-apps/api/event"
 import { z } from "zod"
 import type { MenuModel, NativeAppShellState } from "./domain/appShell"
+import { syncResultCountsSchema, type SyncResultCounts } from "./domain/syncResultCounts"
 import {
   parseMessagesDiscoveryReport,
   parseSyncScanRequest,
@@ -45,10 +46,6 @@ const nativeAppShellStateSchema = z.object({
   pendingProposalCount: z.number().int().min(0)
 })
 
-const syncScanResultSchema = z.object({
-  pendingProposalCount: z.number().int().min(0)
-})
-
 const tokenStorageSurfaceSchema = z.literal("keychainBridge")
 
 const tokenCommandReceiptSchema = z.object({
@@ -65,19 +62,20 @@ const tokenReadResponseSchema = z.object({
 
 export const MORROW_KEYCHAIN_SERVICE = "com.morrow.desktop.token"
 export const MORROW_TOKEN_KIND = "morrow-owned-token"
+export const MORROW_PROVIDER_TOKEN_KIND = "morrow-openai-provider-api-key"
+
+export type MorrowTokenKind = typeof MORROW_TOKEN_KIND | typeof MORROW_PROVIDER_TOKEN_KIND
 
 export type MorrowTokenLookupRequest = {
   readonly service: typeof MORROW_KEYCHAIN_SERVICE
-  readonly tokenKind: typeof MORROW_TOKEN_KIND
+  readonly tokenKind: MorrowTokenKind
 }
 export type MorrowTokenWriteRequest = MorrowTokenLookupRequest & {
   readonly token: string
 }
 export type MorrowTokenCommandReceipt = z.infer<typeof tokenCommandReceiptSchema>
 export type MorrowTokenReadResponse = z.infer<typeof tokenReadResponseSchema>
-export type SyncScanResult = {
-  readonly pendingProposalCount: number
-}
+export type SyncScanResult = SyncResultCounts
 export type NativeMenuCommand = "sync-now" | "open-settings" | "open-calendar" | "open-reminders"
 
 export type NativeShellBridge = {
@@ -128,7 +126,7 @@ function parseNativeAppShellState(value: unknown): NativeAppShellState {
 }
 
 function parseSyncScanResult(value: unknown): SyncScanResult {
-  return syncScanResultSchema.parse(value)
+  return syncResultCountsSchema.parse(value)
 }
 
 function parseTokenCommandReceipt(value: unknown): MorrowTokenCommandReceipt {

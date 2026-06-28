@@ -63,7 +63,9 @@
   }
 
   .command-row .button,
-  .discovery-actions .button {
+  .credential-action-row .button,
+  .discovery-actions .button,
+  .permission-action-row .button {
     width: 100%;
     justify-content: center;
   }

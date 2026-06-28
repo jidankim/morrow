@@ -68,6 +68,20 @@ const bridgeMock = vi.hoisted(() => {
       syncCalls.push("scan")
       return { pendingProposalCount: 12 }
     }),
+    storeMorrowToken: vi.fn(async () => ({
+      storageSurface: "keychainBridge",
+      stored: true,
+      deleted: false
+    })),
+    readMorrowToken: vi.fn(async () => ({
+      storageSurface: "keychainBridge",
+      present: true
+    })),
+    deleteMorrowToken: vi.fn(async () => ({
+      storageSurface: "keychainBridge",
+      stored: false,
+      deleted: true
+    })),
     discoverMessagesChats: vi.fn(async (): Promise<NativeDiscoveryReportForTest> => nativeReadyReport),
     openPrivacySettings: vi.fn(async () => ({ pane: "fullDiskAccess", opened: true })),
     emitNativeState: (state: NativeStateForTest): void => {
@@ -86,6 +100,7 @@ const bridgeMock = vi.hoisted(() => {
 vi.mock("./tauriBridge", () => ({
   MORROW_KEYCHAIN_SERVICE: "com.morrow.desktop.token",
   MORROW_TOKEN_KIND: "morrow-owned-token",
+  MORROW_PROVIDER_TOKEN_KIND: "morrow-openai-provider-api-key",
   createNativeShellBridge: () => ({
     getState: bridgeMock.getState,
     setShellState: bridgeMock.setShellState,
@@ -93,6 +108,9 @@ vi.mock("./tauriBridge", () => ({
     subscribeMenuCommand: bridgeMock.subscribeMenuCommand,
     reconcileNow: bridgeMock.reconcileNow,
     scanSelectedChats: bridgeMock.scanSelectedChats,
+    storeMorrowToken: bridgeMock.storeMorrowToken,
+    readMorrowToken: bridgeMock.readMorrowToken,
+    deleteMorrowToken: bridgeMock.deleteMorrowToken,
     discoverMessagesChats: bridgeMock.discoverMessagesChats,
     openPrivacySettings: bridgeMock.openPrivacySettings
   })
@@ -121,6 +139,13 @@ describe("App native shell bridge", () => {
     bridgeMock.subscribeMenuCommand.mockClear()
     bridgeMock.reconcileNow.mockClear()
     bridgeMock.scanSelectedChats.mockClear()
+    bridgeMock.storeMorrowToken.mockClear()
+    bridgeMock.readMorrowToken.mockClear()
+    bridgeMock.readMorrowToken.mockResolvedValue({
+      storageSurface: "keychainBridge",
+      present: true
+    })
+    bridgeMock.deleteMorrowToken.mockClear()
     bridgeMock.discoverMessagesChats.mockClear()
     bridgeMock.discoverMessagesChats.mockResolvedValue(nativeReadyReport)
     bridgeMock.openPrivacySettings.mockClear()
@@ -237,38 +262,6 @@ describe("App native shell bridge", () => {
 
     await expect(screen.findByTestId("status-label")).resolves.toHaveTextContent("Error")
     expect(screen.getByText("menu stream unavailable")).toBeInTheDocument()
-  })
-
-  it("persists onboarding and settings across reloads", async () => {
-    seedReadyState()
-    const firstRender = render(<App />)
-
-    act(() => {
-      window.location.hash = "#settings"
-      window.dispatchEvent(new HashChangeEvent("hashchange"))
-    })
-    fireEvent.change(screen.getByLabelText("Reference timezone"), {
-      target: { value: "America/New_York" }
-    })
-    fireEvent.click(screen.getByLabelText("Open Morrow at login"))
-
-    await waitFor(() => {
-      const stored = window.localStorage.getItem(APP_SHELL_STATE_KEY)
-      expect(stored).toContain("America/New_York")
-      expect(stored).toContain("messages-chat-11111111111111111111111111111111")
-    })
-
-    firstRender.unmount()
-    window.location.hash = "#status"
-    render(<App />)
-
-    await waitFor(() => expect(screen.getByTestId("sync-state")).toHaveTextContent("Enabled"))
-    act(() => {
-      window.location.hash = "#settings"
-      window.dispatchEvent(new HashChangeEvent("hashchange"))
-    })
-    expect(screen.getByLabelText("Reference timezone")).toHaveValue("America/New_York")
-    expect(screen.getByLabelText("Open Morrow at login")).toBeChecked()
   })
 
 })

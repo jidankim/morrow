@@ -50,7 +50,7 @@ function DeleteAllSuccess({
             : "Local Morrow database was already clear."}
         </li>
         <li>Approved Calendar and Reminders items were preserved.</li>
-        <li>{providerOAuthText(receipt)}</li>
+        <li>{providerCredentialText(receipt)}</li>
         <li>
           {proposedCleanupText(receipt)}
         </li>
@@ -65,17 +65,17 @@ function DeleteAllSuccess({
   )
 }
 
-function providerOAuthText(receipt: MorrowDataDeleteReceipt): string {
+function providerCredentialText(receipt: MorrowDataDeleteReceipt): string {
   if (!receipt.providerOAuthDeleteRequested) {
-    return "Morrow OAuth grant was left unchanged."
+    return "Stored provider credentials were left unchanged."
   }
   if (receipt.providerOAuthDeleteFailed) {
-    return "Morrow OAuth grant could not be revoked by macOS."
+    return "Stored provider credentials could not be deleted by macOS."
   }
   if (receipt.providerOAuthDeleted) {
-    return "Morrow OAuth grant was revoked."
+    return "Stored provider credentials were deleted."
   }
-  return "No stored Morrow OAuth grant was found."
+  return "No stored provider credentials were found."
 }
 
 function proposedCleanupText(receipt: MorrowDataDeleteReceipt): string {

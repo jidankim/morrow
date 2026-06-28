@@ -1,6 +1,7 @@
 import {
   AlertTriangle,
   CheckCircle2,
+  KeyRound,
   Pause,
   Play,
   RefreshCw
@@ -25,6 +26,7 @@ type StatusViewProps = {
   readonly onPause: () => void
   readonly onResume: () => void
   readonly onSyncNow: () => void
+  readonly onOpenSettings: () => void
   readonly onRetryChatDiscovery: () => void
   readonly onOpenFullDiskAccess: () => void
   readonly onToggleChat: (chatId: ChatId) => void
@@ -40,6 +42,7 @@ export function StatusView({
   onPause,
   onResume,
   onSyncNow,
+  onOpenSettings,
   onRetryChatDiscovery,
   onOpenFullDiskAccess,
   onToggleChat,
@@ -49,6 +52,9 @@ export function StatusView({
   const readinessItems = getSyncReadinessItems(state, { syncing })
   const setupReadinessItems = readinessItems.filter(isSetupReadinessItem)
   const syncReadinessMessage = getSyncReadinessMessage(syncEnabled, readinessItems)
+  const providerCredentialBlocked = readinessItems.some(
+    (item) => item.id === "provider-credential" && item.status === "blocking"
+  )
 
   return (
     <div className="panel">
@@ -89,6 +95,7 @@ export function StatusView({
         <Metric label="Scanning state" testId="status-label" value={menu.statusLabel} />
         <Metric label="Sync Now" testId="sync-state" value={syncEnabled ? "Enabled" : "Disabled"} />
         <Metric label="Pending proposals" testId="pending-count" value={menu.pendingProposalLabel} />
+        <Metric label="Sync result" testId="sync-result-counts" value={menu.syncResultLabel} />
       </dl>
       <section className="setup-section" aria-labelledby="setup-heading">
         <h3 id="setup-heading">Setup readiness</h3>
@@ -97,6 +104,12 @@ export function StatusView({
             <ReadinessItem item={item} key={item.id} />
           ))}
         </ul>
+        {providerCredentialBlocked ? (
+          <button className="button secondary" onClick={onOpenSettings} type="button">
+            <KeyRound aria-hidden="true" size={16} />
+            Configure provider
+          </button>
+        ) : null}
         <ChatDiscoveryControls
           discovery={state.discovery}
           referenceTimezone={state.config.referenceTimezone}
@@ -189,6 +202,7 @@ function isSetupReadinessItem(item: SyncReadinessItem): boolean {
     case "discovery":
     case "chat-selection":
     case "selected-chat-verification":
+    case "provider-credential":
       return true
     case "pause-state":
     case "sync-activity":
