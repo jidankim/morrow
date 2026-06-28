@@ -40,12 +40,8 @@ describe("app shell state", () => {
 
   it("renders setup-needed before scanning when onboarding is incomplete", () => {
     const setupNeeded = createDefaultAppShellState()
-    const setupOnly = reduceAppShellState(setupNeeded, {
-      type: "updateConfig",
-      config: { ...setupNeeded.config, permissionsGranted: true }
-    })
     const scanning = {
-      ...setupOnly,
+      ...setupNeeded,
       discovery: { status: "ready", chats: [discoveredChat] },
       selectedChats: [selectedChat]
     } as const
@@ -71,23 +67,37 @@ describe("app shell state", () => {
     expect(getMenuModel(paused).syncNowEnabled).toBe(false)
   })
 
-  it("requires setup completion and at least one selected chat before scanning", () => {
+  it("requires verified discovery and at least one selected chat before scanning", () => {
     const initial = createDefaultAppShellState()
-    const setupOnly = reduceAppShellState(initial, {
-      type: "updateConfig",
-      config: { ...initial.config, permissionsGranted: true }
-    })
     const ready = {
-      ...setupOnly,
+      ...initial,
       discovery: { status: "ready", chats: [discoveredChat] },
       selectedChats: [selectedChat]
     } as const
 
     expect(isOnboardingComplete(initial)).toBe(false)
     expect(getOnboardingWarnings(initial)).toContain("Select at least one chat before scanning.")
-    expect(isSyncNowEnabled(setupOnly)).toBe(false)
+    expect(getOnboardingWarnings(ready)).not.toContain("Complete required permissions before scanning.")
     expect(isOnboardingComplete(ready)).toBe(true)
     expect(isSyncNowEnabled(ready)).toBe(true)
+  })
+
+  it("loads old persisted permissionsGranted false payloads without blocking ready scanning", () => {
+    const oldPersistedState = {
+      ...createDefaultAppShellState(),
+      config: { ...createDefaultAppShellState().config, permissionsGranted: false },
+      discovery: { status: "ready", chats: [discoveredChat] },
+      selectedChats: [selectedChat]
+    } as const
+    const storage = new Map<string, string>([
+      [APP_SHELL_STATE_KEY, JSON.stringify(oldPersistedState)]
+    ])
+
+    const reloaded = loadAppShellState(storage)
+
+    expect(reloaded.config.permissionsGranted).toBe(false)
+    expect(isOnboardingComplete(reloaded)).toBe(true)
+    expect(isSyncNowEnabled(reloaded)).toBe(true)
   })
 
   it("does not add demo chat selections when native discovery has no options", () => {
@@ -122,7 +132,6 @@ describe("app shell state", () => {
     const defaultState = createDefaultAppShellState()
     const staleSelectedState = {
       ...defaultState,
-      config: { ...defaultState.config, permissionsGranted: true },
       selectedChats: [selectedChat]
     }
     const states = [

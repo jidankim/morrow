@@ -104,7 +104,7 @@ const seedReadyState = (): void => {
     APP_SHELL_STATE_KEY,
     JSON.stringify({
       ...initial,
-      config: { ...initial.config, permissionsGranted: true },
+      config: { ...initial.config, permissionsGranted: false },
       discovery: { status: "ready", chats: [discoveredChat] },
       selectedChats: [{ ...discoveredChat, backfillPromptEnabled: true }]
     })

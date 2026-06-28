@@ -27,7 +27,6 @@ type StatusViewProps = {
   readonly onSyncNow: () => void
   readonly onRetryChatDiscovery: () => void
   readonly onOpenFullDiskAccess: () => void
-  readonly onTogglePermissions: (enabled: boolean) => void
   readonly onToggleChat: (chatId: ChatId) => void
   readonly onToggleBackfillPrompt: (chatId: ChatId, enabled: boolean) => void
 }
@@ -43,7 +42,6 @@ export function StatusView({
   onSyncNow,
   onRetryChatDiscovery,
   onOpenFullDiskAccess,
-  onTogglePermissions,
   onToggleChat,
   onToggleBackfillPrompt
 }: StatusViewProps): JSX.Element {
@@ -99,15 +97,6 @@ export function StatusView({
             <ReadinessItem item={item} key={item.id} />
           ))}
         </ul>
-        <label className="check-row">
-          <input
-            checked={state.config.permissionsGranted}
-            data-visual-qa-control="permission-checkbox"
-            onChange={(event) => onTogglePermissions(event.currentTarget.checked)}
-            type="checkbox"
-          />
-          <span>Required permissions complete</span>
-        </label>
         <ChatDiscoveryControls
           discovery={state.discovery}
           referenceTimezone={state.config.referenceTimezone}
@@ -197,7 +186,6 @@ function getSyncReadinessMessage(
 
 function isSetupReadinessItem(item: SyncReadinessItem): boolean {
   switch (item.id) {
-    case "permissions":
     case "discovery":
     case "chat-selection":
     case "selected-chat-verification":

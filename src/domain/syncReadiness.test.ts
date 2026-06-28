@@ -21,7 +21,7 @@ const discoveredChat = {
 const selectedChat = { ...discoveredChat, backfillPromptEnabled: true } as const
 
 describe("sync readiness", () => {
-  it("getSyncReadinessItems marks setup complete when permissions, discovery, and selection are ready", () => {
+  it("getSyncReadinessItems marks scan prerequisites complete when discovery and selection are ready", () => {
     // Given
     const ready = createReadyAppShellState()
 
@@ -30,12 +30,6 @@ describe("sync readiness", () => {
 
     // Then
     expect(items).toEqual([
-      {
-        id: "permissions",
-        label: "Required permissions",
-        status: "complete",
-        detail: "Required permissions are complete."
-      },
       {
         id: "discovery",
         label: "Messages discovery",
@@ -70,6 +64,20 @@ describe("sync readiness", () => {
     expect(isSyncNowEnabled(ready)).toBe(true)
   })
 
+  it("getSyncReadinessItems ignores the persisted manual permission flag for scan readiness", () => {
+    // Given
+    const readyWithoutManualPermission = createReadyAppShellState()
+
+    // When
+    const items = getSyncReadinessItems(readyWithoutManualPermission)
+
+    // Then
+    const readinessItemIds: readonly string[] = items.map((item) => item.id)
+    expect(readinessItemIds).not.toContain("permissions")
+    expect(items.every((item) => item.status === "complete")).toBe(true)
+    expect(isSyncNowEnabled(readyWithoutManualPermission)).toBe(true)
+  })
+
   it("getSyncReadinessItems marks stale selected chats as blocking", () => {
     // Given
     const staleSelected = {
@@ -97,11 +105,6 @@ describe("sync readiness", () => {
     // Given
     const ready = createReadyAppShellState()
     const cases = [
-      {
-        state: { ...ready, config: { ...ready.config, permissionsGranted: false } },
-        item: "permissions",
-        detail: "Complete required permissions before scanning."
-      },
       {
         state: { ...ready, discovery: { status: "unverified", chats: [] } },
         item: "discovery",
@@ -169,7 +172,7 @@ function createReadyAppShellState(): AppShellState {
   const initial = createDefaultAppShellState()
   return {
     ...initial,
-    config: { ...initial.config, permissionsGranted: true },
+    config: { ...initial.config, permissionsGranted: false },
     discovery: { status: "ready", chats: [discoveredChat] },
     selectedChats: [selectedChat]
   }

@@ -110,10 +110,10 @@ describe("App Messages chat discovery onboarding", () => {
 
     await screen.findByText("Onboarding required")
     expect(await screen.findByRole("checkbox", { name: /Chat alpha/ })).toBeInTheDocument()
-    expect(screen.getByText("Sync Now disabled: Complete required permissions before scanning.")).toBeInTheDocument()
-    expect(screen.getByText("Required permissions")).toBeInTheDocument()
-    expect(screen.getAllByText("Complete required permissions before scanning.").length).toBeGreaterThan(1)
+    expect(screen.queryByLabelText("Required permissions complete")).not.toBeInTheDocument()
+    expect(screen.queryByText("Required permissions complete")).not.toBeInTheDocument()
     expect(screen.getByText("Messages discovery found 1 eligible chat.")).toBeInTheDocument()
+    expect(screen.getByText("Sync Now disabled: Select at least one chat before scanning.")).toBeInTheDocument()
     expect(screen.getAllByText("Select at least one chat before scanning.").length).toBeGreaterThan(1)
     expect(screen.getByText("Select a chat to verify it for scanning.")).toBeInTheDocument()
     expect(screen.getByTestId("status-label")).toHaveTextContent("Setup needed")
@@ -128,7 +128,8 @@ describe("App Messages chat discovery onboarding", () => {
 
     await waitFor(() => expect(screen.getByRole("button", { name: "Sync Now" })).toBeEnabled())
     expect(screen.getByText("Sync Now ready: All setup checks are complete.")).toBeInTheDocument()
-    expect(screen.getByText("Required permissions are complete.")).toBeInTheDocument()
+    expect(screen.queryByLabelText("Required permissions complete")).not.toBeInTheDocument()
+    expect(screen.queryByText("Required permissions complete")).not.toBeInTheDocument()
     expect(screen.getByText("Messages discovery found 1 eligible chat.")).toBeInTheDocument()
     expect(screen.getByText("1 chat selected.")).toBeInTheDocument()
     expect(screen.getByText("Selected chats are verified for scanning.")).toBeInTheDocument()
@@ -233,7 +234,7 @@ describe("App Messages chat discovery onboarding", () => {
     render(<App />)
 
     const chatCheckbox = await screen.findByRole("checkbox", { name: /Chat alpha/ })
-    fireEvent.click(screen.getByLabelText("Required permissions complete"))
+    expect(screen.queryByLabelText("Required permissions complete")).not.toBeInTheDocument()
     fireEvent.click(chatCheckbox)
     await waitFor(() => expect(screen.getByRole("button", { name: "Sync Now" })).toBeEnabled())
 

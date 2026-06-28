@@ -2,7 +2,6 @@ import { selectedChatsAreVerified, type ChatDiscovery } from "./chatDiscovery"
 import type { AppMode, AppShellState } from "./appShell"
 
 export type SyncReadinessItemId =
-  | "permissions"
   | "discovery"
   | "chat-selection"
   | "selected-chat-verification"
@@ -23,7 +22,6 @@ export type SyncReadinessItem = {
 }
 
 const syncReadinessItemLabels = {
-  permissions: "Required permissions",
   discovery: "Messages discovery",
   "chat-selection": "Chat selection",
   "selected-chat-verification": "Selected chat verification",
@@ -39,13 +37,6 @@ export function getSyncReadinessItems(
   const selectedChatsVerified =
     selectedChatCount > 0 && selectedChatsAreVerified(state.discovery, state.selectedChats)
   return [
-    syncReadinessItem(
-      "permissions",
-      state.config.permissionsGranted ? "complete" : "blocking",
-      state.config.permissionsGranted
-        ? "Required permissions are complete."
-        : "Complete required permissions before scanning."
-    ),
     getDiscoveryReadinessItem(state.discovery),
     syncReadinessItem(
       "chat-selection",

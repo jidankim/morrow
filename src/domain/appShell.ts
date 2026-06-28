@@ -246,9 +246,6 @@ export function isOnboardingComplete(state: AppShellState): boolean {
 
 export function getOnboardingWarnings(state: AppShellState): readonly string[] {
   const warnings: string[] = []
-  if (!state.config.permissionsGranted) {
-    warnings.push("Complete required permissions before scanning.")
-  }
   const discoveryWarning = chatDiscoveryWarning(state.discovery)
   if (discoveryWarning !== undefined) warnings.push(discoveryWarning)
   if (state.selectedChats.length === 0) {

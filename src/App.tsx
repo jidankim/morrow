@@ -256,9 +256,6 @@ export function App(): JSX.Element {
             onSyncNow={runSyncNow}
             onRetryChatDiscovery={loadMessagesDiscovery}
             onOpenFullDiskAccess={openFullDiskAccess}
-            onTogglePermissions={(enabled) =>
-              updateConfig({ ...state.config, permissionsGranted: enabled })
-            }
             onToggleChat={toggleChat}
             onToggleBackfillPrompt={toggleBackfillPrompt}
           />

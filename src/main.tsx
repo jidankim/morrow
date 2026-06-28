@@ -78,7 +78,6 @@ function VisualChatDiscoveryHarness({
           onSyncNow={noop}
           onRetryChatDiscovery={noop}
           onOpenFullDiskAccess={noop}
-          onTogglePermissions={noopPermissionToggle}
           onToggleChat={noopChatToggle}
           onToggleBackfillPrompt={noopBackfillToggle}
         />
@@ -206,8 +205,6 @@ const staleSelectedVisualChat: SelectedChat = {
 }
 
 function noop(): void {}
-
-function noopPermissionToggle(_enabled: boolean): void {}
 
 function noopChatToggle(_chatId: ChatId): void {}
 
