@@ -51,4 +51,38 @@ impl Store {
             })
             .collect()
     }
+
+    pub fn recoverable_external_proposals(&self) -> Result<Vec<QueuedProposal>, StorageError> {
+        let rows = self.sqlite.query_rows(
+            "SELECT c.id, c.kind, c.chat_guid, c.confidence_millis, c.normalized_time
+             FROM candidates c
+             LEFT JOIN external_object_mappings m
+               ON m.candidate_id = c.id AND m.source = 'calendar'
+             WHERE c.state = 'creating_external'
+               AND c.kind = 'calendar_event'
+               AND m.id IS NULL
+             ORDER BY c.updated_at, c.id;",
+        )?;
+        rows.into_iter()
+            .map(|row| {
+                let candidate_id = row_value(&row, 0, "recoverable.id")?;
+                let kind = CandidateKind::parse(row_value(&row, 1, "recoverable.kind")?)?;
+                let chat_guid = row_value(&row, 2, "recoverable.chat_guid")?;
+                let confidence = row_value(&row, 3, "recoverable.confidence_millis")?
+                    .parse::<i64>()
+                    .map_err(|error| StorageError::Sqlite {
+                        message: format!("invalid recoverable confidence: {error}"),
+                    })?;
+                let normalized_time = row_value(&row, 4, "recoverable.normalized_time")?;
+                QueuedProposal::with_kind(
+                    candidate_id,
+                    kind,
+                    chat_guid,
+                    confidence,
+                    normalized_time,
+                    false,
+                )
+            })
+            .collect()
+    }
 }

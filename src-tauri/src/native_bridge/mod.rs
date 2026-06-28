@@ -1,11 +1,13 @@
 mod crash_log;
 mod delete_all;
 mod delete_all_protocol;
+mod delete_provider_credentials;
 mod eventkit_cleanup;
 pub mod eventkit_proposal;
 mod fake;
 mod keychain;
 pub mod messages_sqlite;
+mod openai_provider;
 mod permissions;
 mod public_chat_id;
 mod scan;
@@ -29,16 +31,19 @@ pub use fake::{FakeNativeBridge, MessagesDiscoveryCommandReport};
 pub use keychain::{
     KeychainBridgeError, KeychainErrorCode, MorrowTokenVault, TokenCommandReceipt,
     TokenLookupRequest, TokenReadResponse, TokenStorageSurface, TokenWriteRequest,
-    MORROW_KEYCHAIN_SERVICE, MORROW_TOKEN_KIND,
+    MORROW_KEYCHAIN_SERVICE, MORROW_PROVIDER_TOKEN_KIND, MORROW_TOKEN_KIND,
+};
+pub use openai_provider::{
+    OpenAiHttpRequest, OpenAiHttpResponse, OpenAiProvider, OpenAiProviderError, OpenAiTransport,
+    ReqwestOpenAiTransport, OPENAI_MODEL, OPENAI_RESPONSES_URL, OPENAI_TIMEOUT_MS,
 };
 pub use permissions::{
     map_permission_status, OpenPrivacySettingsError, OpenPrivacySettingsReceipt,
     OpenPrivacySettingsRequest, PermissionKind, PermissionOutcome, PermissionState,
     PermissionStatus, PrivacySettingsPane,
 };
-pub use scan::{
-    CapPolicyRequest, ScanSelectedChatsError, ScanSelectedChatsRequest, ScanSelectedChatsResult,
-};
+#[rustfmt::skip]
+pub use scan::{scan_selected_chats_with_dependencies, CalendarProposalReceipt, CapPolicyRequest, ProposalReplayAdapter, ScanSelectedChatsDependencies, ScanSelectedChatsError, ScanSelectedChatsRequest, ScanSelectedChatsResult};
 
 #[derive(Debug)]
 pub struct NativeBridgeState {
@@ -163,8 +168,35 @@ impl NativeBridgeState {
         messages_db_path: &Path,
     ) -> Result<ScanSelectedChatsResult, ScanSelectedChatsError> {
         match &self.bridge {
-            NativeBridgeBackend::Production(_) => {
-                scan::scan_selected_chats_at(request, store_path, messages_db_path)
+            NativeBridgeBackend::Production(bridge) => {
+                let proposal_adapter = eventkit_proposal::EventKitProposalBridge;
+                let provider_token = bridge
+                    .token_vault
+                    .read(TokenLookupRequest::new(
+                        MORROW_KEYCHAIN_SERVICE,
+                        MORROW_PROVIDER_TOKEN_KIND,
+                    ))
+                    .map_err(|error| ScanSelectedChatsError::Detection(error.to_string()))?
+                    .token;
+                match provider_token {
+                    Some(token) => {
+                        let provider =
+                            OpenAiProvider::new(token, ReqwestOpenAiTransport::default());
+                        scan::scan_selected_chats_at_with_dependencies(
+                            request,
+                            store_path,
+                            messages_db_path,
+                            &provider,
+                            &proposal_adapter,
+                        )
+                    }
+                    None => scan::scan_selected_chats_at_with_unavailable_provider(
+                        request,
+                        store_path,
+                        messages_db_path,
+                        &proposal_adapter,
+                    ),
+                }
             }
             NativeBridgeBackend::Fake(bridge) => {
                 scan::scan_selected_chats_with_source(request, store_path, bridge)

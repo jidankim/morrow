@@ -1,3 +1,4 @@
+mod dependencies;
 mod messages;
 mod proposal_replay;
 
@@ -5,15 +6,17 @@ use std::{fmt::Display, path::Path};
 
 use super::messages_sqlite::MessagesSqliteAdapter;
 use super::public_chat_id::{public_chat_id, public_message_id};
+pub use dependencies::ScanSelectedChatsDependencies;
+use dependencies::{empty_scan_result, UnavailableProvider};
 use messages::ingestion_request;
 use morrow_detection::{
     AiProvider, ConfidenceThreshold, DetectionConfig, DetectionOutcome, DetectionPipeline,
-    ProviderError, ProviderIdentity, ProviderRequest, ProviderResponse, ReferenceTime,
-    SourceExcerptPolicy,
+    ProviderIdentity, ReferenceTime, SourceExcerptPolicy,
 };
 use morrow_messages::{ingest_selected_threads, ChatGuid, IngestionStatus, MessagesDataSource};
 use morrow_storage::{CandidateDraft, CandidateId, CapPolicy, QuietLogDraft, Store};
 use proposal_replay::{replay_external_proposals, LocalProposalAdapter};
+pub use proposal_replay::{CalendarProposalReceipt, ProposalReplayAdapter};
 use serde::{Deserialize, Serialize};
 
 const REFERENCE_TIME: &str = "2026-06-26T09:00:00";
@@ -86,15 +89,48 @@ impl Display for ScanSelectedChatsError {
     }
 }
 
-pub fn scan_selected_chats_at(
+pub fn scan_selected_chats_at_with_unavailable_provider<A>(
     request: ScanSelectedChatsRequest,
     store_path: &Path,
     messages_db_path: &Path,
-) -> Result<ScanSelectedChatsResult, ScanSelectedChatsError> {
+    proposal_adapter: &A,
+) -> Result<ScanSelectedChatsResult, ScanSelectedChatsError>
+where
+    A: ProposalReplayAdapter,
+{
+    let provider = UnavailableProvider;
+    scan_selected_chats_at_with_dependencies(
+        request,
+        store_path,
+        messages_db_path,
+        &provider,
+        proposal_adapter,
+    )
+}
+
+pub fn scan_selected_chats_at_with_dependencies<P, A>(
+    request: ScanSelectedChatsRequest,
+    store_path: &Path,
+    messages_db_path: &Path,
+    provider: &P,
+    proposal_adapter: &A,
+) -> Result<ScanSelectedChatsResult, ScanSelectedChatsError>
+where
+    P: AiProvider,
+    A: ProposalReplayAdapter,
+{
     let source = MessagesSqliteAdapter::new(messages_db_path.to_path_buf());
     let resolved_request =
         resolve_production_scan_request(request, &source).map_err(messages_error)?;
-    scan_selected_chats_with_source(resolved_request, store_path, &source)
+    scan_selected_chats_with_dependencies(
+        resolved_request,
+        store_path,
+        ScanSelectedChatsDependencies {
+            source: &source,
+            provider,
+            proposal_adapter,
+        },
+    )
 }
 
 pub fn scan_selected_chats_with_source(
@@ -102,11 +138,33 @@ pub fn scan_selected_chats_with_source(
     store_path: &Path,
     source: &impl MessagesDataSource,
 ) -> Result<ScanSelectedChatsResult, ScanSelectedChatsError> {
-    let store = Store::open(store_path).map_err(storage_error)?;
     let provider = UnavailableProvider;
-    let pipeline = DetectionPipeline::new(&provider);
-    let ingestion =
-        ingest_selected_threads(source, &ingestion_request(&request)?).map_err(messages_error)?;
+    let proposal_adapter = LocalProposalAdapter;
+    scan_selected_chats_with_dependencies(
+        request,
+        store_path,
+        ScanSelectedChatsDependencies {
+            source,
+            provider: &provider,
+            proposal_adapter: &proposal_adapter,
+        },
+    )
+}
+
+pub fn scan_selected_chats_with_dependencies<S, P, A>(
+    request: ScanSelectedChatsRequest,
+    store_path: &Path,
+    dependencies: ScanSelectedChatsDependencies<'_, S, P, A>,
+) -> Result<ScanSelectedChatsResult, ScanSelectedChatsError>
+where
+    S: MessagesDataSource,
+    P: AiProvider,
+    A: ProposalReplayAdapter,
+{
+    let store = Store::open(store_path).map_err(storage_error)?;
+    let pipeline = DetectionPipeline::new(dependencies.provider);
+    let ingestion = ingest_selected_threads(dependencies.source, &ingestion_request(&request)?)
+        .map_err(messages_error)?;
     if ingestion.status == IngestionStatus::Unavailable {
         return Ok(empty_scan_result());
     }
@@ -133,8 +191,20 @@ pub fn scan_selected_chats_with_source(
     let cap_plan = store
         .apply_visibility_caps(request.cap_policy.into(), 1_782_352_400)
         .map_err(storage_error)?;
-    let replay = replay_external_proposals(&store, &cap_plan.visible, &LocalProposalAdapter)?;
-    let pending_proposal_count = cap_plan.visible.len() + cap_plan.deferred.len();
+    let mut replay_candidates = cap_plan.visible.clone();
+    let mut recoverable_candidates = store
+        .recoverable_external_proposals()
+        .map_err(storage_error)?;
+    recoverable_candidates.retain(|recoverable| {
+        !cap_plan
+            .visible
+            .iter()
+            .any(|visible| visible.candidate_id == recoverable.candidate_id)
+    });
+    replay_candidates.extend(recoverable_candidates);
+    let replay =
+        replay_external_proposals(&store, &replay_candidates, dependencies.proposal_adapter)?;
+    let pending_proposal_count = replay_candidates.len() + cap_plan.deferred.len();
     Ok(ScanSelectedChatsResult {
         pending_proposal_count,
         created_candidate_count: created_candidate_ids.len(),
@@ -158,16 +228,6 @@ impl From<CapPolicyRequest> for CapPolicy {
     }
 }
 
-struct UnavailableProvider;
-
-impl AiProvider for UnavailableProvider {
-    fn extract(&self, _request: ProviderRequest<'_>) -> Result<ProviderResponse, ProviderError> {
-        Err(ProviderError::Unavailable {
-            reason: "native scan provider is not configured".to_owned(),
-        })
-    }
-}
-
 fn detection_config(
     request: &ScanSelectedChatsRequest,
 ) -> Result<DetectionConfig, ScanSelectedChatsError> {
@@ -187,19 +247,6 @@ fn detection_config(
             .map_err(detection_error)?,
         source_excerpts: SourceExcerptPolicy::Hide,
     })
-}
-
-const fn empty_scan_result() -> ScanSelectedChatsResult {
-    ScanSelectedChatsResult {
-        pending_proposal_count: 0,
-        created_candidate_count: 0,
-        quiet_log_count: 0,
-        cap_visible_count: 0,
-        cap_deferred_count: 0,
-        created_external_proposal_count: 0,
-        failed_external_proposal_count: 0,
-        created_candidate_ids: Vec::new(),
-    }
 }
 
 fn privacy_safe_candidate(

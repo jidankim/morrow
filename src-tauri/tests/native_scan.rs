@@ -1,10 +1,10 @@
-use std::{
-    path::{Path, PathBuf},
-    process::Command,
-};
+#[path = "native_scan/dependencies.rs"]
+mod dependencies;
 
+use dependencies::{CandidateProvider, RecordingProposalAdapter, UnavailableTestProvider};
 use morrow_lib::native_bridge::{
-    FakeNativeBridge, NativeBridgeState, ScanSelectedChatsRequest, ScanSelectedChatsResult,
+    scan_selected_chats_with_dependencies, FakeNativeBridge, NativeBridgeState,
+    ScanSelectedChatsDependencies, ScanSelectedChatsRequest, ScanSelectedChatsResult,
 };
 use morrow_messages::{
     ChatGuid, MessageGuid, MessageTimestamp, NativeBatch, ParticipantId, RawChat, RawMessage,
@@ -12,6 +12,10 @@ use morrow_messages::{
 };
 use morrow_storage::{CandidateId, CandidateState, ReplayStream, Store};
 use serde_json::{json, Value};
+use std::{
+    path::{Path, PathBuf},
+    process::Command,
+};
 
 #[test]
 #[rustfmt::skip]
@@ -120,6 +124,190 @@ fn production_scan_reads_messages_before_provider_unavailable_boundary() -> Resu
     let result = NativeBridgeState::default().scan_selected_chats_at(request, &store_path, &messages_db_path).map_err(|error| error.to_string())?;
     // Then
     assert_counts(&result, (0, 0, 1, 0, 0));
+    Ok(())
+}
+
+#[test]
+#[rustfmt::skip]
+fn production_scan_uses_provider_and_proposal_adapter_dependencies() -> Result<(), String> {
+    // Given
+    let dir = tempfile::tempdir().map_err(|error| error.to_string())?;
+    let store_path = dir.path().join("morrow.sqlite");
+    let messages_db_path = dir.path().join("chat.db");
+    create_messages_fixture(&messages_db_path)?;
+    let source = morrow_lib::native_bridge::messages_sqlite::MessagesSqliteAdapter::new(messages_db_path);
+    let request = scan_request(&[chat("iMessage;-;+15555550103", 1, &["messages-participant-6044b729eea9fa126e78d421e4a41ac8"])], &[], true, 1, 0)?;
+    let provider = CandidateProvider;
+    let adapter = RecordingProposalAdapter::default();
+
+    // When
+    let result = scan_selected_chats_with_dependencies(
+        request,
+        &store_path,
+        ScanSelectedChatsDependencies {
+            source: &source,
+            provider: &provider,
+            proposal_adapter: &adapter,
+        },
+    ).map_err(|error| error.to_string())?;
+
+    // Then
+    assert_counts(&result, (1, 1, 0, 1, 0));
+    assert_eq!(result.created_external_proposal_count, 1);
+    assert_eq!(adapter.created_titles(), ["Messages event candidate"]);
+    let store = Store::open(&store_path).map_err(|error| error.to_string())?;
+    assert_eq!(candidate_state(&store, &result)?, CandidateState::Visible);
+    Ok(())
+}
+
+#[test]
+#[rustfmt::skip]
+fn production_scan_uses_eventkit_bridge_for_visible_calendar_candidates() -> Result<(), String> {
+    // Given
+    let dir = tempfile::tempdir().map_err(|error| error.to_string())?;
+    let store_path = dir.path().join("morrow.sqlite");
+    let messages_db_path = dir.path().join("chat.db");
+    create_messages_fixture(&messages_db_path)?;
+    let source = morrow_lib::native_bridge::messages_sqlite::MessagesSqliteAdapter::new(messages_db_path);
+    let request = scan_request(&[chat("iMessage;-;+15555550103", 1, &["messages-participant-6044b729eea9fa126e78d421e4a41ac8"])], &[], true, 1, 0)?;
+    let provider = CandidateProvider;
+    let adapter = RecordingProposalAdapter::default();
+
+    // When
+    let result = scan_selected_chats_with_dependencies(
+        request,
+        &store_path,
+        ScanSelectedChatsDependencies {
+            source: &source,
+            provider: &provider,
+            proposal_adapter: &adapter,
+        },
+    ).map_err(|error| error.to_string())?;
+
+    // Then
+    assert_counts(&result, (1, 1, 0, 1, 0));
+    assert_eq!(result.created_external_proposal_count, 1);
+    assert_eq!(result.failed_external_proposal_count, 0);
+    assert_eq!(adapter.created_titles(), ["Messages event candidate"]);
+    let store = Store::open(&store_path).map_err(|error| error.to_string())?;
+    assert_eq!(candidate_state(&store, &result)?, CandidateState::Visible);
+    assert_eq!(external_mapping_count(&store_path)?, 1);
+    assert_eq!(candidate_external_receipt_count(&store_path)?, 1);
+    Ok(())
+}
+
+#[test]
+#[rustfmt::skip]
+fn eventkit_replay_failure_records_privacy_safe_failure_state() -> Result<(), String> {
+    // Given
+    let dir = tempfile::tempdir().map_err(|error| error.to_string())?;
+    let store_path = dir.path().join("morrow.sqlite");
+    let messages_db_path = dir.path().join("chat.db");
+    create_messages_fixture(&messages_db_path)?;
+    let source = morrow_lib::native_bridge::messages_sqlite::MessagesSqliteAdapter::new(messages_db_path);
+    let request = scan_request(&[chat("iMessage;-;+15555550103", 1, &["messages-participant-6044b729eea9fa126e78d421e4a41ac8"])], &[], true, 1, 0)?;
+    let provider = CandidateProvider;
+    let adapter = RecordingProposalAdapter::failing_calendar();
+
+    // When
+    let result = scan_selected_chats_with_dependencies(
+        request,
+        &store_path,
+        ScanSelectedChatsDependencies {
+            source: &source,
+            provider: &provider,
+            proposal_adapter: &adapter,
+        },
+    ).map_err(|error| error.to_string())?;
+
+    // Then
+    assert_counts(&result, (1, 1, 0, 1, 0));
+    assert_eq!(result.created_external_proposal_count, 0);
+    assert_eq!(result.failed_external_proposal_count, 1);
+    let store = Store::open(&store_path).map_err(|error| error.to_string())?;
+    assert_eq!(candidate_state(&store, &result)?, CandidateState::Failed);
+    let reasons = candidate_reasons(&store_path)?;
+    assert!(reasons.contains("external_proposal_creation_failed"), "{reasons}");
+    for forbidden in ["+15555550103", "Maybe meet tomorrow?", "beta-provider-route"] {
+        assert!(!reasons.contains(forbidden), "failure state leaked {forbidden}: {reasons}");
+    }
+    Ok(())
+}
+
+#[test]
+#[rustfmt::skip]
+fn eventkit_replay_retry_does_not_duplicate_after_storage_failure() -> Result<(), String> {
+    // Given
+    let dir = tempfile::tempdir().map_err(|error| error.to_string())?;
+    let store_path = dir.path().join("morrow.sqlite");
+    let messages_db_path = dir.path().join("chat.db");
+    create_messages_fixture(&messages_db_path)?;
+    let _store = Store::open(&store_path).map_err(|error| error.to_string())?;
+    install_external_mapping_failure_trigger(&store_path)?;
+    let source = morrow_lib::native_bridge::messages_sqlite::MessagesSqliteAdapter::new(messages_db_path);
+    let request = scan_request(&[chat("iMessage;-;+15555550103", 1, &["messages-participant-6044b729eea9fa126e78d421e4a41ac8"])], &[], true, 1, 0)?;
+    let provider = CandidateProvider;
+    let adapter = RecordingProposalAdapter::default();
+
+    // When
+    let first = scan_selected_chats_with_dependencies(
+        request.clone(),
+        &store_path,
+        ScanSelectedChatsDependencies {
+            source: &source,
+            provider: &provider,
+            proposal_adapter: &adapter,
+        },
+    ).map_err(|error| error.to_string())?;
+    drop_external_mapping_failure_trigger(&store_path)?;
+    let second = scan_selected_chats_with_dependencies(
+        request,
+        &store_path,
+        ScanSelectedChatsDependencies {
+            source: &source,
+            provider: &provider,
+            proposal_adapter: &adapter,
+        },
+    ).map_err(|error| error.to_string())?;
+
+    // Then
+    assert_eq!(first.created_external_proposal_count, 0);
+    assert_eq!(first.failed_external_proposal_count, 1);
+    assert_eq!(second.created_external_proposal_count, 0);
+    assert_eq!(second.failed_external_proposal_count, 0);
+    assert_eq!(adapter.created_count(), 1);
+    assert_eq!(external_mapping_count(&store_path)?, 1);
+    assert_eq!(candidate_external_receipt_count(&store_path)?, 1);
+    let store = Store::open(&store_path).map_err(|error| error.to_string())?;
+    assert_eq!(candidate_state(&store, &first)?, CandidateState::Visible);
+    Ok(())
+}
+
+#[test]
+#[rustfmt::skip]
+fn injected_unavailable_provider_records_quiet_failure_without_candidates() -> Result<(), String> {
+    // Given
+    let (_dir, db_path) = temp_db("native-scan-injected-unavailable.sqlite")?;
+    let source = FakeNativeBridge::with_morrow_store_path(db_path.clone()).with_messages(batch(vec![raw_chat("design-partners", "msg-provider-route", "Maybe meet tomorrow?", Some(TapbackKind::Like))?]));
+    let request = scan_request(&[chat("design-partners", 3, &["p1", "p2", "p3"])], &[], true, 1, 0)?;
+    let provider = UnavailableTestProvider;
+    let adapter = RecordingProposalAdapter::default();
+
+    // When
+    let result = scan_selected_chats_with_dependencies(
+        request,
+        &db_path,
+        ScanSelectedChatsDependencies {
+            source: &source,
+            provider: &provider,
+            proposal_adapter: &adapter,
+        },
+    ).map_err(|error| error.to_string())?;
+
+    // Then
+    assert_counts(&result, (0, 0, 1, 0, 0));
+    assert_eq!(result.created_external_proposal_count, 0);
+    assert_eq!(adapter.created_titles().len(), 0);
     Ok(())
 }
 
@@ -274,6 +462,36 @@ fn run_sqlite(db_path: &Path, sql: &str) -> Result<(), String> {
 fn query_sqlite(db_path: &Path, sql: &str) -> Result<String, String> {
     let output = Command::new("sqlite3").arg("-batch").arg("-noheader").arg(db_path).arg(sql).output().map_err(|error| error.to_string())?;
     if output.status.success() { Ok(String::from_utf8_lossy(&output.stdout).to_string()) } else { Err(String::from_utf8_lossy(&output.stderr).trim().to_owned()) }
+}
+
+#[rustfmt::skip]
+fn query_sqlite_i64(db_path: &Path, sql: &str) -> Result<i64, String> {
+    query_sqlite(db_path, sql)?.trim().parse::<i64>().map_err(|error| error.to_string())
+}
+
+#[rustfmt::skip]
+fn external_mapping_count(db_path: &Path) -> Result<i64, String> {
+    query_sqlite_i64(db_path, "SELECT COUNT(*) FROM external_object_mappings WHERE source = 'calendar';")
+}
+
+#[rustfmt::skip]
+fn candidate_external_receipt_count(db_path: &Path) -> Result<i64, String> {
+    query_sqlite_i64(db_path, "SELECT COUNT(*) FROM candidates WHERE external_object_id IS NOT NULL AND external_source_id IS NOT NULL;")
+}
+
+#[rustfmt::skip]
+fn candidate_reasons(db_path: &Path) -> Result<String, String> {
+    query_sqlite(db_path, "SELECT current_reason FROM candidates UNION ALL SELECT reason FROM audit_log ORDER BY 1;")
+}
+
+#[rustfmt::skip]
+fn install_external_mapping_failure_trigger(db_path: &Path) -> Result<(), String> {
+    run_sqlite(db_path, "CREATE TRIGGER fail_external_mapping_insert BEFORE INSERT ON external_object_mappings BEGIN SELECT RAISE(FAIL, 'simulated post-create storage failure'); END;")
+}
+
+#[rustfmt::skip]
+fn drop_external_mapping_failure_trigger(db_path: &Path) -> Result<(), String> {
+    run_sqlite(db_path, "DROP TRIGGER fail_external_mapping_insert;")
 }
 
 #[rustfmt::skip]

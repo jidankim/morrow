@@ -9,7 +9,8 @@ use morrow_storage::{
 
 use super::super::eventkit_proposal::EventKitProposalBridge;
 use super::{storage_error, ScanSelectedChatsError};
-use calendar::{calendar_mapping_from_store, CalendarProposalReceipt};
+use calendar::calendar_mapping_from_store;
+pub use calendar::CalendarProposalReceipt;
 
 const MAPPED_AT: i64 = 1_782_352_400;
 const DEFAULT_CALENDAR_EVENT_DURATION_SECONDS: i64 = 30 * 60;
@@ -22,7 +23,7 @@ pub(super) struct ProposalReplaySummary {
 
 pub(super) struct LocalProposalAdapter;
 
-pub(super) trait ProposalReplayAdapter {
+pub trait ProposalReplayAdapter {
     fn create_calendar_proposal(
         &self,
         event: ProposedEvent,
@@ -115,30 +116,48 @@ pub(super) fn replay_external_proposals(
     let mut created = 0;
     let mut failed = 0;
     for candidate in candidates {
-        let replay_result = match candidate.kind {
-            CandidateKind::CalendarEvent => calendar_mapping_from_store(store, candidate, adapter),
-            CandidateKind::TaskReminder
-            | CandidateKind::EventUpdate
-            | CandidateKind::EventReschedule
-            | CandidateKind::EventCancellation
-            | CandidateKind::ReminderUpdate
-            | CandidateKind::ReminderReschedule
-            | CandidateKind::ReminderCancellation => adapter.create_legacy_proposal(candidate),
+        let replay_result = match mapping_for_candidate(store, candidate)? {
+            Some(mapping) => Ok(ReplayMapping {
+                mapping,
+                created_external: false,
+            }),
+            None => match candidate.kind {
+                CandidateKind::CalendarEvent => {
+                    calendar_mapping_from_store(store, candidate, adapter).map(|mapping| {
+                        ReplayMapping {
+                            mapping,
+                            created_external: true,
+                        }
+                    })
+                }
+                CandidateKind::TaskReminder
+                | CandidateKind::EventUpdate
+                | CandidateKind::EventReschedule
+                | CandidateKind::EventCancellation
+                | CandidateKind::ReminderUpdate
+                | CandidateKind::ReminderReschedule
+                | CandidateKind::ReminderCancellation => adapter
+                    .create_legacy_proposal(candidate)
+                    .map(|mapping| ReplayMapping {
+                        mapping,
+                        created_external: true,
+                    }),
+            },
         };
         match replay_result {
-            Ok(mapping) => {
-                store
-                    .upsert_external_mapping(mapping)
-                    .map_err(storage_error)?;
-                store
-                    .transition_candidate(
-                        &candidate.candidate_id,
-                        CandidateState::Visible,
-                        "external_proposal_created",
-                        MAPPED_AT,
-                    )
-                    .map_err(storage_error)?;
-                created += 1;
+            Ok(replay_mapping) => {
+                if replay_mapping.created_external {
+                    store
+                        .record_candidate_external_receipt(&replay_mapping.mapping)
+                        .map_err(storage_error)?;
+                }
+                if finalize_external_mapping(store, &replay_mapping.mapping)? {
+                    if replay_mapping.created_external {
+                        created += 1;
+                    }
+                } else {
+                    failed += 1;
+                }
             }
             Err(_error) => {
                 store
@@ -154,6 +173,63 @@ pub(super) fn replay_external_proposals(
         }
     }
     Ok(ProposalReplaySummary { created, failed })
+}
+
+#[derive(Debug, Clone)]
+struct ReplayMapping {
+    mapping: ExternalObjectMapping,
+    created_external: bool,
+}
+
+fn mapping_for_candidate(
+    store: &Store,
+    candidate: &QueuedProposal,
+) -> Result<Option<ExternalObjectMapping>, ScanSelectedChatsError> {
+    match candidate.kind {
+        CandidateKind::CalendarEvent => store
+            .candidate_external_mapping(
+                &candidate.candidate_id,
+                ExternalSource::Calendar,
+                MAPPED_AT,
+            )
+            .map_err(storage_error),
+        CandidateKind::TaskReminder
+        | CandidateKind::EventUpdate
+        | CandidateKind::EventReschedule
+        | CandidateKind::EventCancellation
+        | CandidateKind::ReminderUpdate
+        | CandidateKind::ReminderReschedule
+        | CandidateKind::ReminderCancellation => Ok(None),
+    }
+}
+
+fn finalize_external_mapping(
+    store: &Store,
+    mapping: &ExternalObjectMapping,
+) -> Result<bool, ScanSelectedChatsError> {
+    let finalized = store
+        .upsert_external_mapping(mapping.clone())
+        .and_then(|()| {
+            store.transition_candidate(
+                &mapping.candidate_id,
+                CandidateState::Visible,
+                "external_proposal_created",
+                MAPPED_AT,
+            )
+        });
+    match finalized {
+        Ok(()) => Ok(true),
+        Err(_error) => {
+            store
+                .record_external_replay_recovery_pending(
+                    &mapping.candidate_id,
+                    "external_proposal_recovery_pending",
+                    MAPPED_AT,
+                )
+                .map_err(storage_error)?;
+            Ok(false)
+        }
+    }
 }
 
 fn external_proposal_error(message: impl Into<String>) -> ScanSelectedChatsError {

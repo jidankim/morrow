@@ -14,9 +14,9 @@ use super::{
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(in crate::native_bridge::scan) struct CalendarProposalReceipt {
-    pub(super) event_id: String,
-    pub(super) source_id: String,
+pub struct CalendarProposalReceipt {
+    pub event_id: String,
+    pub source_id: String,
 }
 
 pub(super) fn calendar_mapping_from_store(

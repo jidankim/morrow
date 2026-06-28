@@ -177,11 +177,24 @@ static NSString *SaveProposalEvent(EKEventStore *store, EKCalendar *calendar, co
         return nil;
     }
 
+    NSDate *startDate = [NSDate dateWithTimeIntervalSince1970:(NSTimeInterval)request->start_unix];
+    NSDate *endDate = [NSDate dateWithTimeIntervalSince1970:(NSTimeInterval)request->end_unix];
+    NSPredicate *predicate = [store predicateForEventsWithStartDate:startDate endDate:endDate calendars:@[calendar]];
+    for (EKEvent *existing in [store eventsMatchingPredicate:predicate]) {
+        if ([existing.title isEqualToString:title] &&
+            [existing.startDate isEqualToDate:startDate] &&
+            [existing.endDate isEqualToDate:endDate] &&
+            [existing.notes isEqualToString:notes] &&
+            existing.eventIdentifier.length > 0) {
+            return existing.eventIdentifier;
+        }
+    }
+
     EKEvent *event = [EKEvent eventWithEventStore:store];
     event.calendar = calendar;
     event.title = title;
-    event.startDate = [NSDate dateWithTimeIntervalSince1970:(NSTimeInterval)request->start_unix];
-    event.endDate = [NSDate dateWithTimeIntervalSince1970:(NSTimeInterval)request->end_unix];
+    event.startDate = startDate;
+    event.endDate = endDate;
     event.allDay = NO;
     event.availability = EKEventAvailabilityFree;
     event.alarms = @[];

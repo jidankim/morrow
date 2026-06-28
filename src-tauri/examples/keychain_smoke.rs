@@ -1,9 +1,10 @@
 use morrow_lib::native_bridge::{
     NativeBridgeState, TokenLookupRequest, TokenWriteRequest, MORROW_KEYCHAIN_SERVICE,
-    MORROW_TOKEN_KIND,
+    MORROW_PROVIDER_TOKEN_KIND, MORROW_TOKEN_KIND,
 };
 
 const TOKEN_ENV: &str = "MORROW_KEYCHAIN_SMOKE_TOKEN";
+const TOKEN_KIND_ENV: &str = "MORROW_KEYCHAIN_SMOKE_TOKEN_KIND";
 
 fn main() {
     if let Err(error) = run() {
@@ -14,7 +15,8 @@ fn main() {
 }
 
 fn run() -> Result<(), String> {
-    let lookup = TokenLookupRequest::new(MORROW_KEYCHAIN_SERVICE, MORROW_TOKEN_KIND);
+    let token_kind = smoke_token_kind()?;
+    let lookup = TokenLookupRequest::new(MORROW_KEYCHAIN_SERVICE, &token_kind);
     if std::env::args().nth(1).as_deref() == Some("cleanup") {
         let deleted = NativeBridgeState::default()
             .delete_morrow_token(lookup)
@@ -34,7 +36,7 @@ fn run() -> Result<(), String> {
     writer
         .create_morrow_token(TokenWriteRequest::new(
             MORROW_KEYCHAIN_SERVICE,
-            MORROW_TOKEN_KIND,
+            &token_kind,
             &token,
         ))
         .map_err(|error| error.to_string())?;
@@ -64,9 +66,23 @@ fn run() -> Result<(), String> {
     println!("keychain_smoke_storage_surface=keychainBridge");
     println!("keychain_smoke_read_present={}", read.present);
     println!("keychain_smoke_deleted_absent={}", !after_delete.present);
-    println!("keychain_smoke_token_len={}", token.len());
     drop(cleanup);
     Ok(())
+}
+
+fn smoke_token_kind() -> Result<String, String> {
+    match std::env::var(TOKEN_KIND_ENV) {
+        Ok(token_kind)
+            if token_kind == MORROW_TOKEN_KIND || token_kind == MORROW_PROVIDER_TOKEN_KIND =>
+        {
+            Ok(token_kind)
+        }
+        Ok(token_kind) => Err(format!(
+            "{TOKEN_KIND_ENV} has unsupported token kind {token_kind}"
+        )),
+        Err(std::env::VarError::NotPresent) => Ok(MORROW_TOKEN_KIND.to_owned()),
+        Err(std::env::VarError::NotUnicode(_)) => Err(format!("{TOKEN_KIND_ENV} must be UTF-8")),
+    }
 }
 
 struct Cleanup {

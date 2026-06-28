@@ -55,6 +55,17 @@ pub struct DeleteCleanupPlan {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
+pub struct ProviderCredentialDeleteReceipt {
+    pub token_kind: String,
+    pub delete_requested: bool,
+    pub deleted: bool,
+    pub failed: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
 pub struct MorrowDataDeleteReceipt {
     pub storage_surface: MorrowDataStorageSurface,
     pub database_deleted: bool,
@@ -77,6 +88,7 @@ pub struct MorrowDataDeleteReceipt {
         skip_serializing_if = "Option::is_none"
     )]
     pub provider_oauth_delete_error: Option<String>,
+    pub provider_credential_deletes: Vec<ProviderCredentialDeleteReceipt>,
     pub cleanup_plan: DeleteCleanupPlan,
 }
 

@@ -2,6 +2,7 @@ mod calendar_payload;
 mod caps;
 mod delete_all;
 mod error;
+mod external_mapping;
 mod ids;
 mod privacy;
 mod sqlite_cli;

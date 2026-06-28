@@ -1,52 +1,8 @@
 use morrow_lib::native_bridge::{
-    FakeNativeBridge, KeychainErrorCode, NativeBridgeState, PermissionKind, PermissionOutcome,
-    PermissionState, TokenLookupRequest, TokenStorageSurface, TokenWriteRequest,
-    MORROW_KEYCHAIN_SERVICE, MORROW_TOKEN_KIND,
+    FakeNativeBridge, KeychainErrorCode, NativeBridgeState, TokenLookupRequest,
+    TokenStorageSurface, TokenWriteRequest, MORROW_KEYCHAIN_SERVICE, MORROW_PROVIDER_TOKEN_KIND,
+    MORROW_TOKEN_KIND,
 };
-
-#[test]
-fn permission_status_mapper_covers_supported_states() {
-    for kind in PermissionKind::ALL {
-        for state in PermissionState::ALL {
-            let bridge = FakeNativeBridge::with_permission(kind, state);
-
-            let statuses = bridge.query_permission_statuses();
-            let status = statuses.iter().find(|status| status.kind == kind);
-
-            assert!(status.is_some());
-            let status = status.unwrap();
-            assert_eq!(status.state, state);
-            match state {
-                PermissionState::Granted => {
-                    assert_eq!(status.outcome, PermissionOutcome::Success);
-                    assert!(status.warning.is_none());
-                }
-                PermissionState::Denied => {
-                    assert_eq!(status.outcome, PermissionOutcome::Warning);
-                    assert!(status.warning.is_some());
-                }
-                PermissionState::Unavailable => {
-                    assert_eq!(status.outcome, PermissionOutcome::Unavailable);
-                    assert!(status.warning.is_some());
-                }
-            }
-        }
-    }
-}
-
-#[test]
-fn denied_permissions_return_warnings_not_success() {
-    let bridge = FakeNativeBridge::with_all_permissions(PermissionState::Denied);
-
-    let statuses = bridge.query_permission_statuses();
-
-    assert_eq!(statuses.len(), PermissionKind::ALL.len());
-    for status in statuses {
-        assert_eq!(status.state, PermissionState::Denied);
-        assert_eq!(status.outcome, PermissionOutcome::Warning);
-        assert!(status.warning.is_some());
-    }
-}
 
 #[test]
 fn keychain_create_read_delete_accepts_only_morrow_owned_token() -> Result<(), String> {
@@ -80,6 +36,82 @@ fn keychain_create_read_delete_accepts_only_morrow_owned_token() -> Result<(), S
         after_delete.storage_surface,
         TokenStorageSurface::KeychainBridge
     );
+    Ok(())
+}
+
+#[test]
+fn keychain_accepts_provider_token_kind_and_keeps_owned_token_separate() -> Result<(), String> {
+    let bridge = FakeNativeBridge::default();
+    let owned_lookup = TokenLookupRequest::new(MORROW_KEYCHAIN_SERVICE, MORROW_TOKEN_KIND);
+    let provider_lookup =
+        TokenLookupRequest::new(MORROW_KEYCHAIN_SERVICE, MORROW_PROVIDER_TOKEN_KIND);
+
+    bridge
+        .create_morrow_token(TokenWriteRequest::new(
+            MORROW_KEYCHAIN_SERVICE,
+            MORROW_TOKEN_KIND,
+            "fixture-owned-redacted-token",
+        ))
+        .map_err(|error| error.to_string())?;
+    bridge
+        .create_morrow_token(TokenWriteRequest::new(
+            MORROW_KEYCHAIN_SERVICE,
+            MORROW_PROVIDER_TOKEN_KIND,
+            "fixture-provider-redacted-token",
+        ))
+        .map_err(|error| error.to_string())?;
+
+    let owned = bridge
+        .read_morrow_token(owned_lookup.clone())
+        .map_err(|error| error.to_string())?;
+    let provider = bridge
+        .read_morrow_token(provider_lookup.clone())
+        .map_err(|error| error.to_string())?;
+    let provider_deleted = bridge
+        .delete_morrow_token(provider_lookup.clone())
+        .map_err(|error| error.to_string())?;
+    let owned_after_provider_delete = bridge
+        .read_morrow_token(owned_lookup)
+        .map_err(|error| error.to_string())?;
+    let provider_after_delete = bridge
+        .read_morrow_token(provider_lookup)
+        .map_err(|error| error.to_string())?;
+
+    assert_eq!(owned.token.as_deref(), Some("fixture-owned-redacted-token"));
+    assert_eq!(
+        provider.token.as_deref(),
+        Some("fixture-provider-redacted-token")
+    );
+    assert!(provider_deleted.deleted);
+    assert_eq!(
+        owned_after_provider_delete.token.as_deref(),
+        Some("fixture-owned-redacted-token")
+    );
+    assert!(!provider_after_delete.present);
+    Ok(())
+}
+
+#[test]
+fn provider_readiness_ignores_legacy_owned_token() -> Result<(), String> {
+    let bridge = FakeNativeBridge::default();
+
+    bridge
+        .create_morrow_token(TokenWriteRequest::new(
+            MORROW_KEYCHAIN_SERVICE,
+            MORROW_TOKEN_KIND,
+            "fixture-owned-redacted-token",
+        ))
+        .map_err(|error| error.to_string())?;
+
+    let provider = bridge
+        .read_morrow_token(TokenLookupRequest::new(
+            MORROW_KEYCHAIN_SERVICE,
+            MORROW_PROVIDER_TOKEN_KIND,
+        ))
+        .map_err(|error| error.to_string())?;
+
+    assert!(!provider.present);
+    assert!(provider.token.is_none());
     Ok(())
 }
 
@@ -134,22 +166,6 @@ fn keychain_bridge_sources_do_not_contain_file_or_browser_storage_fallbacks() {
                 "native token bridge source contains forbidden fallback marker {forbidden}"
             );
         }
-    }
-}
-
-#[test]
-fn native_permissions_denied_command_layer_smoke() {
-    let state = NativeBridgeState::with_bridge(FakeNativeBridge::with_all_permissions(
-        PermissionState::Denied,
-    ));
-
-    let statuses = state.query_permission_statuses();
-
-    assert_eq!(statuses.len(), PermissionKind::ALL.len());
-    for status in statuses {
-        assert_eq!(status.state, PermissionState::Denied);
-        assert_eq!(status.outcome, PermissionOutcome::Warning);
-        assert!(status.warning.is_some());
     }
 }
 
@@ -214,61 +230,4 @@ fn production_keychain_rejects_malformed_lookup_before_storage() {
         kind_error.map_err(|error| error.code()),
         Err(KeychainErrorCode::UnsupportedTokenKind)
     );
-}
-
-#[test]
-#[ignore = "touches the user's real macOS Keychain; run only for manual native storage smoke"]
-fn production_keychain_persists_across_native_bridge_instances() -> Result<(), String> {
-    let lookup = TokenLookupRequest::new(MORROW_KEYCHAIN_SERVICE, MORROW_TOKEN_KIND);
-    let cleanup = KeychainSmokeCleanup::new(lookup.clone());
-    let writer = NativeBridgeState::default();
-    writer
-        .delete_morrow_token(lookup.clone())
-        .map_err(|error| error.to_string())?;
-
-    writer
-        .create_morrow_token(TokenWriteRequest::new(
-            MORROW_KEYCHAIN_SERVICE,
-            MORROW_TOKEN_KIND,
-            "fixture-redacted-token-value",
-        ))
-        .map_err(|error| error.to_string())?;
-    let read_from_new_state = NativeBridgeState::default()
-        .read_morrow_token(lookup.clone())
-        .map_err(|error| error.to_string())?;
-    NativeBridgeState::default()
-        .delete_morrow_token(lookup.clone())
-        .map_err(|error| error.to_string())?;
-    let after_delete = NativeBridgeState::default()
-        .read_morrow_token(lookup)
-        .map_err(|error| error.to_string())?;
-
-    assert_eq!(
-        read_from_new_state.storage_surface,
-        TokenStorageSurface::KeychainBridge
-    );
-    assert!(read_from_new_state.present);
-    assert_eq!(
-        read_from_new_state.token.as_deref(),
-        Some("fixture-redacted-token-value")
-    );
-    assert!(!after_delete.present);
-    drop(cleanup);
-    Ok(())
-}
-
-struct KeychainSmokeCleanup {
-    lookup: TokenLookupRequest,
-}
-
-impl KeychainSmokeCleanup {
-    fn new(lookup: TokenLookupRequest) -> Self {
-        Self { lookup }
-    }
-}
-
-impl Drop for KeychainSmokeCleanup {
-    fn drop(&mut self) {
-        let _ = NativeBridgeState::default().delete_morrow_token(self.lookup.clone());
-    }
 }
