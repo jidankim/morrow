@@ -1,17 +1,20 @@
 use morrow_detection::{AiProvider, ProviderError, ProviderRequest, ProviderResponse};
+use morrow_diagnostics::TraceRecorder;
 use morrow_messages::MessagesDataSource;
 
 use super::{ProposalReplayAdapter, ScanSelectedChatsResult};
 
-pub struct ScanSelectedChatsDependencies<'a, S, P, A>
+pub struct ScanSelectedChatsDependencies<'a, S, P, A, R>
 where
     S: MessagesDataSource,
     P: AiProvider,
     A: ProposalReplayAdapter,
+    R: TraceRecorder + ?Sized,
 {
     pub source: &'a S,
     pub provider: &'a P,
     pub proposal_adapter: &'a A,
+    pub trace_recorder: &'a R,
 }
 
 pub(super) struct UnavailableProvider;

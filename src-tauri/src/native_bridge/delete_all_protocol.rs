@@ -70,24 +70,26 @@ pub struct MorrowDataDeleteReceipt {
     pub storage_surface: MorrowDataStorageSurface,
     pub database_deleted: bool,
     pub approved_external_items_deleted: bool,
+    pub diagnostics_artifacts_deleted: bool,
     #[serde(
-        alias = "providerOAuthDeleteRequested",
+        rename = "providerOAuthDeleteRequested",
         alias = "providerOauthDeleteRequested"
     )]
-    pub provider_credentials_delete_requested: bool,
-    #[serde(alias = "providerOAuthDeleted", alias = "providerOauthDeleted")]
-    pub provider_credentials_deleted: bool,
+    pub provider_oauth_delete_requested: bool,
+    #[serde(rename = "providerOAuthDeleted", alias = "providerOauthDeleted")]
+    pub provider_oauth_deleted: bool,
     #[serde(
-        alias = "providerOAuthDeleteFailed",
+        rename = "providerOAuthDeleteFailed",
         alias = "providerOauthDeleteFailed"
     )]
-    pub provider_credentials_delete_failed: bool,
+    pub provider_oauth_delete_failed: bool,
     #[serde(
-        alias = "providerOAuthDeleteError",
+        rename = "providerOAuthDeleteError",
         alias = "providerOauthDeleteError",
         skip_serializing_if = "Option::is_none"
     )]
-    pub provider_credentials_delete_error: Option<String>,
+    pub provider_oauth_delete_error: Option<String>,
+    #[serde(default)]
     pub provider_credential_deletes: Vec<ProviderCredentialDeleteReceipt>,
     pub cleanup_plan: DeleteCleanupPlan,
 }

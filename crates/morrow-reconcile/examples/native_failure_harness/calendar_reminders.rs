@@ -11,18 +11,27 @@ use morrow_reminders::{
 
 use crate::harness_error::HarnessError;
 
+/// Native adapter failure scenario summary.
 #[derive(Debug, Clone)]
-pub(crate) struct NativeSummary {
-    pub(crate) permission_failure: &'static str,
-    pub(crate) calendar_failure: &'static str,
-    pub(crate) calendar_failure_events: usize,
-    pub(crate) deleted_list_failure: &'static str,
-    pub(crate) recovered_calendar_count: usize,
-    pub(crate) recovered_event_count: usize,
-    pub(crate) proposed_list_count: usize,
+pub struct NativeSummary {
+    /// Reminder permission failure code.
+    pub permission_failure: &'static str,
+    /// Calendar creation failure code.
+    pub calendar_failure: &'static str,
+    /// Number of events created in the calendar failure case.
+    pub calendar_failure_events: usize,
+    /// Deleted proposed-list failure code.
+    pub deleted_list_failure: &'static str,
+    /// Recovered proposed-calendar count.
+    pub recovered_calendar_count: usize,
+    /// Recovered proposed-event count.
+    pub recovered_event_count: usize,
+    /// Proposed Reminders list count.
+    pub proposed_list_count: usize,
 }
 
-pub(crate) fn run() -> Result<NativeSummary, Box<dyn Error>> {
+/// Runs calendar and Reminders native failure scenarios.
+pub fn run() -> Result<NativeSummary, Box<dyn Error>> {
     let permission_failure = reminder_permission_failure()?;
     let (calendar_failure, calendar_failure_events) = calendar_creation_failure()?;
     let deleted_list_failure = deleted_list_failure()?;

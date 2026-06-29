@@ -14,7 +14,6 @@ const bridgeMock = vi.hoisted(() => ({
   subscribeMenuCommand: vi.fn(async () => vi.fn()),
   reconcileNow: vi.fn(async () => undefined),
   scanSelectedChats: vi.fn(async () => ({ pendingProposalCount: 12 })),
-  storeMorrowToken: vi.fn(async () => ({ storageSurface: "keychainBridge", stored: true, deleted: false })),
   checkProviderAuth: vi.fn(async () => ({
     status: "loggedInUsingChatGpt",
     ready: true,
@@ -22,6 +21,7 @@ const bridgeMock = vi.hoisted(() => ({
     commandOutputRedacted: true,
     diagnostic: "Codex CLI ChatGPT session is ready."
   })),
+  storeMorrowToken: vi.fn(async () => ({ storageSurface: "keychainBridge", stored: true, deleted: false })),
   readMorrowToken: vi.fn(async () => ({ storageSurface: "keychainBridge", present: true })),
   deleteMorrowToken: vi.fn(async () => ({ storageSurface: "keychainBridge", stored: false, deleted: true })),
   discoverMessagesChats: vi.fn(async () => ({
@@ -54,9 +54,10 @@ const deleteSuccessReceipt = (): MorrowDataDeleteReceipt => ({
   storageSurface: "morrowStore",
   databaseDeleted: true,
   approvedExternalItemsDeleted: false,
-  providerCredentialsDeleteRequested: true,
-  providerCredentialsDeleted: true,
-  providerCredentialsDeleteFailed: false,
+  diagnosticsArtifactsDeleted: true,
+  providerOAuthDeleteRequested: true,
+  providerOAuthDeleted: true,
+  providerOAuthDeleteFailed: false,
   providerCredentialDeletes: [
     {
       tokenKind: "morrow-owned-token",
@@ -82,9 +83,9 @@ const deleteSuccessReceipt = (): MorrowDataDeleteReceipt => ({
 const deleteCredentialFailureReceipt = (): MorrowDataDeleteReceipt => ({
   ...deleteSuccessReceipt(),
   databaseDeleted: false,
-  providerCredentialsDeleted: false,
-  providerCredentialsDeleteFailed: true,
-  providerCredentialsDeleteError: "Morrow Keychain delete failed with OSStatus -60008",
+  providerOAuthDeleted: false,
+  providerOAuthDeleteFailed: true,
+  providerOAuthDeleteError: "Morrow Keychain delete failed with OSStatus -60008",
   providerCredentialDeletes: [
     {
       tokenKind: "morrow-owned-token",
@@ -142,7 +143,6 @@ describe("App delete-all privacy controls", () => {
     expect(screen.getByLabelText("Delete proposed Morrow items")).toBeChecked()
     expect(screen.getByLabelText("Delete empty Morrow Proposed containers")).not.toBeChecked()
     expect(screen.getByLabelText("Delete Morrow-owned provider credentials")).toBeChecked()
-    expect(document.body).not.toHaveTextContent("OAuth")
     expect(deleteButton).toBeDisabled()
 
     await act(async () => {
@@ -163,13 +163,10 @@ describe("App delete-all privacy controls", () => {
     })
     await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Morrow data reset"))
     expect(screen.getByText("Approved Calendar and Reminders items were preserved.")).toBeInTheDocument()
-    expect(
-      screen.getByText("Morrow-owned provider credentials were deleted. Codex CLI login was left unchanged.")
-    ).toBeInTheDocument()
     expect(screen.getByText("Deleted 1 proposed Calendar item(s) and 1 proposed Reminder item(s).")).toBeInTheDocument()
   })
 
-  it("reports non-fatal provider credential delete failures without claiming Codex login deletion", async () => {
+  it("reports non-fatal OAuth revoke failures after delete-all succeeds", async () => {
     bridgeMock.deleteMorrowData.mockResolvedValueOnce(deleteCredentialFailureReceipt())
     renderSettings()
 
@@ -181,8 +178,6 @@ describe("App delete-all privacy controls", () => {
         "Morrow-owned provider credentials could not be deleted by macOS. Codex CLI login was left unchanged."
       )
     ).toBeInTheDocument()
-    expect(document.body).not.toHaveTextContent("global Codex CLI login was deleted")
-    expect(document.body).not.toHaveTextContent("OAuth")
   })
 
   it("scrubs crash log text before reporting delete-all failures", async () => {

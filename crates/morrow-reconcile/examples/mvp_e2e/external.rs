@@ -1,5 +1,3 @@
-#![allow(clippy::redundant_pub_crate)]
-
 use morrow_calendar::{
     parse_metadata, Availability, CalendarPlanner, CalendarSourceId, CandidateId as CalendarId,
     FakeEventKit, ProposalMetadata, ProposedEvent, TimeRange, VideoUrl, PROPOSED_CALENDAR_NAME,
@@ -13,19 +11,34 @@ use morrow_storage::{
     ExternalSource, Store,
 };
 
-pub(crate) struct CalendarSummary {
-    pub(crate) candidate_id: CandidateId,
-    pub(crate) visible_created: u64,
-    pub(crate) latency_seconds: u64,
+/// Calendar proposal creation summary.
+#[derive(Debug)]
+pub struct CalendarSummary {
+    /// Candidate made visible through the fake calendar adapter.
+    pub candidate_id: CandidateId,
+    /// Number of visible proposals created.
+    pub visible_created: u64,
+    /// Synthetic latency for metrics.
+    pub latency_seconds: u64,
 }
 
-pub(crate) struct ReminderSummary {
-    pub(crate) candidate_id: CandidateId,
-    pub(crate) visible_created: u64,
-    pub(crate) latency_seconds: u64,
+/// Reminder proposal creation summary.
+#[derive(Debug)]
+pub struct ReminderSummary {
+    /// Candidate made visible through the fake reminders adapter.
+    pub candidate_id: CandidateId,
+    /// Number of visible proposals created.
+    pub visible_created: u64,
+    /// Synthetic latency for metrics.
+    pub latency_seconds: u64,
 }
 
-pub(crate) fn create_calendar_proposal(
+/// Creates a calendar proposal and records its external mapping.
+///
+/// # Panics
+///
+/// Panics when the fake adapter does not preserve the expected proposal invariants.
+pub fn create_calendar_proposal(
     store: &Store,
     draft: &CandidateDraft,
 ) -> Result<CalendarSummary, Box<dyn std::error::Error>> {
@@ -87,7 +100,12 @@ pub(crate) fn create_calendar_proposal(
     })
 }
 
-pub(crate) fn create_reminder_proposals(
+/// Creates reminder proposals and records the date-only external mapping.
+///
+/// # Panics
+///
+/// Panics when the fake adapter does not preserve the expected reminder invariants.
+pub fn create_reminder_proposals(
     store: &Store,
     draft: &CandidateDraft,
 ) -> Result<ReminderSummary, Box<dyn std::error::Error>> {

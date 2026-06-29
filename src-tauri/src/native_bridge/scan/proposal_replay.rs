@@ -23,7 +23,7 @@ pub(super) struct ProposalReplaySummary {
     pub(super) failed: usize,
 }
 
-pub(super) struct LocalProposalAdapter;
+pub(in crate::native_bridge) struct LocalProposalAdapter;
 
 pub trait ProposalReplayAdapter {
     fn create_calendar_proposal(

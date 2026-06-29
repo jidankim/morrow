@@ -5,6 +5,11 @@ use morrow_lib::native_bridge::{
 };
 use morrow_storage::{CandidateDraft, CandidateKind, Store};
 
+#[path = "native_delete/diagnostics.rs"]
+mod diagnostics;
+#[path = "native_delete/provider_credentials.rs"]
+mod provider_credentials;
+
 #[test]
 fn delete_morrow_data_request_accepts_ui_oauth_field_casing() -> Result<(), String> {
     let request = serde_json::from_str::<DeleteMorrowDataRequest>(
@@ -70,34 +75,41 @@ fn delete_morrow_data_command_deletes_configured_store_and_returns_cleanup_recei
     assert!(receipt.database_deleted);
     assert!(!db_path.exists());
     assert!(!receipt.approved_external_items_deleted);
-    assert!(receipt.provider_credentials_delete_requested);
-    assert!(receipt.provider_credentials_deleted);
-    assert!(!receipt.provider_credentials_delete_failed);
-    assert!(receipt.provider_credentials_delete_error.is_none());
+    assert!(receipt.provider_oauth_delete_requested);
+    assert!(receipt.provider_oauth_deleted);
+    assert!(!receipt.provider_oauth_delete_failed);
+    assert!(receipt.provider_oauth_delete_error.is_none());
+    assert_eq!(receipt.provider_credential_deletes.len(), 2);
+    assert!(receipt
+        .provider_credential_deletes
+        .iter()
+        .any(|delete| delete.token_kind == MORROW_TOKEN_KIND && delete.deleted));
     let serialized_receipt = serde_json::to_value(&receipt).map_err(|error| error.to_string())?;
     assert_eq!(
-        serialized_receipt.get("providerCredentialsDeleteRequested"),
+        serialized_receipt.get("providerOAuthDeleteRequested"),
         Some(&serde_json::json!(true))
     );
     assert_eq!(
-        serialized_receipt.get("providerCredentialsDeleted"),
+        serialized_receipt.get("providerOAuthDeleted"),
         Some(&serde_json::json!(true))
     );
     assert_eq!(
-        serialized_receipt.get("providerCredentialsDeleteFailed"),
+        serialized_receipt.get("providerOAuthDeleteFailed"),
         Some(&serde_json::json!(false))
     );
     assert!(serialized_receipt
+        .get("providerOAuthDeleteError")
+        .is_none());
+    assert!(serialized_receipt
+        .get("providerCredentialsDeleteRequested")
+        .is_none());
+    assert!(serialized_receipt.get("providerCredentialsDeleted").is_none());
+    assert!(serialized_receipt
+        .get("providerCredentialsDeleteFailed")
+        .is_none());
+    assert!(serialized_receipt
         .get("providerCredentialsDeleteError")
         .is_none());
-    assert!(serialized_receipt
-        .get("providerOAuthDeleteRequested")
-        .is_none());
-    assert!(serialized_receipt.get("providerOAuthDeleted").is_none());
-    assert!(serialized_receipt
-        .get("providerOAuthDeleteFailed")
-        .is_none());
-    assert!(serialized_receipt.get("providerOAuthDeleteError").is_none());
     assert!(serialized_receipt
         .get("providerOauthDeleteRequested")
         .is_none());
@@ -158,9 +170,9 @@ fn provider_credential_delete_all_attempts_owned_and_provider_token_delete() -> 
     let provider_after_delete = state
         .read_morrow_token(provider_lookup)
         .map_err(|error| error.to_string())?;
-    assert!(receipt.provider_credentials_delete_requested);
-    assert!(receipt.provider_credentials_deleted);
-    assert!(!receipt.provider_credentials_delete_failed);
+    assert!(receipt.provider_oauth_delete_requested);
+    assert!(receipt.provider_oauth_deleted);
+    assert!(!receipt.provider_oauth_delete_failed);
     assert_eq!(receipt.provider_credential_deletes.len(), 2);
     assert!(receipt
         .provider_credential_deletes
@@ -171,7 +183,6 @@ fn provider_credential_delete_all_attempts_owned_and_provider_token_delete() -> 
         .iter()
         .any(|delete| delete.token_kind == MORROW_PROVIDER_TOKEN_KIND && delete.deleted));
     let serialized_receipt = serde_json::to_string(&receipt).map_err(|error| error.to_string())?;
-    assert!(!serialized_receipt.contains("OAuth"));
     assert!(!serialized_receipt.contains("Oauth"));
     assert!(!serialized_receipt.contains("codex"));
     assert!(!serialized_receipt.contains("ChatGPT"));
@@ -198,10 +209,15 @@ fn delete_morrow_data_command_succeeds_when_store_directory_is_absent() -> Resul
 
     assert!(!receipt.database_deleted);
     assert!(!db_path.exists());
-    assert!(receipt.provider_credentials_delete_requested);
-    assert!(!receipt.provider_credentials_deleted);
-    assert!(!receipt.provider_credentials_delete_failed);
-    assert!(receipt.provider_credentials_delete_error.is_none());
+    assert!(receipt.provider_oauth_delete_requested);
+    assert!(!receipt.provider_oauth_deleted);
+    assert!(!receipt.provider_oauth_delete_failed);
+    assert!(receipt.provider_oauth_delete_error.is_none());
+    assert_eq!(receipt.provider_credential_deletes.len(), 2);
+    assert!(receipt
+        .provider_credential_deletes
+        .iter()
+        .all(|delete| delete.delete_requested && !delete.deleted && !delete.failed));
     assert_eq!(
         receipt.cleanup_plan.proposed_items,
         DeleteCleanupAction::Completed

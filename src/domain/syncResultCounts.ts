@@ -29,5 +29,8 @@ export function syncResultCountsFrom(
 }
 
 export function formatSyncResultEvidence(counts: SyncResultCounts): string {
-  return `Candidates ${counts.createdCandidateCount} · Quiet logs ${counts.quietLogCount} · External proposals ${counts.createdExternalProposalCount} created / ${counts.failedExternalProposalCount} failed`
+  return (
+    `Candidates ${counts.createdCandidateCount} · Quiet logs ${counts.quietLogCount} · ` +
+    `External proposals ${counts.createdExternalProposalCount} created / ${counts.failedExternalProposalCount} failed`
+  )
 }

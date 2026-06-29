@@ -107,3 +107,36 @@ impl RawEventKitCleanupResult {
 extern "C" {
     fn morrow_eventkit_cleanup_proposed_items(result: *mut RawEventKitCleanupResult);
 }
+
+#[cfg(all(test, target_os = "macos"))]
+extern "C" {
+    fn morrow_eventkit_cleanup_note_has_morrow_metadata(notes: *const c_char) -> c_int;
+}
+
+#[cfg(all(test, target_os = "macos"))]
+mod tests {
+    use std::ffi::CString;
+    use std::os::raw::c_int;
+
+    use super::morrow_eventkit_cleanup_note_has_morrow_metadata;
+
+    #[test]
+    fn cleanup_ownership_filter_requires_morrow_metadata() {
+        let morrow = CString::new(
+            "Review note\n[MORROW_METADATA_V1]\ncandidate_id=abc\nsource_id=def\n[/MORROW_METADATA_V1]",
+        )
+        .expect("fixture has no nul bytes");
+        let manual = CString::new("manual user item").expect("fixture has no nul bytes");
+
+        let morrow_result = native_note_has_morrow_metadata(&morrow);
+        let manual_result = native_note_has_morrow_metadata(&manual);
+
+        assert_eq!(morrow_result, 1);
+        assert_eq!(manual_result, 0);
+    }
+
+    fn native_note_has_morrow_metadata(notes: &CString) -> c_int {
+        // SAFETY: `notes` is a NUL-terminated CString that lives for the call.
+        unsafe { morrow_eventkit_cleanup_note_has_morrow_metadata(notes.as_ptr()) }
+    }
+}

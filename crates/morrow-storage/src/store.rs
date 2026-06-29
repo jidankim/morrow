@@ -13,6 +13,8 @@ use crate::validation::{
 };
 use crate::StorageError;
 
+mod candidates;
+
 const INIT_SQL: &str = include_str!("../migrations/0001_init.sql");
 const QUIET_LOG_RETENTION_SECONDS: i64 = 30 * 24 * 60 * 60;
 
@@ -236,21 +238,6 @@ impl Store {
 
     pub fn privacy_summary(&self) -> Result<PrivacySummary, StorageError> {
         summarize_privacy(&self.sqlite, self.table_names()?.len())
-    }
-
-    pub fn candidate_state(
-        &self,
-        candidate_id: &CandidateId,
-    ) -> Result<CandidateState, StorageError> {
-        let sql = format!(
-            "SELECT state FROM candidates WHERE id = {};",
-            sql_text(candidate_id.as_str())?
-        );
-        let rows = self.sqlite.query_first_column(&sql)?;
-        let raw = rows.first().ok_or_else(|| StorageError::CandidateMissing {
-            id: candidate_id.to_string(),
-        })?;
-        CandidateState::parse(raw)
     }
 
     fn existing_external_owner(

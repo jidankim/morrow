@@ -53,6 +53,23 @@ static BOOL SetIdentifier(char *buffer, size_t capacity, NSString *value, int tr
     return NO;
 }
 
+static void RequestLegacyEventAccess(EKEventStore *store, void (^completion)(BOOL, NSError *)) {
+    SEL selector = NSSelectorFromString(@"requestAccessToEntityType:completion:");
+    NSMethodSignature *signature = [store methodSignatureForSelector:selector];
+    if (signature == nil) {
+        completion(NO, nil);
+        return;
+    }
+    NSInvocation *invocation = [NSInvocation invocationWithMethodSignature:signature];
+    invocation.target = store;
+    invocation.selector = selector;
+    EKEntityType type = EKEntityTypeEvent;
+    void (^completionCopy)(BOOL, NSError *) = [completion copy];
+    [invocation setArgument:&type atIndex:2];
+    [invocation setArgument:&completionCopy atIndex:3];
+    [invocation invoke];
+}
+
 static BOOL RequestEventAccess(EKEventStore *store, MorrowEventKitProposalResult *result) {
     if (store == nil) {
         SetError(result, ErrorUnavailable, @"EventKit store is unavailable");
@@ -70,14 +87,11 @@ static BOOL RequestEventAccess(EKEventStore *store, MorrowEventKitProposalResult
             dispatch_semaphore_signal(semaphore);
         }];
     } else {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-        [store requestAccessToEntityType:EKEntityTypeEvent completion:^(BOOL ok, NSError *error) {
+        RequestLegacyEventAccess(store, ^(BOOL ok, NSError *error) {
             granted = ok;
             requestError = error;
             dispatch_semaphore_signal(semaphore);
-        }];
-#pragma clang diagnostic pop
+        });
     }
 
     dispatch_time_t timeout = dispatch_time(DISPATCH_TIME_NOW, 120LL * NSEC_PER_SEC);

@@ -2,12 +2,16 @@ import type { AppConfig } from "./domain/appShell"
 import type { DeleteAllOptions } from "./domain/privacyControls"
 import {
   SettingsPrivacyControls,
-  type DeleteAllState,
-  type ProviderCredentialState
+  type DeleteAllState
 } from "./SettingsPrivacyControls"
+import {
+  SettingsProviderCredentialSection,
+  type ProviderCredentialState
+} from "./SettingsProviderCredentialSection"
 import type { PrivacySettingsPane } from "./tauriBridge"
 
-export type { DeleteAllState, ProviderCredentialState } from "./SettingsPrivacyControls"
+export type { DeleteAllState } from "./SettingsPrivacyControls"
+export type { ProviderCredentialState } from "./SettingsProviderCredentialSection"
 
 type SettingsViewProps = {
   readonly config: AppConfig
@@ -85,10 +89,12 @@ export function SettingsView({
         />
         <span>Show first-proposal guidance</span>
       </label>
+      <SettingsProviderCredentialSection
+        state={providerCredentialState}
+        onCheckProviderCredential={onCheckProviderCredential}
+      />
       <SettingsPrivacyControls
         deleteAllState={deleteAllState}
-        providerCredentialState={providerCredentialState}
-        onCheckProviderCredential={onCheckProviderCredential}
         onDeleteAll={onDeleteAll}
         onOpenPrivacySettings={onOpenPrivacySettings}
       />

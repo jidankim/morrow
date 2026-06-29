@@ -14,12 +14,11 @@ struct EvidencePayload {
 
 #[derive(Debug, Serialize)]
 struct AllowedEvidence {
-    message_guid: String,
+    evidence_id: String,
     timestamp: i64,
     participant_count: u16,
     tapback_signal: bool,
     excerpt: String,
-    evidence_pointer: String,
 }
 
 pub(crate) fn evidence_payload_text(
@@ -43,12 +42,11 @@ pub(crate) fn evidence_payload_text(
 
 fn evidence_record(index: usize, message: &MessageEvidence) -> AllowedEvidence {
     AllowedEvidence {
-        message_guid: message.message_guid.as_str().to_owned(),
+        evidence_id: format!("evidence://selected/{index}"),
         timestamp: message.timestamp.as_i64(),
         participant_count: message.participant_count,
         tapback_signal: message.tapback_signal,
         excerpt: bounded_excerpt(&redact_sensitive_text(&message.excerpt)),
-        evidence_pointer: format!("evidence://selected/{index}"),
     }
 }
 

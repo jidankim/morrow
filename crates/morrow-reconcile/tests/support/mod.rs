@@ -1,5 +1,3 @@
-#![allow(clippy::redundant_pub_crate)]
-
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -11,7 +9,8 @@ use morrow_storage::{
 
 static NEXT_DB: AtomicU64 = AtomicU64::new(1);
 
-pub(crate) fn visible_lifecycle(kind: CandidateKind, state: CandidateState) -> CandidateLifecycle {
+/// Builds a lifecycle fixture without an external mapping.
+pub fn visible_lifecycle(kind: CandidateKind, state: CandidateState) -> CandidateLifecycle {
     CandidateLifecycle {
         candidate_id: CandidateId::derive(kind, "chat", "message", "2026-07-01T10:00:00Z"),
         kind,
@@ -21,7 +20,8 @@ pub(crate) fn visible_lifecycle(kind: CandidateKind, state: CandidateState) -> C
     }
 }
 
-pub(crate) fn visible_candidate(
+/// Creates a visible candidate fixture.
+pub fn visible_candidate(
     store: &Store,
     kind: CandidateKind,
     suffix: &str,
@@ -31,7 +31,8 @@ pub(crate) fn visible_candidate(
     Ok(candidate_id)
 }
 
-pub(crate) fn creating_candidate(
+/// Creates a candidate fixture in the `CreatingExternal` state.
+pub fn creating_candidate(
     store: &Store,
     kind: CandidateKind,
     suffix: &str,
@@ -46,7 +47,8 @@ pub(crate) fn creating_candidate(
     Ok(candidate_id)
 }
 
-pub(crate) fn draft(kind: CandidateKind, suffix: &str) -> CandidateDraft {
+/// Builds a candidate draft fixture.
+pub fn draft(kind: CandidateKind, suffix: &str) -> CandidateDraft {
     CandidateDraft {
         kind,
         chat_guid: format!("chat-{suffix}"),
@@ -59,14 +61,13 @@ pub(crate) fn draft(kind: CandidateKind, suffix: &str) -> CandidateDraft {
     }
 }
 
-pub(crate) fn mapping(
-    candidate_id: &CandidateId,
-    external_object_id: &str,
-) -> ExternalObjectMapping {
+/// Builds a calendar external mapping fixture.
+pub fn mapping(candidate_id: &CandidateId, external_object_id: &str) -> ExternalObjectMapping {
     mapping_with_source(candidate_id, ExternalSource::Calendar, external_object_id)
 }
 
-pub(crate) fn mapping_with_source(
+/// Builds an external mapping fixture for the requested source.
+pub fn mapping_with_source(
     candidate_id: &CandidateId,
     source: ExternalSource,
     external_object_id: &str,
@@ -80,7 +81,12 @@ pub(crate) fn mapping_with_source(
     }
 }
 
-pub(crate) fn assert_audit_reason(
+/// Asserts that the candidate audit log contains the requested reason.
+///
+/// # Panics
+///
+/// Panics when the expected reason is not present in the audit log.
+pub fn assert_audit_reason(
     store: &Store,
     candidate_id: &CandidateId,
     reason: LifecycleReason,
@@ -90,7 +96,8 @@ pub(crate) fn assert_audit_reason(
     Ok(())
 }
 
-pub(crate) fn db_path(name: &str) -> PathBuf {
+/// Returns a unique test database path.
+pub fn db_path(name: &str) -> PathBuf {
     let next = NEXT_DB.fetch_add(1, Ordering::Relaxed);
     std::env::temp_dir().join(format!(
         "morrow-reconcile-{name}-{}-{next}.sqlite3",
@@ -98,10 +105,14 @@ pub(crate) fn db_path(name: &str) -> PathBuf {
     ))
 }
 
+/// Error type used by reconcile integration tests.
 #[derive(Debug)]
-pub(crate) enum TestError {
+pub enum TestError {
+    /// Reconciliation error.
     Reconcile(morrow_reconcile::ReconcileError),
+    /// Storage error.
     Storage(morrow_storage::StorageError),
+    /// Expected error was not produced.
     MissingExpectedError,
 }
 

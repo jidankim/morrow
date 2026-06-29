@@ -1,5 +1,12 @@
-mod native_codex_provider_support;
-mod native_provider_support;
+#[path = "support/codex_provider.rs"]
+pub mod codex_provider;
+#[path = "support/provider.rs"]
+pub mod provider;
+
+mod support {
+    pub use crate::codex_provider;
+    pub use crate::provider;
+}
 
 use std::{path::Path, time::Duration};
 
@@ -7,9 +14,8 @@ use morrow_detection::{DetectionOutcome, DetectionPipeline};
 use morrow_lib::native_bridge::{CodexCommandOutput, CodexProvider, CodexProviderError};
 use serde_json::Value;
 
-use native_codex_provider_support::FakeCodexRunner;
-use native_codex_provider_support::FakeOutcome;
-use native_provider_support::{candidate_json, config, message};
+use support::codex_provider::{FakeCodexRunner, FakeOutcome};
+use support::provider::{candidate_json, config, message};
 
 #[test]
 fn codex_provider_invokes_exec_with_schema_and_isolated_cwd() -> Result<(), String> {
@@ -79,18 +85,22 @@ fn codex_provider_invokes_exec_with_schema_and_isolated_cwd() -> Result<(), Stri
         serde_json::from_str(&observation.schema_text).map_err(|error| error.to_string())?;
     assert_eq!(schema["additionalProperties"], false);
     assert_eq!(schema["properties"]["confidence_millis"]["maximum"], 1000);
+    assert!(schema["properties"].get("anchor_evidence_id").is_some());
+    assert!(schema["properties"].get("anchor_message_guid").is_none());
+    assert!(observation.prompt_text.contains("evidence://selected/0"));
     let argv_text = observation.args.join("\n");
+    let provider_text = format!("{argv_text}\n{}", observation.prompt_text);
     for forbidden in [
-        "selected_chat_evidence",
         "chat-secret",
+        "msg-ambiguous-1",
         "messages://",
         "admin@example.com",
         "raw-token",
         "codex_access_token",
     ] {
         assert!(
-            !argv_text.contains(forbidden),
-            "argv leaked {forbidden}: {argv_text}"
+            !provider_text.contains(forbidden),
+            "provider request leaked {forbidden}: {provider_text}"
         );
     }
     Ok(())

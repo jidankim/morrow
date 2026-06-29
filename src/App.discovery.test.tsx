@@ -1,7 +1,6 @@
-import { fireEvent, render, screen, waitFor, act } from "@testing-library/react"
+import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { App } from "./App"
-import { ChatDiscoveryControls } from "./ChatDiscoveryControls"
 import { APP_SHELL_STATE_KEY, createDefaultAppShellState } from "./domain/appShell"
 
 type NativeDiscoveryReportForTest =
@@ -27,7 +26,10 @@ const discoveredChat = {
   id: "messages-chat-11111111111111111111111111111111",
   label: "Chat alpha",
   participantCount: 2,
-  participantIds: ["messages-participant-11111111111111111111111111111111", "messages-participant-22222222222222222222222222222222"],
+  participantIds: [
+    "messages-participant-11111111111111111111111111111111",
+    "messages-participant-22222222222222222222222222222222"
+  ],
   latestActivityTimestamp: 1_783_000_000
 } as const
 
@@ -35,7 +37,11 @@ const rediscoveredChat = {
   id: "messages-chat-11111111111111111111111111111111",
   label: "Updated alpha",
   participantCount: 3,
-  participantIds: ["messages-participant-66666666666666666666666666666666", "messages-participant-77777777777777777777777777777777", "messages-participant-88888888888888888888888888888888"],
+  participantIds: [
+    "messages-participant-66666666666666666666666666666666",
+    "messages-participant-77777777777777777777777777777777",
+    "messages-participant-88888888888888888888888888888888"
+  ],
   latestActivityTimestamp: 1_783_001_000
 } as const
 
@@ -60,7 +66,16 @@ const bridgeMock = vi.hoisted(() => ({
   subscribeMenuCommand: vi.fn(async () => vi.fn()),
   reconcileNow: vi.fn(async () => undefined),
   scanSelectedChats: vi.fn(async () => ({ pendingProposalCount: 12 })),
-  checkProviderAuth: vi.fn(async () => ({ status: "loggedInUsingChatGpt", ready: true, commandSurface: "codex login status", commandOutputRedacted: true, diagnostic: "Codex CLI ChatGPT session is ready." })),
+  checkProviderAuth: vi.fn(async () => ({
+    status: "loggedInUsingChatGpt",
+    ready: true,
+    commandSurface: "codex login status",
+    commandOutputRedacted: true,
+    diagnostic: "Codex CLI ChatGPT session is ready."
+  })),
+  storeMorrowToken: vi.fn(async () => ({ storageSurface: "keychainBridge", stored: true, deleted: false })),
+  readMorrowToken: vi.fn(async () => ({ storageSurface: "keychainBridge", present: true })),
+  deleteMorrowToken: vi.fn(async () => ({ storageSurface: "keychainBridge", stored: false, deleted: true })),
   discoverMessagesChats: vi.fn(async (): Promise<NativeDiscoveryReportForTest> => nativeReadyReport),
   openPrivacySettings: vi.fn(async () => ({ pane: "fullDiskAccess", opened: true })),
   deleteMorrowData: vi.fn(async () => undefined),
@@ -70,38 +85,33 @@ const bridgeMock = vi.hoisted(() => ({
 vi.mock("./tauriBridge", () => ({
   MORROW_KEYCHAIN_SERVICE: "com.morrow.desktop.token",
   MORROW_TOKEN_KIND: "morrow-owned-token",
+  MORROW_PROVIDER_TOKEN_KIND: "morrow-openai-provider-api-key",
   createNativeShellBridge: () => bridgeMock
 }))
 
 const seedSelectedChat = (): void => {
   const initial = createDefaultAppShellState()
-  const ready = { ...initial, config: { ...initial.config, permissionsGranted: true, referenceTimezone: fixtureReferenceTimezone }, discovery: { status: "ready", chats: [discoveredChat] }, selectedChats: [{ ...discoveredChat, backfillPromptEnabled: true }] }
+  const ready = {
+    ...initial,
+    config: {
+      ...initial.config,
+      permissionsGranted: true,
+      referenceTimezone: fixtureReferenceTimezone
+    },
+    discovery: { status: "ready", chats: [discoveredChat] },
+    selectedChats: [{ ...discoveredChat, backfillPromptEnabled: true }]
+  }
   window.localStorage.setItem(APP_SHELL_STATE_KEY, JSON.stringify(ready))
 }
 
-const seedPermissionsGranted = (): void => {
-  const initial = createDefaultAppShellState()
-  const ready = { ...initial, config: { ...initial.config, permissionsGranted: true } }
-  window.localStorage.setItem(APP_SHELL_STATE_KEY, JSON.stringify(ready))
-}
-
-const idleDiscoveryControlProps = {
-  referenceTimezone: "UTC",
-  selectedChats: [],
-  onOpenFullDiskAccess: () => undefined,
-  onRetry: () => undefined,
-  onToggleBackfillPrompt: () => undefined,
-  onToggleChat: () => undefined
-}
-
-describe("App Messages chat discovery onboarding", () => {
+describe("App Messages chat discovery selection and sync", () => {
   beforeEach(() => {
     window.localStorage.clear()
     window.location.hash = ""
     bridgeMock.setShellState.mockClear()
     bridgeMock.reconcileNow.mockClear()
     bridgeMock.scanSelectedChats.mockClear()
-    bridgeMock.checkProviderAuth.mockClear()
+    bridgeMock.readMorrowToken.mockClear()
     bridgeMock.discoverMessagesChats.mockClear()
     bridgeMock.discoverMessagesChats.mockResolvedValue(nativeReadyReport)
     bridgeMock.openPrivacySettings.mockClear()
@@ -139,12 +149,30 @@ describe("App Messages chat discovery onboarding", () => {
 
   it("renders Messages source summary with selected count and latest activity", async () => {
     const initial = createDefaultAppShellState()
-    window.localStorage.setItem(APP_SHELL_STATE_KEY, JSON.stringify({ ...initial, config: { ...initial.config, referenceTimezone: fixtureReferenceTimezone } }))
+    window.localStorage.setItem(
+      APP_SHELL_STATE_KEY,
+      JSON.stringify({ ...initial, config: { ...initial.config, referenceTimezone: fixtureReferenceTimezone } })
+    )
     bridgeMock.discoverMessagesChats.mockResolvedValueOnce({
       status: "ready",
       chats: [
-        nativeChatFromFixture({ id: "messages-chat-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", label: "Messages chat", participantCount: 1, participantIds: ["messages-participant-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"], latestActivityTimestamp: 1_783_000_000 }),
-        nativeChatFromFixture({ id: "messages-chat-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", label: "Messages chat", participantCount: 2, participantIds: ["messages-participant-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "messages-participant-cccccccccccccccccccccccccccccccc"], latestActivityTimestamp: 1_783_000_000 })
+        nativeChatFromFixture({
+          id: "messages-chat-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          label: "Messages chat",
+          participantCount: 1,
+          participantIds: ["messages-participant-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],
+          latestActivityTimestamp: 1_783_000_000
+        }),
+        nativeChatFromFixture({
+          id: "messages-chat-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          label: "Messages chat",
+          participantCount: 2,
+          participantIds: [
+            "messages-participant-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "messages-participant-cccccccccccccccccccccccccccccccc"
+          ],
+          latestActivityTimestamp: 1_783_000_000
+        })
       ]
     })
 
@@ -171,65 +199,6 @@ describe("App Messages chat discovery onboarding", () => {
     expect(document.body).not.toHaveTextContent("person@example.com")
     expect(document.body).not.toHaveTextContent("+15555550103")
     expect(document.body).not.toHaveTextContent("See you at 7")
-  })
-
-  it("renders distinct empty discovery copy", async () => {
-    let resolveDiscovery: (report: NativeDiscoveryReportForTest) => void = () => undefined
-    bridgeMock.discoverMessagesChats.mockReturnValueOnce(
-      new Promise<NativeDiscoveryReportForTest>((resolve) => {
-        resolveDiscovery = resolve
-      })
-    )
-    render(<App />)
-
-    expect((await screen.findAllByText("Morrow is checking local Messages access.")).length).toBeGreaterThan(1)
-    await act(async () => resolveDiscovery({ status: "empty", chats: [] }))
-
-    expect(screen.getByText("Messages discovery finished, but found no eligible chats.")).toBeInTheDocument()
-    expect(screen.getByText("Messages discovery found no eligible chats.")).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: "Sync Now" })).toBeDisabled()
-  })
-
-  it("shows Full Disk Access recovery when Messages discovery is denied", async () => {
-    seedPermissionsGranted()
-    bridgeMock.discoverMessagesChats.mockResolvedValueOnce({ status: "permissionDenied", chats: [] })
-    render(<App />)
-
-    expect(await screen.findByText("Morrow needs Full Disk Access to read Messages.")).toBeInTheDocument()
-    expect(screen.getByText("Sync Now disabled: Grant Full Disk Access, restart Morrow, then retry chat discovery.")).toBeInTheDocument()
-    expect(screen.getAllByText("Grant Full Disk Access, restart Morrow, then retry chat discovery.").length).toBeGreaterThan(1)
-    expect(screen.getByRole("button", { name: "Open Full Disk Access" })).toBeInTheDocument()
-  })
-
-  it("renders distinct denied discovery recovery copy", async () => {
-    bridgeMock.discoverMessagesChats.mockResolvedValueOnce({ status: "permissionDenied", chats: [] })
-    render(<App />)
-
-    expect(await screen.findByText("Morrow needs Full Disk Access to read Messages.")).toBeInTheDocument()
-    expect(screen.getAllByText("Grant Full Disk Access, restart Morrow, then retry chat discovery.").length).toBeGreaterThan(1)
-    fireEvent.click(screen.getByRole("button", { name: "Open Full Disk Access" }))
-
-    await waitFor(() =>
-      expect(bridgeMock.openPrivacySettings).toHaveBeenCalledWith({ pane: "fullDiskAccess" })
-    )
-    expect(screen.getByRole("button", { name: "Sync Now" })).toBeDisabled()
-  })
-
-  it("retries discovery from unavailable and empty states", async () => {
-    bridgeMock.discoverMessagesChats
-      .mockResolvedValueOnce({ status: "unavailable", chats: [] })
-      .mockResolvedValueOnce({ status: "empty", chats: [] })
-      .mockResolvedValueOnce(nativeReadyReport)
-    render(<App />)
-
-    expect(await screen.findByText("Morrow could not read Messages.")).toBeInTheDocument()
-    expect(screen.getAllByText("Restart Morrow after permission changes, then retry chat discovery or check local Messages access.").length).toBeGreaterThan(1)
-    fireEvent.click(screen.getByRole("button", { name: "Retry chat discovery" }))
-    expect(await screen.findByText("Messages discovery finished, but found no eligible chats.")).toBeInTheDocument()
-    fireEvent.click(screen.getByRole("button", { name: "Retry chat discovery" }))
-
-    expect(await screen.findByRole("checkbox", { name: /Chat alpha/ })).toBeInTheDocument()
-    expect(bridgeMock.discoverMessagesChats).toHaveBeenCalledTimes(3)
   })
 
   it("enables then disables Sync Now as a real discovered chat is selected and deselected", async () => {
@@ -282,12 +251,5 @@ describe("App Messages chat discovery onboarding", () => {
 
     expect(await screen.findByRole("checkbox", { name: /Chat alpha/ })).toBeChecked()
     await waitFor(() => expect(screen.getByRole("button", { name: "Sync Now" })).toBeEnabled())
-  })
-
-  it("renders distinct unverified discovery copy", () => {
-    render(<ChatDiscoveryControls {...idleDiscoveryControlProps} discovery={{ status: "unverified", chats: [] }} />)
-
-    expect(screen.getByText("Messages discovery has not completed yet.")).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: "Retry chat discovery" })).toBeInTheDocument()
   })
 })

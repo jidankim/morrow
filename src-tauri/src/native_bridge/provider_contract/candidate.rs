@@ -12,8 +12,8 @@ struct CandidateObject {
     title: String,
     confidence_millis: i64,
     normalized_time: String,
-    anchor_message_guid: String,
-    evidence_message_guids: Vec<String>,
+    anchor_evidence_id: String,
+    evidence_ids: Vec<String>,
 }
 
 pub(crate) fn candidate_schema() -> Value {
@@ -25,8 +25,8 @@ pub(crate) fn candidate_schema() -> Value {
             "title",
             "confidence_millis",
             "normalized_time",
-            "anchor_message_guid",
-            "evidence_message_guids"
+            "anchor_evidence_id",
+            "evidence_ids"
         ],
         "properties": {
             "kind": {
@@ -45,8 +45,8 @@ pub(crate) fn candidate_schema() -> Value {
             "title": { "type": "string" },
             "confidence_millis": { "type": "integer", "minimum": 0, "maximum": 1000 },
             "normalized_time": { "type": "string" },
-            "anchor_message_guid": { "type": "string" },
-            "evidence_message_guids": {
+            "anchor_evidence_id": { "type": "string" },
+            "evidence_ids": {
                 "type": "array",
                 "minItems": 1,
                 "items": { "type": "string" }
@@ -55,10 +55,10 @@ pub(crate) fn candidate_schema() -> Value {
     })
 }
 
-pub(crate) fn validate_candidate_json(
+pub(crate) fn localize_candidate_json(
     text: &str,
     evidence: &[MessageEvidence],
-) -> Result<(), ProviderContractError> {
+) -> Result<String, ProviderContractError> {
     let value: Value = serde_json::from_str(text)
         .map_err(|_| invalid_candidate("candidate text was not valid json"))?;
     if !value.is_object() {
@@ -75,13 +75,24 @@ pub(crate) fn validate_candidate_json(
         return Err(invalid_candidate("candidate confidence was invalid"));
     }
     validate_normalized_time(&candidate.normalized_time)?;
-    if candidate.anchor_message_guid.is_empty() || candidate.evidence_message_guids.is_empty() {
+    if candidate.anchor_evidence_id.is_empty() || candidate.evidence_ids.is_empty() {
         return Err(invalid_candidate("candidate evidence was invalid"));
     }
-    if evidence_is_hallucinated(evidence, &candidate) {
-        return Err(invalid_candidate("candidate evidence was hallucinated"));
-    }
-    Ok(())
+    let anchor_message_guid = evidence_guid_for_id(evidence, &candidate.anchor_evidence_id)?;
+    let evidence_message_guids = candidate
+        .evidence_ids
+        .iter()
+        .map(|id| evidence_guid_for_id(evidence, id))
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(json!({
+        "kind": candidate.kind,
+        "title": candidate.title,
+        "confidence_millis": candidate.confidence_millis,
+        "normalized_time": candidate.normalized_time,
+        "anchor_message_guid": anchor_message_guid,
+        "evidence_message_guids": evidence_message_guids
+    })
+    .to_string())
 }
 
 fn validate_normalized_time(raw: &str) -> Result<(), ProviderContractError> {
@@ -151,18 +162,20 @@ const fn is_leap_year(year: u16) -> bool {
     year % 4 == 0 && (year % 100 != 0 || year % 400 == 0)
 }
 
-fn evidence_is_hallucinated(evidence: &[MessageEvidence], candidate: &CandidateObject) -> bool {
-    !evidence_contains(evidence, &candidate.anchor_message_guid)
-        || candidate
-            .evidence_message_guids
-            .iter()
-            .any(|guid| !evidence_contains(evidence, guid))
-}
-
-fn evidence_contains(evidence: &[MessageEvidence], message_guid: &str) -> bool {
+fn evidence_guid_for_id(
+    evidence: &[MessageEvidence],
+    evidence_id: &str,
+) -> Result<String, ProviderContractError> {
+    let index_text = evidence_id
+        .strip_prefix("evidence://selected/")
+        .ok_or_else(|| invalid_candidate("candidate evidence was hallucinated"))?;
+    let index = index_text
+        .parse::<usize>()
+        .map_err(|_| invalid_candidate("candidate evidence was hallucinated"))?;
     evidence
-        .iter()
-        .any(|message| message.message_guid.as_str() == message_guid)
+        .get(index)
+        .map(|message| message.message_guid.as_str().to_owned())
+        .ok_or_else(|| invalid_candidate("candidate evidence was hallucinated"))
 }
 
 const fn invalid_candidate(reason: &'static str) -> ProviderContractError {

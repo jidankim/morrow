@@ -10,15 +10,17 @@ mod fake;
 mod keychain;
 pub mod messages_sqlite;
 mod openai_provider;
+mod paths;
 mod permissions;
 mod provider_contract;
 mod public_chat_id;
 mod scan;
+mod scan_privacy;
 mod state;
+mod store_probe;
 
-use std::path::PathBuf;
-
-use tauri::{AppHandle, Manager, State};
+use paths::{messages_database_path, morrow_store_path};
+use tauri::{AppHandle, State};
 
 pub use codex_auth::{
     probe_codex_provider_auth, probe_codex_provider_auth_with_runner, CodexAuthCommandOutput,
@@ -52,8 +54,11 @@ pub use permissions::{
     OpenPrivacySettingsRequest, PermissionKind, PermissionOutcome, PermissionState,
     PermissionStatus, PrivacySettingsPane,
 };
-#[rustfmt::skip]
-pub use scan::{scan_selected_chats_with_dependencies, CalendarProposalReceipt, CapPolicyRequest, ProposalReplayAdapter, ScanSelectedChatsDependencies, ScanSelectedChatsError, ScanSelectedChatsRequest, ScanSelectedChatsResult};
+pub use scan::{
+    scan_selected_chats_with_dependencies, CalendarProposalReceipt, CapPolicyRequest,
+    ProposalReplayAdapter, ScanSelectedChatsDependencies, ScanSelectedChatsError,
+    ScanSelectedChatsRequest, ScanSelectedChatsResult,
+};
 pub use state::{NativeBridgeState, ProductionScanCodexDependencies};
 
 #[tauri::command]
@@ -143,23 +148,8 @@ pub fn check_provider_auth() -> CodexProviderAuthReadiness {
     codex_auth::probe_codex_provider_auth()
 }
 
-fn messages_database_path() -> Result<PathBuf, String> {
-    std::env::var_os("HOME")
-        .map(|home| PathBuf::from(home).join("Library/Messages/chat.db"))
-        .ok_or_else(|| "Messages discovery is unavailable on this system.".to_owned())
-}
-
-fn morrow_store_path(app: &AppHandle) -> Result<PathBuf, String> {
-    app.path()
-        .app_data_dir()
-        .map(|path| path.join("morrow.sqlite"))
-        .map_err(|error| error.to_string())
-}
-
 #[tauri::command]
 pub fn reconcile_now(app: AppHandle) -> Result<(), String> {
     let store_path = morrow_store_path(&app)?;
-    morrow_storage::Store::open(&store_path)
-        .map(|_| ())
-        .map_err(|error| error.to_string())
+    store_probe::reconcile_now_at(&store_path).map_err(|error| error.to_string())
 }

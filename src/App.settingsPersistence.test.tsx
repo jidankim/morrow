@@ -21,7 +21,6 @@ const bridgeMock = vi.hoisted(() => ({
   subscribeMenuCommand: vi.fn(async () => vi.fn()),
   reconcileNow: vi.fn(async () => undefined),
   scanSelectedChats: vi.fn(async () => ({ pendingProposalCount: 12 })),
-  storeMorrowToken: vi.fn(async () => ({ storageSurface: "keychainBridge", stored: true, deleted: false })),
   checkProviderAuth: vi.fn(async () => ({
     status: "loggedInUsingChatGpt",
     ready: true,
@@ -29,6 +28,7 @@ const bridgeMock = vi.hoisted(() => ({
     commandOutputRedacted: true,
     diagnostic: "Codex CLI ChatGPT session is ready."
   })),
+  storeMorrowToken: vi.fn(async () => ({ storageSurface: "keychainBridge", stored: true, deleted: false })),
   readMorrowToken: vi.fn(async () => ({ storageSurface: "keychainBridge", present: true })),
   deleteMorrowToken: vi.fn(async () => ({ storageSurface: "keychainBridge", stored: false, deleted: true })),
   discoverMessagesChats: vi.fn(async () => ({
@@ -75,7 +75,6 @@ describe("App settings persistence", () => {
   beforeEach(() => {
     window.localStorage.clear()
     window.location.hash = ""
-    bridgeMock.checkProviderAuth.mockClear()
     bridgeMock.readMorrowToken.mockClear()
   })
 

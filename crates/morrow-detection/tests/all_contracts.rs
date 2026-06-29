@@ -6,3 +6,5 @@ mod golden;
 mod pipeline;
 #[path = "contracts/provider.rs"]
 mod provider;
+#[path = "contracts/trace.rs"]
+mod trace;

@@ -1,9 +1,11 @@
+use morrow_diagnostics::{NoopTraceRecorder, TraceRecorder};
 use morrow_messages::MessageEvidence;
 use morrow_storage::{CandidateDraft, QuietLogDraft};
 
 use crate::parser::{classify, GateDecision, ParsedCandidate};
 use crate::provider::{AiProvider, ProviderRequest};
 use crate::schema::{parse_provider_candidate, ProviderCandidate, SchemaRejection};
+use crate::trace::MessageTrace;
 use crate::types::{DetectionConfig, SourceExcerptPolicy};
 
 const HIDDEN_SOURCE_EXCERPT: &str = "Source excerpt hidden by settings.";
@@ -50,51 +52,105 @@ impl<'a, P: AiProvider> DetectionPipeline<'a, P> {
         messages: &[MessageEvidence],
         config: &DetectionConfig,
     ) -> DetectionReport {
+        let recorder = NoopTraceRecorder;
+        self.detect_with_trace(messages, config, &recorder)
+    }
+
+    pub fn detect_with_trace<R: TraceRecorder + ?Sized>(
+        &self,
+        messages: &[MessageEvidence],
+        config: &DetectionConfig,
+        recorder: &R,
+    ) -> DetectionReport {
         let outcomes = messages
             .iter()
-            .map(|message| self.detect_one(message, config))
+            .map(|message| {
+                let trace = MessageTrace::new(message, recorder);
+                self.detect_one(message, config, &trace)
+            })
             .collect();
         DetectionReport { outcomes }
     }
 
-    fn detect_one(&self, message: &MessageEvidence, config: &DetectionConfig) -> DetectionOutcome {
+    fn detect_one<R: TraceRecorder + ?Sized>(
+        &self,
+        message: &MessageEvidence,
+        config: &DetectionConfig,
+        trace: &MessageTrace<'_, R>,
+    ) -> DetectionOutcome {
         match classify(message, config) {
-            GateDecision::Stop { reason } => quiet(message, reason, config.source_excerpts),
+            GateDecision::Stop { reason } => {
+                trace.parser_stop(reason, config);
+                let outcome = quiet(message, reason, config.source_excerpts);
+                trace.outcome_materialized(&outcome, config.source_excerpts);
+                outcome
+            }
             GateDecision::Candidate(parsed) => {
-                candidate_from_parsed(message, parsed, &message.excerpt, config)
+                trace.parser_candidate(parsed.confidence_millis, config);
+                let outcome = candidate_from_parsed(message, parsed, &message.excerpt, config);
+                trace.outcome_materialized(&outcome, config.source_excerpts);
+                outcome
             }
             GateDecision::ProviderRoute { parser_time } => {
-                self.detect_with_provider(message, parser_time, config)
+                trace.parser_provider_route(config);
+                self.detect_with_provider(message, parser_time, config, trace)
             }
         }
     }
 
-    fn detect_with_provider(
+    fn detect_with_provider<R: TraceRecorder + ?Sized>(
         &self,
         message: &MessageEvidence,
         parser_time: Option<crate::types::CivilDateTime>,
         config: &DetectionConfig,
+        trace: &MessageTrace<'_, R>,
     ) -> DetectionOutcome {
         let evidence = std::slice::from_ref(message);
+        trace.provider_route(config);
         let response = match self
             .provider
             .extract(ProviderRequest::new(evidence, &config.provider))
         {
-            Ok(response) => response,
-            Err(_) => return quiet(message, "provider_unavailable", config.source_excerpts),
+            Ok(response) => {
+                trace.provider_extract_success(config);
+                response
+            }
+            Err(_) => {
+                trace.provider_unavailable(config);
+                let outcome = quiet(message, "provider_unavailable", config.source_excerpts);
+                trace.outcome_materialized(&outcome, config.source_excerpts);
+                return outcome;
+            }
         };
         match parse_provider_candidate(response.raw_json(), evidence, parser_time, config) {
             Ok(provider_candidate)
                 if provider_candidate.parsed.confidence_millis >= config.threshold.as_i64() =>
             {
-                candidate_from_provider(message, provider_candidate, config.source_excerpts)
+                trace.provider_schema_accepted(provider_candidate.parsed.confidence_millis, config);
+                trace.threshold_accepted(provider_candidate.parsed.confidence_millis, config);
+                let outcome =
+                    candidate_from_provider(message, provider_candidate, config.source_excerpts);
+                trace.outcome_materialized(&outcome, config.source_excerpts);
+                outcome
             }
-            Ok(_) => quiet(
-                message,
-                "confidence_below_threshold",
-                config.source_excerpts,
-            ),
-            Err(rejection) => quiet(message, rejection.reason(), config.source_excerpts),
+            Ok(provider_candidate) => {
+                trace.provider_schema_accepted(provider_candidate.parsed.confidence_millis, config);
+                trace.threshold_rejected(provider_candidate.parsed.confidence_millis, config);
+                let outcome = quiet(
+                    message,
+                    "confidence_below_threshold",
+                    config.source_excerpts,
+                );
+                trace.outcome_materialized(&outcome, config.source_excerpts);
+                outcome
+            }
+            Err(rejection) => {
+                let reason = rejection.reason();
+                trace.provider_schema_rejected(reason, config);
+                let outcome = quiet(message, reason, config.source_excerpts);
+                trace.outcome_materialized(&outcome, config.source_excerpts);
+                outcome
+            }
         }
     }
 }

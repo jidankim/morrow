@@ -54,6 +54,8 @@ const nativeAppShellStateSchema = z.object({
   pendingProposalCount: z.number().int().min(0)
 })
 
+const syncScanResultSchema = syncResultCountsSchema
+
 const tokenStorageSurfaceSchema = z.literal("keychainBridge")
 
 const tokenCommandReceiptSchema = z.object({
@@ -135,7 +137,7 @@ function parseNativeAppShellState(value: unknown): NativeAppShellState {
 }
 
 function parseSyncScanResult(value: unknown): SyncScanResult {
-  return syncResultCountsSchema.parse(value)
+  return syncScanResultSchema.parse(value)
 }
 
 function parseTokenCommandReceipt(value: unknown): MorrowTokenCommandReceipt {

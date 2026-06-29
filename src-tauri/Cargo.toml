@@ -23,6 +23,7 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 morrow-detection = { path = "../crates/morrow-detection" }
+morrow-diagnostics = { path = "../crates/morrow-diagnostics" }
 morrow-calendar = { path = "../crates/morrow-calendar" }
 morrow-messages = { path = "../crates/morrow-messages" }
 morrow-storage = { path = "../crates/morrow-storage" }

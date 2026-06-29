@@ -1,18 +1,24 @@
-#![allow(clippy::redundant_pub_crate)]
-
 use std::io::{Error, Write};
 
 const EXPECTED_LIFECYCLE_READBACK_COUNT: usize = 1;
 
 #[derive(Debug, Default)]
-pub(crate) struct SmokeCounts {
-    pub(crate) approved_by_move: usize,
-    pub(crate) approved_by_copy_cleanup: usize,
-    pub(crate) rejected_by_delete: usize,
-    pub(crate) unknown_disappearance: usize,
-    pub(crate) edited_pending_no_overwrite: usize,
-    pub(crate) completed_closure: usize,
-    pub(crate) partial_write_recovered: usize,
+/// Lifecycle smoke readback counts.
+pub struct SmokeCounts {
+    /// Approved-by-move readback count.
+    pub approved_by_move: usize,
+    /// Approved-by-copy cleanup readback count.
+    pub approved_by_copy_cleanup: usize,
+    /// Rejected-by-delete readback count.
+    pub rejected_by_delete: usize,
+    /// Unknown-disappearance readback count.
+    pub unknown_disappearance: usize,
+    /// Edited-pending suppression readback count.
+    pub edited_pending_no_overwrite: usize,
+    /// Completed-closure readback count.
+    pub completed_closure: usize,
+    /// Partial-write recovery readback count.
+    pub partial_write_recovered: usize,
 }
 
 impl SmokeCounts {
@@ -43,7 +49,8 @@ impl SmokeCounts {
     }
 }
 
-pub(crate) fn write_summary(counts: &SmokeCounts) -> Result<(), Box<dyn std::error::Error>> {
+/// Writes and validates lifecycle smoke readback counts.
+pub fn write_summary(counts: &SmokeCounts) -> Result<(), Box<dyn std::error::Error>> {
     let mut out = std::io::stdout();
     for (name, observed) in counts.required_readbacks() {
         writeln!(out, "{name}={observed}")?;

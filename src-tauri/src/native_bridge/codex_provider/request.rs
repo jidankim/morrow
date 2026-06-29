@@ -60,6 +60,10 @@ impl CodexExecRequest {
     pub const fn timeout(&self) -> Duration {
         self.timeout
     }
+
+    pub fn prompt(&self) -> &str {
+        &self.prompt
+    }
 }
 
 impl fmt::Debug for CodexExecRequest {

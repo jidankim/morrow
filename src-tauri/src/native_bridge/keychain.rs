@@ -1,9 +1,12 @@
-use std::{collections::BTreeMap, error::Error, fmt, sync::Mutex};
+use std::{error::Error, fmt};
 
 use serde::{Deserialize, Serialize};
 
+mod fake;
 #[cfg(target_os = "macos")]
 mod macos_keychain;
+
+pub use fake::FakeMorrowTokenVault;
 
 pub const MORROW_KEYCHAIN_SERVICE: &str = "com.morrow.desktop.token";
 pub const MORROW_TOKEN_KIND: &str = "morrow-owned-token";
@@ -88,12 +91,23 @@ impl TokenLookupRequest {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct TokenWriteRequest {
     pub service: String,
     pub token_kind: String,
     pub token: String,
+}
+
+impl fmt::Debug for TokenWriteRequest {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("TokenWriteRequest")
+            .field("service", &self.service)
+            .field("token_kind", &self.token_kind)
+            .field("token", &"<redacted>")
+            .finish()
+    }
 }
 
 impl TokenWriteRequest {
@@ -121,12 +135,23 @@ pub struct TokenCommandReceipt {
     pub deleted: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct TokenReadResponse {
     pub storage_surface: TokenStorageSurface,
     pub present: bool,
     pub token: Option<String>,
+}
+
+impl fmt::Debug for TokenReadResponse {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("TokenReadResponse")
+            .field("storage_surface", &self.storage_surface)
+            .field("present", &self.present)
+            .field("token", &self.token.as_ref().map(|_| "<redacted>"))
+            .finish()
+    }
 }
 
 #[derive(Debug, Default, Clone, Copy)]
@@ -175,67 +200,7 @@ impl MorrowTokenVault {
     }
 }
 
-#[derive(Debug, Default)]
-pub struct FakeMorrowTokenVault {
-    tokens: Mutex<BTreeMap<String, String>>,
-}
-
-impl FakeMorrowTokenVault {
-    pub fn create(
-        &self,
-        request: TokenWriteRequest,
-    ) -> Result<TokenCommandReceipt, KeychainBridgeError> {
-        validate_lookup(&request.lookup())?;
-        validate_token(&request.token)?;
-        let mut tokens = self.tokens.lock().map_err(|_| {
-            KeychainBridgeError::storage_unavailable("fake Morrow token vault lock is poisoned")
-        })?;
-        tokens.insert(request.token_kind, request.token);
-        Ok(TokenCommandReceipt {
-            storage_surface: TokenStorageSurface::KeychainBridge,
-            stored: true,
-            deleted: false,
-        })
-    }
-
-    pub fn read(
-        &self,
-        request: TokenLookupRequest,
-    ) -> Result<TokenReadResponse, KeychainBridgeError> {
-        validate_lookup(&request)?;
-        let token = self
-            .tokens
-            .lock()
-            .map_err(|_| {
-                KeychainBridgeError::storage_unavailable("fake Morrow token vault lock is poisoned")
-            })?
-            .get(&request.token_kind)
-            .cloned();
-        Ok(TokenReadResponse {
-            storage_surface: TokenStorageSurface::KeychainBridge,
-            present: token.is_some(),
-            token,
-        })
-    }
-
-    pub fn delete(
-        &self,
-        request: TokenLookupRequest,
-    ) -> Result<TokenCommandReceipt, KeychainBridgeError> {
-        validate_lookup(&request)?;
-        let mut tokens = self.tokens.lock().map_err(|_| {
-            KeychainBridgeError::storage_unavailable("fake Morrow token vault lock is poisoned")
-        })?;
-        let deleted = tokens.remove(&request.token_kind).is_some();
-        Ok(TokenCommandReceipt {
-            storage_surface: TokenStorageSurface::KeychainBridge,
-            stored: false,
-            deleted,
-        })
-    }
-}
-
-fn validate_lookup(request: &TokenLookupRequest) -> Result<(), KeychainBridgeError> {
+pub(super) fn validate_lookup(request: &TokenLookupRequest) -> Result<(), KeychainBridgeError> {
     if request.service != MORROW_KEYCHAIN_SERVICE {
         return Err(KeychainBridgeError::unsupported_service(&request.service));
     }
@@ -251,7 +216,7 @@ fn supported_token_kind(token_kind: &str) -> bool {
     matches!(token_kind, MORROW_TOKEN_KIND | MORROW_PROVIDER_TOKEN_KIND)
 }
 
-fn validate_token(token: &str) -> Result<(), KeychainBridgeError> {
+pub(super) fn validate_token(token: &str) -> Result<(), KeychainBridgeError> {
     if token.is_empty() {
         return Err(KeychainBridgeError::empty_token());
     }

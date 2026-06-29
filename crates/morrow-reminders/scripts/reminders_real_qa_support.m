@@ -192,6 +192,23 @@ BOOL VerifyNoMarkedReminders(EKEventStore *store, EKCalendar *calendar, NSError 
     return remaining != nil && remaining.count == 0;
 }
 
+void RequestLegacyReminderAccess(EKEventStore *store, void (^completion)(BOOL, NSError *)) {
+    SEL selector = NSSelectorFromString(@"requestAccessToEntityType:completion:");
+    NSMethodSignature *signature = [store methodSignatureForSelector:selector];
+    if (signature == nil) {
+        completion(NO, nil);
+        return;
+    }
+    NSInvocation *invocation = [NSInvocation invocationWithMethodSignature:signature];
+    invocation.target = store;
+    invocation.selector = selector;
+    EKEntityType type = EKEntityTypeReminder;
+    void (^completionCopy)(BOOL, NSError *) = [completion copy];
+    [invocation setArgument:&type atIndex:2];
+    [invocation setArgument:&completionCopy atIndex:3];
+    [invocation invoke];
+}
+
 BOOL RequestAccessIfAsked(EKEventStore *store) {
     dispatch_semaphore_t semaphore = dispatch_semaphore_create(0);
     __block BOOL granted = NO;
@@ -203,15 +220,11 @@ BOOL RequestAccessIfAsked(EKEventStore *store) {
             dispatch_semaphore_signal(semaphore);
         }];
     } else {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-        [store requestAccessToEntityType:EKEntityTypeReminder
-                              completion:^(BOOL accessGranted, NSError *error) {
+        RequestLegacyReminderAccess(store, ^(BOOL accessGranted, NSError *error) {
             (void)error;
             granted = accessGranted;
             dispatch_semaphore_signal(semaphore);
-        }];
-#pragma clang diagnostic pop
+        });
     }
 
     dispatch_time_t timeout = dispatch_time(DISPATCH_TIME_NOW, 120LL * NSEC_PER_SEC);

@@ -23,46 +23,18 @@ const providerCredentialDeleteReceiptSchema = z.object({
   error: z.string().min(1).optional()
 })
 
-const morrowDataDeleteReceiptBaseShape = {
+const morrowDataDeleteReceiptSchema = z.object({
   storageSurface: z.literal("morrowStore"),
   databaseDeleted: z.boolean(),
   approvedExternalItemsDeleted: z.literal(false),
+  diagnosticsArtifactsDeleted: z.boolean().default(false),
+  providerOAuthDeleteRequested: z.boolean(),
+  providerOAuthDeleted: z.boolean(),
+  providerOAuthDeleteFailed: z.boolean().default(false),
+  providerOAuthDeleteError: z.string().min(1).optional(),
   providerCredentialDeletes: z.array(providerCredentialDeleteReceiptSchema).default([]),
   cleanupPlan: morrowDataCleanupPlanSchema
-} as const
-
-const providerCredentialsDeleteReceiptSchema = z.object({
-  ...morrowDataDeleteReceiptBaseShape,
-  providerCredentialsDeleteRequested: z.boolean(),
-  providerCredentialsDeleted: z.boolean(),
-  providerCredentialsDeleteFailed: z.boolean().default(false),
-  providerCredentialsDeleteError: z.string().min(1).optional()
 })
-
-const legacyProviderOAuthDeleteReceiptSchema = z
-  .object({
-    ...morrowDataDeleteReceiptBaseShape,
-    providerOAuthDeleteRequested: z.boolean(),
-    providerOAuthDeleted: z.boolean(),
-    providerOAuthDeleteFailed: z.boolean().default(false),
-    providerOAuthDeleteError: z.string().min(1).optional()
-  })
-  .transform((receipt) => ({
-    storageSurface: receipt.storageSurface,
-    databaseDeleted: receipt.databaseDeleted,
-    approvedExternalItemsDeleted: receipt.approvedExternalItemsDeleted,
-    providerCredentialDeletes: receipt.providerCredentialDeletes,
-    cleanupPlan: receipt.cleanupPlan,
-    providerCredentialsDeleteRequested: receipt.providerOAuthDeleteRequested,
-    providerCredentialsDeleted: receipt.providerOAuthDeleted,
-    providerCredentialsDeleteFailed: receipt.providerOAuthDeleteFailed,
-    providerCredentialsDeleteError: receipt.providerOAuthDeleteError
-  }))
-
-const morrowDataDeleteReceiptSchema = z.union([
-  providerCredentialsDeleteReceiptSchema,
-  legacyProviderOAuthDeleteReceiptSchema
-])
 
 const crashLogReceiptSchema = z.object({
   stored: z.boolean()

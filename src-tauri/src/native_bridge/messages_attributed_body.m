@@ -39,6 +39,46 @@ static void SetError(MorrowMessagesAttributedBodyResult *result, int code, NSStr
     SetString(result->message, sizeof(result->message), message);
 }
 
+static id LegacyUnarchiveObject(NSData *data) {
+    Class unarchiver = NSClassFromString(@"NSUnarchiver");
+    SEL selector = NSSelectorFromString(@"unarchiveObjectWithData:");
+    if (unarchiver == Nil || ![unarchiver respondsToSelector:selector]) {
+        return nil;
+    }
+    NSMethodSignature *signature = [unarchiver methodSignatureForSelector:selector];
+    if (signature == nil) {
+        return nil;
+    }
+    NSInvocation *invocation = [NSInvocation invocationWithMethodSignature:signature];
+    invocation.target = unarchiver;
+    invocation.selector = selector;
+    [invocation setArgument:&data atIndex:2];
+    [invocation invoke];
+    __unsafe_unretained id object = nil;
+    [invocation getReturnValue:&object];
+    return object;
+}
+
+static id KeyedUnarchiveObject(NSData *data) {
+    NSSet *classes = [NSSet setWithObjects:
+        [NSAttributedString class],
+        [NSMutableAttributedString class],
+        [NSString class],
+        [NSMutableString class],
+        [NSDictionary class],
+        [NSMutableDictionary class],
+        [NSArray class],
+        [NSMutableArray class],
+        [NSNumber class],
+        [NSData class],
+        [NSURL class],
+        [NSValue class],
+        nil
+    ];
+    NSError *error = nil;
+    return [NSKeyedUnarchiver unarchivedObjectOfClasses:classes fromData:data error:&error];
+}
+
 void morrow_messages_attributed_body_text(
     const unsigned char *bytes,
     size_t length,
@@ -56,10 +96,10 @@ void morrow_messages_attributed_body_text(
     NSData *data = [NSData dataWithBytes:bytes length:length];
     id object = nil;
     @try {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-        object = [NSUnarchiver unarchiveObjectWithData:data];
-#pragma clang diagnostic pop
+        object = LegacyUnarchiveObject(data);
+        if (object == nil) {
+            object = KeyedUnarchiveObject(data);
+        }
     } @catch (NSException *exception) {
         SetError(result, MorrowAttributedBodyDecodeFailed, @"attributed body unarchive failed");
         return;

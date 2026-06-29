@@ -50,6 +50,11 @@ function DeleteAllSuccess({
             : "Local Morrow database was already clear."}
         </li>
         <li>Approved Calendar and Reminders items were preserved.</li>
+        <li>
+          {receipt.diagnosticsArtifactsDeleted
+            ? "Local diagnostics artifacts were deleted."
+            : "No local diagnostics artifacts were found."}
+        </li>
         <li>{providerCredentialText(receipt)}</li>
         <li>
           {proposedCleanupText(receipt)}
@@ -66,13 +71,13 @@ function DeleteAllSuccess({
 }
 
 function providerCredentialText(receipt: MorrowDataDeleteReceipt): string {
-  if (!receipt.providerCredentialsDeleteRequested) {
+  if (!receipt.providerOAuthDeleteRequested) {
     return "Morrow-owned provider credentials were left unchanged. Codex CLI login was left unchanged."
   }
-  if (receipt.providerCredentialsDeleteFailed) {
+  if (receipt.providerOAuthDeleteFailed) {
     return "Morrow-owned provider credentials could not be deleted by macOS. Codex CLI login was left unchanged."
   }
-  if (receipt.providerCredentialsDeleted) {
+  if (receipt.providerOAuthDeleted) {
     return "Morrow-owned provider credentials were deleted. Codex CLI login was left unchanged."
   }
   return "No Morrow-owned provider credentials were found. Codex CLI login was left unchanged."
@@ -81,7 +86,10 @@ function providerCredentialText(receipt: MorrowDataDeleteReceipt): string {
 function proposedCleanupText(receipt: MorrowDataDeleteReceipt): string {
   switch (receipt.cleanupPlan.proposedItems) {
     case "completed":
-      return `Deleted ${receipt.cleanupPlan.proposedCalendarItemsDeleted} proposed Calendar item(s) and ${receipt.cleanupPlan.proposedReminderItemsDeleted} proposed Reminder item(s).`
+      return (
+        `Deleted ${receipt.cleanupPlan.proposedCalendarItemsDeleted} proposed Calendar item(s) and ` +
+        `${receipt.cleanupPlan.proposedReminderItemsDeleted} proposed Reminder item(s).`
+      )
     case "adapterDeferred":
       return "Proposed Calendar and Reminders cleanup is deferred to the native adapters."
     case "skippedByUser":

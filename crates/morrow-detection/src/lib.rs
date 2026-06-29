@@ -4,6 +4,8 @@ mod parser;
 mod pipeline;
 mod provider;
 mod schema;
+mod trace;
+mod trace_event;
 mod types;
 
 pub use pipeline::{DetectionOutcome, DetectionPipeline, DetectionReport};

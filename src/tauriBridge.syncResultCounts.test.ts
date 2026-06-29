@@ -28,6 +28,7 @@ const scanRequest = {
     }
   ],
   referenceTimezone: "Asia/Seoul",
+  referenceUnixSeconds: 1_783_000_200,
   backfillPromptChatIds: ["messages-chat-11111111111111111111111111111111"],
   sourceExcerptsEnabled: false,
   capPolicy: { mode: "refillForPending", maxVisible: 10, pendingCount: 7 }

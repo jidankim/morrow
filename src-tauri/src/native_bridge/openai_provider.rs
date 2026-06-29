@@ -8,7 +8,6 @@ use morrow_detection::{AiProvider, ProviderError, ProviderRequest, ProviderRespo
 use morrow_messages::MessageEvidence;
 use serde_json::Value;
 
-use super::provider_contract::ProviderContractError;
 pub use transport::ReqwestOpenAiTransport;
 
 pub const OPENAI_RESPONSES_URL: &str = "https://api.openai.com/v1/responses";
@@ -85,16 +84,28 @@ impl fmt::Debug for OpenAiHttpRequest {
             .debug_struct("OpenAiHttpRequest")
             .field("url", &self.url)
             .field("timeout_ms", &self.timeout_ms)
-            .field("body", &self.body)
+            .field("body_bytes", &self.body.to_string().len())
+            .field("model", &self.body.get("model").and_then(Value::as_str))
             .field("token", &"<redacted>")
             .finish()
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct OpenAiHttpResponse {
     pub status_code: u16,
     pub body: Value,
+}
+
+impl fmt::Debug for OpenAiHttpResponse {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("OpenAiHttpResponse")
+            .field("status_code", &self.status_code)
+            .field("body_bytes", &self.body.to_string().len())
+            .field("body", &"<redacted>")
+            .finish()
+    }
 }
 
 pub trait OpenAiTransport {
@@ -130,18 +141,6 @@ impl fmt::Display for OpenAiProviderError {
 }
 
 impl std::error::Error for OpenAiProviderError {}
-
-impl From<ProviderContractError> for OpenAiProviderError {
-    fn from(error: ProviderContractError) -> Self {
-        match error {
-            ProviderContractError::EvidenceSerialization => Self::InvalidResponse {
-                reason: "evidence serialization failed",
-            },
-            ProviderContractError::EvidenceTooLarge => Self::EvidenceTooLarge,
-            ProviderContractError::InvalidCandidate { reason } => Self::InvalidResponse { reason },
-        }
-    }
-}
 
 pub(super) const fn invalid_response(reason: &'static str) -> OpenAiProviderError {
     OpenAiProviderError::InvalidResponse { reason }

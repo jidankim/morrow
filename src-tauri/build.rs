@@ -9,12 +9,18 @@ fn main() {
 
 #[cfg(target_os = "macos")]
 fn compile_eventkit_native_bridge() {
+    const NATIVE_BRIDGE_SOURCES: [&str; 3] = [
+        "src/native_bridge/messages_attributed_body.m",
+        "src/native_bridge/eventkit_cleanup.m",
+        "src/native_bridge/eventkit_proposal.m",
+    ];
+
     let mut build = cc::Build::new();
-    build
-        .file("src/native_bridge/messages_attributed_body.m")
-        .file("src/native_bridge/eventkit_cleanup.m")
-        .file("src/native_bridge/eventkit_proposal.m")
-        .flag("-fobjc-arc");
+    for source in NATIVE_BRIDGE_SOURCES {
+        println!("cargo:rerun-if-changed={source}");
+        build.file(source);
+    }
+    build.flag("-fobjc-arc");
     if !build.get_compiler().is_like_clang() {
         build.compiler("clang");
     }

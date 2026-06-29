@@ -11,6 +11,8 @@ typedef struct {
 } MorrowEventKitCleanupResult;
 
 static NSString *const ProposedName = @"Morrow Proposed";
+static NSString *const MetadataBegin = @"[MORROW_METADATA_V1]";
+static NSString *const MetadataEnd = @"[/MORROW_METADATA_V1]";
 
 static void SetMessage(MorrowEventKitCleanupResult *result, NSString *message) {
     if (result == NULL) {
@@ -18,6 +20,22 @@ static void SetMessage(MorrowEventKitCleanupResult *result, NSString *message) {
     }
     const char *text = [message ?: @"Morrow proposed item cleanup failed" UTF8String];
     strlcpy(result->message, text, sizeof(result->message));
+}
+
+static void RequestLegacyAccess(EKEventStore *store, EKEntityType type, void (^completion)(BOOL, NSError *)) {
+    SEL selector = NSSelectorFromString(@"requestAccessToEntityType:completion:");
+    NSMethodSignature *signature = [store methodSignatureForSelector:selector];
+    if (signature == nil) {
+        completion(NO, nil);
+        return;
+    }
+    NSInvocation *invocation = [NSInvocation invocationWithMethodSignature:signature];
+    invocation.target = store;
+    invocation.selector = selector;
+    void (^completionCopy)(BOOL, NSError *) = [completion copy];
+    [invocation setArgument:&type atIndex:2];
+    [invocation setArgument:&completionCopy atIndex:3];
+    [invocation invoke];
 }
 
 static BOOL RequestAccess(EKEventStore *store, EKEntityType type, MorrowEventKitCleanupResult *result) {
@@ -45,14 +63,11 @@ static BOOL RequestAccess(EKEventStore *store, EKEntityType type, MorrowEventKit
             }];
         }
     } else {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-        [store requestAccessToEntityType:type completion:^(BOOL ok, NSError *error) {
+        RequestLegacyAccess(store, type, ^(BOOL ok, NSError *error) {
             granted = ok;
             requestError = error;
             dispatch_semaphore_signal(semaphore);
-        }];
-#pragma clang diagnostic pop
+        });
     }
 
     dispatch_time_t timeout = dispatch_time(DISPATCH_TIME_NOW, 120LL * NSEC_PER_SEC);
@@ -88,6 +103,22 @@ static EKCalendar *ContainerNamed(EKEventStore *store, EKEntityType type, NSStri
     return nil;
 }
 
+static BOOL HasMorrowMetadata(NSString *notes) {
+    if (![notes isKindOfClass:[NSString class]]) {
+        return NO;
+    }
+    return [notes rangeOfString:MetadataBegin].location != NSNotFound &&
+           [notes rangeOfString:MetadataEnd].location != NSNotFound;
+}
+
+int morrow_eventkit_cleanup_note_has_morrow_metadata(const char *notes) {
+    if (notes == NULL) {
+        return 0;
+    }
+    NSString *value = [NSString stringWithUTF8String:notes];
+    return HasMorrowMetadata(value) ? 1 : 0;
+}
+
 static uint64_t RemoveEventsInProposedCalendar(EKEventStore *store, MorrowEventKitCleanupResult *result) {
     EKCalendar *calendar = ContainerNamed(store, EKEntityTypeEvent, ProposedName);
     if (calendar == nil) {
@@ -100,6 +131,9 @@ static uint64_t RemoveEventsInProposedCalendar(EKEventStore *store, MorrowEventK
     NSArray<EKEvent *> *events = [store eventsMatchingPredicate:predicate];
     uint64_t removed = 0;
     for (EKEvent *event in events) {
+        if (!HasMorrowMetadata(event.notes)) {
+            continue;
+        }
         NSError *error = nil;
         if (![store removeEvent:event span:EKSpanThisEvent commit:YES error:&error]) {
             SetMessage(result, [NSString stringWithFormat:@"Calendar proposed item cleanup failed: %@", error.localizedDescription]);
@@ -141,6 +175,9 @@ static BOOL RemoveRemindersInProposedList(EKEventStore *store, MorrowEventKitCle
 
     uint64_t removed = 0;
     for (EKReminder *reminder in reminders) {
+        if (!HasMorrowMetadata(reminder.notes)) {
+            continue;
+        }
         NSError *error = nil;
         if (![store removeReminder:reminder commit:NO error:&error]) {
             SetMessage(result, [NSString stringWithFormat:@"Reminders proposed item cleanup failed: %@", error.localizedDescription]);

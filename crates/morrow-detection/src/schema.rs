@@ -71,7 +71,8 @@ pub(crate) fn parse_provider_candidate(
     if parser_time.is_some_and(|time| time != provider_time) {
         return Err(SchemaRejection::ParserConflict);
     }
-    let normalized_time = provider_normalized_time(&payload.normalized_time, provider_time, config)?;
+    let normalized_time =
+        provider_normalized_time(&payload.normalized_time, provider_time, config)?;
     Ok(ProviderCandidate {
         parsed: ParsedCandidate {
             kind,

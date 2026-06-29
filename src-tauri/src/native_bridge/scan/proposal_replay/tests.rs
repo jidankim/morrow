@@ -2,8 +2,7 @@ use std::cell::RefCell;
 
 use morrow_calendar::ProposedEvent;
 use morrow_storage::{
-    CalendarProposalPayload, CandidateDraft, CandidateId as StorageCandidateId, CandidateState,
-    ExternalSource, Store,
+    CalendarProposalPayload, CandidateDraft, CandidateId as StorageCandidateId, ExternalSource,
 };
 
 use super::calendar::{

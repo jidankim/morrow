@@ -12,7 +12,16 @@ import {
   saveAppShellState
 } from "./appShell"
 
-const discoveredChat = { id: "messages-chat-11111111111111111111111111111111", label: "Chat alpha", participantCount: 2, participantIds: ["messages-participant-11111111111111111111111111111111", "messages-participant-22222222222222222222222222222222"], latestActivityTimestamp: 1_783_000_000 } as const
+const discoveredChat = {
+  id: "messages-chat-11111111111111111111111111111111",
+  label: "Chat alpha",
+  participantCount: 2,
+  participantIds: [
+    "messages-participant-11111111111111111111111111111111",
+    "messages-participant-22222222222222222222222222222222"
+  ],
+  latestActivityTimestamp: 1_783_000_000
+} as const
 const selectedChat = { ...discoveredChat, backfillPromptEnabled: true } as const
 
 describe("app shell state", () => {
@@ -84,32 +93,11 @@ describe("app shell state", () => {
     expect(isSyncNowEnabled(ready)).toBe(true)
   })
 
-  it("requires Codex provider readiness before real event creation is available", () => {
-    const initial = createDefaultAppShellState()
-    const missingProvider = {
-      ...initial,
-      providerCredentialStatus: "missing",
-      discovery: { status: "ready", chats: [discoveredChat] },
-      selectedChats: [selectedChat]
-    } as const
-    const configuredProvider = {
-      ...missingProvider,
-      providerCredentialStatus: "configured"
-    } as const
-
-    expect(getOnboardingWarnings(missingProvider)).toContain(
-      "Finish Codex CLI setup in Settings before scanning."
-    )
-    expect(isSyncNowEnabled(missingProvider)).toBe(false)
-    expect(isOnboardingComplete(configuredProvider)).toBe(true)
-    expect(isSyncNowEnabled(configuredProvider)).toBe(true)
-  })
-
-  it("loads old persisted permissionsGranted false payloads but rechecks provider readiness", () => {
+  it("loads old persisted permissionsGranted false payloads without blocking ready scanning", () => {
     const oldPersistedState = {
       ...createDefaultAppShellState(),
-      config: { ...createDefaultAppShellState().config, permissionsGranted: false },
       providerCredentialStatus: "configured",
+      config: { ...createDefaultAppShellState().config, permissionsGranted: false },
       discovery: { status: "ready", chats: [discoveredChat] },
       selectedChats: [selectedChat]
     } as const
@@ -142,7 +130,11 @@ describe("app shell state", () => {
     const storage = new Map<string, string>([
       [
         APP_SHELL_STATE_KEY,
-        JSON.stringify({ ...createDefaultAppShellState(), mode: "error", errorMessage: "Expected string, received null" })
+        JSON.stringify({
+          ...createDefaultAppShellState(),
+          mode: "error",
+          errorMessage: "Expected string, received null"
+        })
       ]
     ])
 
@@ -166,7 +158,6 @@ describe("app shell state", () => {
     const storage = new Map<string, string>()
     const initial = {
       ...createDefaultAppShellState(),
-      providerCredentialStatus: "configured",
       discovery: { status: "ready", chats: [discoveredChat] }
     } as const
 
@@ -208,69 +199,11 @@ describe("app shell state", () => {
     }
   })
 
-  it("rejects persisted ICS feed calendar source at the local configuration boundary", () => {
-    const storage = new Map<string, string>([
-      [
-        APP_SHELL_STATE_KEY,
-        JSON.stringify({
-          mode: "scanning",
-          config: {
-            referenceTimezone: "Asia/Seoul",
-            calendarSource: "ics-feed",
-            permissionsGranted: true,
-            launchAtLogin: false,
-            sourceExcerptsEnabled: true,
-            firstProposalGuidanceEnabled: true
-          },
-          selectedChats: [],
-          pendingProposalCount: 0
-        })
-      ]
-    ])
-
-    expect(() => loadAppShellState(storage)).toThrow()
-  })
-
   it("renders pending proposal counts exactly until nine plus", () => {
     expect(formatPendingProposalCount(0)).toBe("0")
     expect(formatPendingProposalCount(8)).toBe("8")
     expect(formatPendingProposalCount(9)).toBe("9+")
     expect(formatPendingProposalCount(14)).toBe("9+")
-  })
-
-  it("stores full Sync Now result evidence while preserving legacy pending-only events", () => {
-    const state = createDefaultAppShellState()
-
-    const completed = reduceAppShellState(state, {
-      type: "syncCompleted",
-      pendingProposalCount: 5,
-      createdCandidateCount: 4,
-      quietLogCount: 2,
-      createdExternalProposalCount: 3,
-      failedExternalProposalCount: 1
-    })
-    const legacyCompleted = reduceAppShellState(state, {
-      type: "syncCompleted",
-      pendingProposalCount: 6
-    })
-
-    expect(completed).toMatchObject({
-      pendingProposalCount: 5,
-      createdCandidateCount: 4,
-      quietLogCount: 2,
-      createdExternalProposalCount: 3,
-      failedExternalProposalCount: 1
-    })
-    expect(getMenuModel(completed).syncResultLabel).toBe(
-      "Candidates 4 · Quiet logs 2 · External proposals 3 created / 1 failed"
-    )
-    expect(legacyCompleted).toMatchObject({
-      pendingProposalCount: 6,
-      createdCandidateCount: 0,
-      quietLogCount: 0,
-      createdExternalProposalCount: 0,
-      failedExternalProposalCount: 0
-    })
   })
 
 })

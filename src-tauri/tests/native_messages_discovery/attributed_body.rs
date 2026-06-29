@@ -37,10 +37,31 @@ fn reads_recent_messages_from_attributed_body_when_text_column_is_empty() -> Res
 }
 
 fn create_attributed_body_fixture(db_path: &Path) -> Result<(), String> {
+    const ATTRIBUTED_BODY_HEX: &str = concat!(
+        "040b73747265616d747970656481e803840140848484124e5341747472696275746564537472",
+        "696e67008484084e534f626a656374008592848484084e53537472696e67019484012b3a4d",
+        "6f72726f7720514120617474726962757465642066616c6c6261636b206d656574696e6720",
+        "746f6d6f72726f7720617420333a333020504d2e8684026949013a928484840c4e534469",
+        "6374696f6e6172790094840169008686",
+    );
     let sql = format!(
-        "CREATE TABLE chat (ROWID INTEGER PRIMARY KEY, guid TEXT NOT NULL, display_name TEXT); CREATE TABLE handle (ROWID INTEGER PRIMARY KEY, id TEXT NOT NULL); CREATE TABLE message (ROWID INTEGER PRIMARY KEY, guid TEXT NOT NULL, date INTEGER NOT NULL, text TEXT, attributedBody BLOB, handle_id INTEGER); CREATE TABLE chat_message_join (chat_id INTEGER NOT NULL, message_id INTEGER NOT NULL); CREATE TABLE chat_handle_join (chat_id INTEGER NOT NULL, handle_id INTEGER NOT NULL); INSERT INTO chat (ROWID, guid, display_name) VALUES (1, 'iMessage;-;+15555550103', 'Messages chat'); INSERT INTO handle (ROWID, id) VALUES (3, '+15555550103'); INSERT INTO chat_handle_join (chat_id, handle_id) VALUES (1, 3); INSERT INTO message (ROWID, guid, date, text, attributedBody, handle_id) VALUES (1, 'attributed-message', {latest}, NULL, X'{attributed_body_hex}', 3); INSERT INTO chat_message_join (chat_id, message_id) VALUES (1, 1);",
+        concat!(
+            "CREATE TABLE chat (ROWID INTEGER PRIMARY KEY, guid TEXT NOT NULL, display_name TEXT);",
+            "CREATE TABLE handle (ROWID INTEGER PRIMARY KEY, id TEXT NOT NULL);",
+            "CREATE TABLE message (ROWID INTEGER PRIMARY KEY, guid TEXT NOT NULL, date INTEGER NOT NULL, ",
+            "text TEXT, attributedBody BLOB, handle_id INTEGER);",
+            "CREATE TABLE chat_message_join (chat_id INTEGER NOT NULL, message_id INTEGER NOT NULL);",
+            "CREATE TABLE chat_handle_join (chat_id INTEGER NOT NULL, handle_id INTEGER NOT NULL);",
+            "INSERT INTO chat (ROWID, guid, display_name) VALUES ",
+            "(1, 'iMessage;-;+15555550103', 'Messages chat');",
+            "INSERT INTO handle (ROWID, id) VALUES (3, '+15555550103');",
+            "INSERT INTO chat_handle_join (chat_id, handle_id) VALUES (1, 3);",
+            "INSERT INTO message (ROWID, guid, date, text, attributedBody, handle_id) VALUES ",
+            "(1, 'attributed-message', {latest}, NULL, X'{attributed_body_hex}', 3);",
+            "INSERT INTO chat_message_join (chat_id, message_id) VALUES (1, 1);",
+        ),
         latest = apple_nanoseconds(1_700_000_200),
-        attributed_body_hex = "040b73747265616d747970656481e803840140848484124e5341747472696275746564537472696e67008484084e534f626a656374008592848484084e53537472696e67019484012b3a4d6f72726f7720514120617474726962757465642066616c6c6261636b206d656574696e6720746f6d6f72726f7720617420333a333020504d2e8684026949013a928484840c4e5344696374696f6e6172790094840169008686"
+        attributed_body_hex = ATTRIBUTED_BODY_HEX,
     );
     run_sqlite(db_path, &sql)
 }

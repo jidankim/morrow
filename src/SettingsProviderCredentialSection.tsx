@@ -78,23 +78,11 @@ function ProviderCredentialMessage({
 }): JSX.Element | null {
   switch (state.status) {
     case "idle":
-      return (
-        <p className="inline-status">
-          Codex provider readiness has not been checked.
-        </p>
-      )
+      return <p className="inline-status">Codex provider readiness has not been checked.</p>
     case "checking":
-      return (
-        <p className="inline-status">
-          Checking Codex provider readiness...
-        </p>
-      )
+      return <p className="inline-status">Checking Codex provider readiness...</p>
     case "ready":
-      return (
-        <p className="inline-status success">
-          Codex provider is ready.
-        </p>
-      )
+      return <p className="inline-status success">Codex provider is ready.</p>
     case "missing":
       return (
         <p className="inline-status">

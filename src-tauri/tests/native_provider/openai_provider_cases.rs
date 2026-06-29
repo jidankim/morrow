@@ -1,22 +1,26 @@
 use morrow_detection::{DetectionOutcome, DetectionPipeline};
 use morrow_lib::native_bridge::{
-    OpenAiHttpResponse, OpenAiProvider, OpenAiProviderError, OPENAI_MODEL, OPENAI_RESPONSES_URL,
+    OpenAiHttpResponse, OpenAiProvider, TokenReadResponse, TokenStorageSurface, TokenWriteRequest,
+    MORROW_KEYCHAIN_SERVICE, MORROW_PROVIDER_TOKEN_KIND, OPENAI_MODEL, OPENAI_RESPONSES_URL,
     OPENAI_TIMEOUT_MS,
 };
 use serde_json::{json, Value};
 
-use crate::native_openai_provider_support::{
-    assert_allowed_evidence_keys, completed_response, MockTransport,
+mod rejection_cases;
+
+use crate::support::openai_provider::{
+    assert_allowed_evidence_keys, assert_request_omits_forbidden, completed_response, MockTransport,
 };
-use crate::native_provider_support::{candidate_json, config, message};
+use crate::support::provider::{candidate_json, config, message};
+use rejection_cases::rejection_cases;
 
 #[test]
 fn openai_provider_builds_schema_request_and_payload_allowlist() -> Result<(), String> {
     let candidate = "{\"kind\":\"calendar_event\",\"title\":\"Provider meeting\",\
      \"confidence_millis\":800,\
      \"normalized_time\":\"2026-06-26T15:00:00[Asia/Seoul]\",\
-     \"anchor_message_guid\":\"msg-0\",\
-     \"evidence_message_guids\":[\"msg-0\"]}";
+     \"anchor_evidence_id\":\"evidence://selected/0\",\
+     \"evidence_ids\":[\"evidence://selected/0\"]}";
     let transport = MockTransport::with_responses(vec![Ok(completed_response(candidate))]);
     let provider = OpenAiProvider::new("sk-test-token", &transport);
     let evidence = (0..22)
@@ -33,7 +37,10 @@ fn openai_provider_builds_schema_request_and_payload_allowlist() -> Result<(), S
         .extract_response(&evidence)
         .map_err(|error| error.to_string())?;
 
-    assert_eq!(response.raw_json(), candidate);
+    let localized: Value =
+        serde_json::from_str(response.raw_json()).map_err(|error| error.to_string())?;
+    assert_eq!(localized["anchor_message_guid"], "msg-0");
+    assert_eq!(localized["evidence_message_guids"], json!(["msg-0"]));
     let request = transport.only_request()?;
     assert_eq!(request.url, OPENAI_RESPONSES_URL);
     assert_eq!(request.timeout_ms, OPENAI_TIMEOUT_MS);
@@ -49,8 +56,8 @@ fn openai_provider_builds_schema_request_and_payload_allowlist() -> Result<(), S
             "title",
             "confidence_millis",
             "normalized_time",
-            "anchor_message_guid",
-            "evidence_message_guids"
+            "anchor_evidence_id",
+            "evidence_ids"
         ])
     );
     let text = request.body["input"][0]["content"][0]["text"]
@@ -62,13 +69,14 @@ fn openai_provider_builds_schema_request_and_payload_allowlist() -> Result<(), S
         .ok_or_else(|| "missing evidence array".to_owned())?;
     assert_eq!(records.len(), 20);
     assert_allowed_evidence_keys(&records[0])?;
-    assert_eq!(records[0]["evidence_pointer"], "evidence://selected/0");
-    assert_eq!(records[0]["message_guid"], "msg-0");
+    assert_eq!(records[0]["evidence_id"], "evidence://selected/0");
     assert_request_omits_forbidden(
         &request.body.to_string(),
         &[
             "chat-secret",
+            "message_guid",
             "messages://",
+            "msg-0",
             "person@example.com",
             "+1 (555) 123-4567",
             "sk-test-token",
@@ -173,92 +181,85 @@ fn openai_provider_redacts_secrets_and_never_uses_network_in_unit_tests() -> Res
     Ok(())
 }
 
-fn rejection_cases() -> Vec<(
-    &'static str,
-    Result<OpenAiHttpResponse, OpenAiProviderError>,
-)> {
-    vec![
-        (
-            "non_2xx",
-            Ok(OpenAiHttpResponse {
-                status_code: 500,
-                body: json!({"error": {"message": "do not leak this"}}),
-            }),
-        ),
-        ("timeout", Err(OpenAiProviderError::Timeout)),
-        (
-            "incomplete",
-            Ok(OpenAiHttpResponse {
-                status_code: 200,
-                body: json!({"status": "incomplete", "incomplete_details": {"reason": "max_output_tokens"}, "output": []}),
-            }),
-        ),
-        (
-            "refusal",
-            Ok(OpenAiHttpResponse {
-                status_code: 200,
-                body: json!({"status": "completed", "output": [{"type": "message", "role": "assistant", "status": "completed", "content": [{"type": "refusal", "refusal": "no"}]}]}),
-            }),
-        ),
-        unknown_field_case(),
-        (
-            "semantic_invalid",
-            Ok(completed_response(
-                "{\"kind\":\"not_a_kind\",\"title\":\"Provider meeting\",\
-                 \"confidence_millis\":5000,\"normalized_time\":\"not-a-time\",\
-                 \"anchor_message_guid\":\"msg-ambiguous-1\",\
-                 \"evidence_message_guids\":[\"msg-ambiguous-1\"]}",
-            )),
-        ),
-        (
-            "empty_title",
-            Ok(completed_response(
-                "{\"kind\":\"calendar_event\",\"title\":\"\",\
-                 \"confidence_millis\":800,\
-                 \"normalized_time\":\"2026-06-26T15:00:00[Asia/Seoul]\",\
-                 \"anchor_message_guid\":\"msg-ambiguous-1\",\
-                 \"evidence_message_guids\":[\"msg-ambiguous-1\"]}",
-            )),
-        ),
-        (
-            "hallucinated_evidence",
-            Ok(completed_response(
-                "{\"kind\":\"calendar_event\",\"title\":\"Provider meeting\",\
-                 \"confidence_millis\":800,\
-                 \"normalized_time\":\"2026-06-26T15:00:00[Asia/Seoul]\",\
-                 \"anchor_message_guid\":\"msg-missing\",\
-                 \"evidence_message_guids\":[\"msg-ambiguous-1\"]}",
-            )),
-        ),
-        (
-            "multiple_outputs",
-            Ok(OpenAiHttpResponse {
-                status_code: 200,
-                body: json!({"status": "completed", "output": [{"type": "message", "role": "assistant", "status": "completed", "content": [{"type": "output_text", "text": candidate_json()}, {"type": "output_text", "text": candidate_json()}]}]}),
-            }),
-        ),
-        ("non_object", Ok(completed_response("[1,2]"))),
-    ]
+#[test]
+fn openai_provider_redacts_token_like_excerpt_material() -> Result<(), String> {
+    let transport = MockTransport::with_responses(vec![Ok(completed_response(candidate_json()))]);
+    let provider = OpenAiProvider::new("sk-test-token", &transport);
+    let evidence = vec![message(
+        "chat-secret",
+        "msg-token-excerpt",
+        "sk-live-canary api_key=abc123 access_token=def456 codex_access_token=ghi789 codex-token=jkl",
+    )?];
+
+    provider
+        .extract_response(&evidence)
+        .map_err(|error| error.to_string())?;
+
+    let request = transport.only_request()?;
+    assert_request_omits_forbidden(
+        &request.body.to_string(),
+        &[
+            "sk-live-canary",
+            "api_key=abc123",
+            "access_token=def456",
+            "codex_access_token=ghi789",
+            "codex-token=jkl",
+        ],
+    );
+    Ok(())
 }
 
-fn unknown_field_case() -> (
-    &'static str,
-    Result<OpenAiHttpResponse, OpenAiProviderError>,
-) {
-    (
-        "unknown_field",
-        Ok(completed_response(&format!(
-            "{{{},\"extra\":\"nope\"}}",
-            &candidate_json()[1..candidate_json().len() - 1]
-        ))),
-    )
-}
+#[test]
+fn credential_and_provider_debug_redact_sensitive_payloads() -> Result<(), String> {
+    let transport = MockTransport::with_responses(vec![Ok(completed_response(candidate_json()))]);
+    let provider = OpenAiProvider::new("sk-debug-token", &transport);
+    provider
+        .extract_response(&[message("chat-debug", "msg-debug", "Meet at 10?")?])
+        .map_err(|error| error.to_string())?;
+    let request = transport.only_request()?;
+    let credential_debug = format!(
+        "{:?}",
+        TokenWriteRequest::new(
+            MORROW_KEYCHAIN_SERVICE,
+            MORROW_PROVIDER_TOKEN_KIND,
+            "sk-debug-token"
+        )
+    );
+    let request_debug = format!("{request:?}");
+    let transport_debug = format!("{transport:?}");
+    let read_debug = format!(
+        "{:?}",
+        TokenReadResponse {
+            storage_surface: TokenStorageSurface::KeychainBridge,
+            present: true,
+            token: Some("sk-debug-token".to_owned()),
+        }
+    );
+    let response_debug = format!(
+        "{:?}",
+        OpenAiHttpResponse {
+            status_code: 200,
+            body: json!({
+                "status": "completed",
+                "secret": "sk-debug-token",
+                "content": "Meet at 10"
+            }),
+        }
+    );
 
-fn assert_request_omits_forbidden(body: &str, forbidden_values: &[&str]) {
-    for forbidden in forbidden_values {
+    for debug_output in [
+        credential_debug,
+        request_debug,
+        transport_debug,
+        read_debug,
+        response_debug,
+    ] {
+        assert!(!debug_output.contains("sk-debug-token"), "{debug_output}");
+        assert!(!debug_output.contains("Meet at 10"), "{debug_output}");
         assert!(
-            !body.contains(forbidden),
-            "request leaked {forbidden}: {body}"
+            !debug_output.contains("selected_chat_evidence"),
+            "{debug_output}"
         );
     }
+    Ok(())
 }

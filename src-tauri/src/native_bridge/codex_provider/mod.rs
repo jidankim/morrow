@@ -41,8 +41,8 @@ impl<R: CodexExecRunner> CodexProvider<R> {
             CodexExecRun::Completed(output) if output.exit_code() == Some(0) => {
                 let candidate = fs::read_to_string(workspace.output_path())
                     .map_err(|_| CodexProviderError::OutputUnavailable)?;
-                provider_contract::validate_candidate_json(&candidate, evidence)?;
-                Ok(ProviderResponse::new(&candidate))
+                let localized = provider_contract::localize_candidate_json(&candidate, evidence)?;
+                Ok(ProviderResponse::new(&localized))
             }
             CodexExecRun::Completed(_) => Err(CodexProviderError::CommandFailed),
             CodexExecRun::MissingCli => Err(CodexProviderError::MissingCli),
@@ -98,6 +98,8 @@ mod tests {
         assert!(prompt.contains("below 550 only"));
         assert!(prompt.contains("Normalize month-name dates and AM/PM times"));
         assert!(prompt.contains("Morrow QA"));
+        assert!(prompt.contains("evidence://selected/0"));
+        assert!(!prompt.contains("msg-a"));
         assert!(!prompt.contains("messages://chat-a/msg-a"));
         Ok(())
     }

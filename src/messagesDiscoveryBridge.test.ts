@@ -30,7 +30,9 @@ describe("syncScanRequestFromState", () => {
         sourceExcerptsEnabled: false,
         firstProposalGuidanceEnabled: true,
         telemetryEnabled: false,
-        crashLogExcerptsEnabled: false
+        crashLogExcerptsEnabled: false,
+        localDiagnosticsEnabled: false,
+        localDiagnosticsRetentionDays: 30
       },
       pendingProposalCount: 0,
       selectedChats: [selectedChat]

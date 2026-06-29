@@ -27,6 +27,7 @@ impl DeleteAllConfirmation {
 pub struct DeleteAllReceipt {
     pub database_deleted: bool,
     pub approved_external_items_deleted: bool,
+    pub diagnostics_artifacts_deleted: bool,
 }
 
 pub(crate) fn remove_morrow_database(db_path: &Path) -> Result<DeleteAllReceipt, StorageError> {
@@ -37,9 +38,12 @@ pub(crate) fn remove_morrow_database(db_path: &Path) -> Result<DeleteAllReceipt,
         }
     }
 
+    let diagnostics_artifacts_deleted = remove_diagnostics_artifacts(db_path)?;
+
     Ok(DeleteAllReceipt {
         database_deleted,
         approved_external_items_deleted: false,
+        diagnostics_artifacts_deleted,
     })
 }
 
@@ -64,6 +68,42 @@ fn remove_if_exists(path: &Path) -> Result<bool, StorageError> {
     match std::fs::remove_file(path) {
         Ok(()) => Ok(true),
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(false),
+        Err(error) => Err(StorageError::Io(error)),
+    }
+}
+
+fn remove_diagnostics_artifacts(db_path: &Path) -> Result<bool, StorageError> {
+    let Some(app_data_dir) = db_path.parent() else {
+        return Ok(false);
+    };
+    let diagnostics_dir = app_data_dir.join("diagnostics");
+    let mut removed_artifacts = false;
+    for artifact_name in ["traces", "evals", "exports"] {
+        removed_artifacts |= remove_dir_all_if_exists(&diagnostics_dir.join(artifact_name))?;
+    }
+    remove_empty_dir_if_exists(&diagnostics_dir)?;
+    Ok(removed_artifacts)
+}
+
+fn remove_dir_all_if_exists(path: &Path) -> Result<bool, StorageError> {
+    match std::fs::remove_dir_all(path) {
+        Ok(()) => Ok(true),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(false),
+        Err(error) => Err(StorageError::Io(error)),
+    }
+}
+
+fn remove_empty_dir_if_exists(path: &Path) -> Result<(), StorageError> {
+    match std::fs::remove_dir(path) {
+        Ok(()) => Ok(()),
+        Err(error)
+            if matches!(
+                error.kind(),
+                std::io::ErrorKind::NotFound | std::io::ErrorKind::DirectoryNotEmpty
+            ) =>
+        {
+            Ok(())
+        }
         Err(error) => Err(StorageError::Io(error)),
     }
 }

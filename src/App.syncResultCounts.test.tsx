@@ -40,17 +40,17 @@ const bridgeMock = vi.hoisted(() => ({
     createdExternalProposalCount: 3,
     failedExternalProposalCount: 1
   })),
-  storeMorrowToken: vi.fn(async () => ({
-    storageSurface: "keychainBridge",
-    stored: true,
-    deleted: false
-  })),
   checkProviderAuth: vi.fn(async () => ({
     status: "loggedInUsingChatGpt",
     ready: true,
     commandSurface: "codex login status",
     commandOutputRedacted: true,
     diagnostic: "Codex CLI ChatGPT session is ready."
+  })),
+  storeMorrowToken: vi.fn(async () => ({
+    storageSurface: "keychainBridge",
+    stored: true,
+    deleted: false
   })),
   readMorrowToken: vi.fn(async () => ({
     storageSurface: "keychainBridge",
@@ -95,7 +95,6 @@ describe("App Sync Now result counts", () => {
     bridgeMock.subscribeMenuCommand.mockClear()
     bridgeMock.reconcileNow.mockClear()
     bridgeMock.scanSelectedChats.mockClear()
-    bridgeMock.checkProviderAuth.mockClear()
     bridgeMock.readMorrowToken.mockClear()
     bridgeMock.readMorrowToken.mockResolvedValue({
       storageSurface: "keychainBridge",

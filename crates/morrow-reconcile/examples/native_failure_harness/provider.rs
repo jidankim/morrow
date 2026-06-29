@@ -8,10 +8,13 @@ use morrow_messages::{ChatGuid, MessageEvidence, MessageGuid, MessageTimestamp};
 
 use crate::harness_error::HarnessError;
 
+/// Provider failure summary.
 #[derive(Debug, Clone)]
-pub(crate) struct ProviderSummary {
-    pub(crate) quiet_reason: String,
-    pub(crate) candidates: usize,
+pub struct ProviderSummary {
+    /// Quiet-log reason emitted by the provider boundary.
+    pub quiet_reason: String,
+    /// Candidate count emitted by the provider boundary.
+    pub candidates: usize,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -25,7 +28,8 @@ impl AiProvider for UnavailableProvider {
     }
 }
 
-pub(crate) fn run() -> Result<ProviderSummary, Box<dyn Error>> {
+/// Runs the provider-unavailable scenario.
+pub fn run() -> Result<ProviderSummary, Box<dyn Error>> {
     let provider = UnavailableProvider;
     let report = DetectionPipeline::new(&provider).detect(&[message()?], &config()?);
     let quiet_reason = report

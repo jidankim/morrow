@@ -21,7 +21,11 @@ const bridgeMock = vi.hoisted(() => ({
   subscribeMenuCommand: vi.fn(async () => vi.fn()),
   reconcileNow: vi.fn(async () => undefined),
   scanSelectedChats: vi.fn(async () => ({ pendingProposalCount: 12 })),
-  storeMorrowToken: vi.fn(async () => ({ storageSurface: "keychainBridge", stored: true, deleted: false })),
+  storeMorrowToken: vi.fn(async () => ({
+    storageSurface: "keychainBridge",
+    stored: true,
+    deleted: false
+  })),
   checkProviderAuth: vi.fn(async () => ({
     status: "loggedInUsingChatGpt",
     ready: true,
@@ -33,7 +37,11 @@ const bridgeMock = vi.hoisted(() => ({
     storageSurface: "keychainBridge",
     present: true
   })),
-  deleteMorrowToken: vi.fn(async () => ({ storageSurface: "keychainBridge", stored: false, deleted: true })),
+  deleteMorrowToken: vi.fn(async () => ({
+    storageSurface: "keychainBridge",
+    stored: false,
+    deleted: true
+  })),
   discoverMessagesChats: vi.fn(async () => ({
     status: "ready",
     chats: [

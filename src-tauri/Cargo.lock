@@ -1787,6 +1787,7 @@ dependencies = [
  "embed_plist",
  "morrow-calendar",
  "morrow-detection",
+ "morrow-diagnostics",
  "morrow-messages",
  "morrow-storage",
  "reqwest",
@@ -1809,10 +1810,22 @@ version = "0.1.0"
 name = "morrow-detection"
 version = "0.1.0"
 dependencies = [
+ "morrow-diagnostics",
  "morrow-messages",
  "morrow-storage",
  "serde",
  "serde_json",
+ "sha2",
+ "thiserror 2.0.18",
+]
+
+[[package]]
+name = "morrow-diagnostics"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sha2",
  "thiserror 2.0.18",
 ]
 
