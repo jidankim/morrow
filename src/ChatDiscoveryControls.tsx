@@ -55,7 +55,7 @@ export function ChatDiscoveryControls({
       return (
         <DiscoveryState
           actionLabel="Retry chat discovery"
-          detail="Grant Full Disk Access, then retry chat discovery."
+          detail="Grant Full Disk Access, restart Morrow, then retry chat discovery."
           recoveryLabel="Open Full Disk Access"
           label="Morrow needs Full Disk Access to read Messages."
           onAction={onRetry}
@@ -66,7 +66,7 @@ export function ChatDiscoveryControls({
       return (
         <DiscoveryState
           actionLabel="Retry chat discovery"
-          detail="Retry chat discovery or check local Messages access."
+          detail="Restart Morrow after permission changes, then retry chat discovery or check local Messages access."
           label="Morrow could not read Messages."
           onAction={onRetry}
         />

@@ -196,8 +196,8 @@ describe("App Messages chat discovery onboarding", () => {
     render(<App />)
 
     expect(await screen.findByText("Morrow needs Full Disk Access to read Messages.")).toBeInTheDocument()
-    expect(screen.getByText("Sync Now disabled: Grant Full Disk Access, then retry chat discovery.")).toBeInTheDocument()
-    expect(screen.getAllByText("Grant Full Disk Access, then retry chat discovery.").length).toBeGreaterThan(1)
+    expect(screen.getByText("Sync Now disabled: Grant Full Disk Access, restart Morrow, then retry chat discovery.")).toBeInTheDocument()
+    expect(screen.getAllByText("Grant Full Disk Access, restart Morrow, then retry chat discovery.").length).toBeGreaterThan(1)
     expect(screen.getByRole("button", { name: "Open Full Disk Access" })).toBeInTheDocument()
   })
 
@@ -206,7 +206,7 @@ describe("App Messages chat discovery onboarding", () => {
     render(<App />)
 
     expect(await screen.findByText("Morrow needs Full Disk Access to read Messages.")).toBeInTheDocument()
-    expect(screen.getAllByText("Grant Full Disk Access, then retry chat discovery.").length).toBeGreaterThan(1)
+    expect(screen.getAllByText("Grant Full Disk Access, restart Morrow, then retry chat discovery.").length).toBeGreaterThan(1)
     fireEvent.click(screen.getByRole("button", { name: "Open Full Disk Access" }))
 
     await waitFor(() =>
@@ -223,7 +223,7 @@ describe("App Messages chat discovery onboarding", () => {
     render(<App />)
 
     expect(await screen.findByText("Morrow could not read Messages.")).toBeInTheDocument()
-    expect(screen.getAllByText("Retry chat discovery or check local Messages access.").length).toBeGreaterThan(1)
+    expect(screen.getAllByText("Restart Morrow after permission changes, then retry chat discovery or check local Messages access.").length).toBeGreaterThan(1)
     fireEvent.click(screen.getByRole("button", { name: "Retry chat discovery" }))
     expect(await screen.findByText("Messages discovery finished, but found no eligible chats.")).toBeInTheDocument()
     fireEvent.click(screen.getByRole("button", { name: "Retry chat discovery" }))

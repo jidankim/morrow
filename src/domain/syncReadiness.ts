@@ -104,9 +104,9 @@ function getDiscoveryReadinessItem(discovery: ChatDiscovery): SyncReadinessItem 
     case "empty":
       return syncReadinessItem("discovery", "blocking", "Messages discovery found no eligible chats.")
     case "permissionDenied":
-      return syncReadinessItem("discovery", "blocking", "Grant Full Disk Access, then retry chat discovery.")
+      return syncReadinessItem("discovery", "blocking", "Grant Full Disk Access, restart Morrow, then retry chat discovery.")
     case "unavailable":
-      return syncReadinessItem("discovery", "blocking", "Retry chat discovery or check local Messages access.")
+      return syncReadinessItem("discovery", "blocking", "Restart Morrow after permission changes, then retry chat discovery or check local Messages access.")
     default:
       return assertNever(discovery.status)
   }

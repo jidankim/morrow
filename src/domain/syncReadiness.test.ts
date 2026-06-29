@@ -149,12 +149,12 @@ describe("sync readiness", () => {
       {
         state: { ...ready, discovery: { status: "permissionDenied", chats: [] } },
         item: "discovery",
-        detail: "Grant Full Disk Access, then retry chat discovery."
+        detail: "Grant Full Disk Access, restart Morrow, then retry chat discovery."
       },
       {
         state: { ...ready, discovery: { status: "unavailable", chats: [] } },
         item: "discovery",
-        detail: "Retry chat discovery or check local Messages access."
+        detail: "Restart Morrow after permission changes, then retry chat discovery or check local Messages access."
       },
       {
         state: { ...ready, selectedChats: [] },
