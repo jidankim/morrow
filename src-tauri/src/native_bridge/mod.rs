@@ -14,6 +14,7 @@ mod paths;
 mod permissions;
 mod provider_contract;
 mod public_chat_id;
+mod runtime_identity;
 mod scan;
 mod scan_privacy;
 mod state;
@@ -53,6 +54,10 @@ pub use permissions::{
     map_permission_status, OpenPrivacySettingsError, OpenPrivacySettingsReceipt,
     OpenPrivacySettingsRequest, PermissionKind, PermissionOutcome, PermissionState,
     PermissionStatus, PrivacySettingsPane,
+};
+pub use runtime_identity::{
+    __cmd__get_runtime_identity, __tauri_command_name_get_runtime_identity, get_runtime_identity,
+    runtime_identity_from_executable_path, RuntimeIdentity, RuntimeKind,
 };
 pub use scan::{
     scan_selected_chats_with_dependencies, CalendarProposalReceipt, CapPolicyRequest,
@@ -152,4 +157,84 @@ pub fn check_provider_auth() -> CodexProviderAuthReadiness {
 pub fn reconcile_now(app: AppHandle) -> Result<(), String> {
     let store_path = morrow_store_path(&app)?;
     store_probe::reconcile_now_at(&store_path).map_err(|error| error.to_string())
+}
+
+#[cfg(test)]
+mod runtime_identity_tests {
+    use super::{get_runtime_identity, runtime_identity_from_executable_path, RuntimeKind};
+
+    #[test]
+    fn runtime_identity_reports_app_bundle_target_when_executable_is_inside_app_bundle() {
+        // Given
+        let executable_path = "/Applications/Morrow.app/Contents/MacOS/morrow";
+
+        // When
+        let identity = runtime_identity_from_executable_path(executable_path);
+
+        // Then
+        assert_eq!(identity.display_name, "Morrow");
+        assert_eq!(identity.bundle_identifier, "dev.morrow.desktop");
+        assert_eq!(identity.executable_path, executable_path);
+        assert_eq!(identity.settings_target_path, "/Applications/Morrow.app");
+        assert_eq!(identity.runtime_kind, RuntimeKind::AppBundle);
+    }
+
+    #[test]
+    fn runtime_identity_reports_binary_target_when_executable_is_direct_binary() {
+        // Given
+        let executable_path = "/Users/example/workspace/morrow/src-tauri/target/debug/morrow";
+
+        // When
+        let identity = runtime_identity_from_executable_path(executable_path);
+
+        // Then
+        assert_eq!(identity.executable_path, executable_path);
+        assert_eq!(identity.settings_target_path, executable_path);
+        assert_eq!(identity.runtime_kind, RuntimeKind::Binary);
+    }
+
+    #[test]
+    fn runtime_identity_keeps_non_app_paths_as_binary_targets() {
+        // Given
+        let executable_path = "/tmp/not-an-app/Contents/MacOS/morrow";
+
+        // When
+        let identity = runtime_identity_from_executable_path(executable_path);
+
+        // Then
+        assert_eq!(identity.settings_target_path, executable_path);
+        assert_eq!(identity.runtime_kind, RuntimeKind::Binary);
+    }
+
+    #[test]
+    fn runtime_identity_serializes_to_camel_case_contract() -> Result<(), String> {
+        // Given
+        let executable_path = "/Applications/Morrow.app/Contents/MacOS/morrow";
+        let identity = runtime_identity_from_executable_path(executable_path);
+
+        // When
+        let json = serde_json::to_value(identity).map_err(|error| error.to_string())?;
+
+        // Then
+        assert_eq!(json["displayName"], "Morrow");
+        assert_eq!(json["bundleIdentifier"], "dev.morrow.desktop");
+        assert_eq!(json["executablePath"], executable_path);
+        assert_eq!(json["settingsTargetPath"], "/Applications/Morrow.app");
+        assert_eq!(json["runtimeKind"], "appBundle");
+        assert_eq!(json.as_object().map(|object| object.len()), Some(5));
+        Ok(())
+    }
+
+    #[test]
+    fn runtime_identity_command_uses_current_executable() -> Result<(), String> {
+        // Given / When
+        let identity = get_runtime_identity()?;
+
+        // Then
+        assert_eq!(identity.display_name, "Morrow");
+        assert_eq!(identity.bundle_identifier, "dev.morrow.desktop");
+        assert!(!identity.executable_path.is_empty());
+        assert!(!identity.settings_target_path.is_empty());
+        Ok(())
+    }
 }
