@@ -46,7 +46,10 @@ export type { CodexAuthStatus, CodexProviderAuthReadiness } from "./providerAuth
 
 const nativeAppShellStateSchema = z.object({
   mode: z.union([z.literal("scanning"), z.literal("paused"), z.literal("error")]),
-  errorMessage: z.string().min(1).optional(),
+  errorMessage: z.preprocess(
+    (value) => (value === null ? undefined : value),
+    z.string().min(1).optional()
+  ),
   onboardingComplete: z.boolean(),
   pendingProposalCount: z.number().int().min(0)
 })

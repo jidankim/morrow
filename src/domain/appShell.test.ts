@@ -125,6 +125,33 @@ describe("app shell state", () => {
     expect(isSyncNowEnabled(reloaded)).toBe(false)
   })
 
+  it("loads persisted null error messages as absent", () => {
+    const storage = new Map<string, string>([
+      [
+        APP_SHELL_STATE_KEY,
+        JSON.stringify({ ...createDefaultAppShellState(), errorMessage: null })
+      ]
+    ])
+
+    const reloaded = loadAppShellState(storage)
+
+    expect(reloaded.errorMessage).toBeUndefined()
+  })
+
+  it("loads persisted error state as normal startup state", () => {
+    const storage = new Map<string, string>([
+      [
+        APP_SHELL_STATE_KEY,
+        JSON.stringify({ ...createDefaultAppShellState(), mode: "error", errorMessage: "Expected string, received null" })
+      ]
+    ])
+
+    const reloaded = loadAppShellState(storage)
+
+    expect(reloaded.mode).toBe("scanning")
+    expect(reloaded.errorMessage).toBeUndefined()
+  })
+
   it("does not add demo chat selections when native discovery has no options", () => {
     const initial = createDefaultAppShellState()
     const selected = reduceAppShellState(initial, {

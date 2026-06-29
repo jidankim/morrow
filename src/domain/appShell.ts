@@ -68,6 +68,10 @@ export type ShellStorage = { readonly get: (key: string) => string | undefined; 
 const appModeSchema = z.union([z.literal("scanning"), z.literal("paused"), z.literal("error")])
 const calendarSourceSchema = z.literal("apple-calendar")
 const providerCredentialStatusSchema = z.union([z.literal("unchecked"), z.literal("configured"), z.literal("missing")])
+const optionalErrorMessageSchema = z.preprocess(
+  (value) => (value === null ? undefined : value),
+  z.string().min(1).optional()
+)
 const providerCredentialWarnings = {
   unchecked: "Morrow is checking Codex provider readiness before scanning.",
   configured: undefined,
@@ -91,7 +95,7 @@ const appConfigSchema = z.object({
 
 const appShellStateSchema = z.object({
   mode: appModeSchema,
-  errorMessage: z.string().min(1).optional(),
+  errorMessage: optionalErrorMessageSchema,
   config: appConfigSchema,
   providerCredentialStatus: providerCredentialStatusSchema.default("unchecked"),
   discovery: chatDiscoverySchema.default({ status: "unverified", chats: [] }),
@@ -196,7 +200,8 @@ export function loadAppShellState(storage: ShellStorage): AppShellState {
   }
 
   const parsedJson: unknown = JSON.parse(stored)
-  return { ...appShellStateSchema.parse(parsedJson), providerCredentialStatus: "unchecked" }
+  const reloaded: AppShellState = { ...appShellStateSchema.parse(parsedJson), providerCredentialStatus: "unchecked" }
+  return reloaded.mode === "error" ? { ...reloaded, mode: "scanning", errorMessage: undefined } : reloaded
 }
 
 export function saveAppShellState(state: AppShellState, storage: ShellStorage): void {
