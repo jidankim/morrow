@@ -3,6 +3,10 @@ use std::{
     process::{Command, Stdio},
 };
 
+#[cfg(target_os = "macos")]
+#[path = "native_messages_discovery/attributed_body.rs"]
+mod attributed_body;
+
 use morrow_lib::native_bridge::{
     messages_sqlite::{MessagesSqliteAdapter, MessagesSqliteLimits},
     FakeNativeBridge, MessagesDiscoveryCommandReport, NativeBridgeState,
@@ -235,7 +239,7 @@ fn discover_messages_chats_handles_degraded_and_production_paths() -> Result<(),
 
 fn create_fixture(db_path: &Path) -> Result<(), String> {
     let sql = format!(
-        "CREATE TABLE chat (ROWID INTEGER PRIMARY KEY, guid TEXT NOT NULL, display_name TEXT); CREATE TABLE handle (ROWID INTEGER PRIMARY KEY, id TEXT NOT NULL); CREATE TABLE message (ROWID INTEGER PRIMARY KEY, guid TEXT NOT NULL, date INTEGER NOT NULL, text TEXT, handle_id INTEGER); CREATE TABLE chat_message_join (chat_id INTEGER NOT NULL, message_id INTEGER NOT NULL); CREATE TABLE chat_handle_join (chat_id INTEGER NOT NULL, handle_id INTEGER NOT NULL); INSERT INTO chat (ROWID, guid, display_name) VALUES (1, 'iMessage;-;chat-alpha', 'Clinic Ops'), (2, 'iMessage;-;+15555550103', 'patient@example.com'); INSERT INTO handle (ROWID, id) VALUES (1, '+15555550101'), (2, 'alpha@example.com'), (3, '+15555550103'); INSERT INTO chat_handle_join (chat_id, handle_id) VALUES (1, 1), (1, 2), (2, 3); INSERT INTO message (ROWID, guid, date, text, handle_id) VALUES (1, 'alpha-old-message', {alpha_old}, 'alpha old body', 1), (2, 'alpha-message', {alpha_latest}, 'alpha private body', 2), (3, 'raw-guid-message', {beta_latest}, 'beta selected body', 3); INSERT INTO chat_message_join (chat_id, message_id) VALUES (1, 1), (1, 2), (2, 3);",
+        "CREATE TABLE chat (ROWID INTEGER PRIMARY KEY, guid TEXT NOT NULL, display_name TEXT); CREATE TABLE handle (ROWID INTEGER PRIMARY KEY, id TEXT NOT NULL); CREATE TABLE message (ROWID INTEGER PRIMARY KEY, guid TEXT NOT NULL, date INTEGER NOT NULL, text TEXT, attributedBody BLOB, handle_id INTEGER); CREATE TABLE chat_message_join (chat_id INTEGER NOT NULL, message_id INTEGER NOT NULL); CREATE TABLE chat_handle_join (chat_id INTEGER NOT NULL, handle_id INTEGER NOT NULL); INSERT INTO chat (ROWID, guid, display_name) VALUES (1, 'iMessage;-;chat-alpha', 'Clinic Ops'), (2, 'iMessage;-;+15555550103', 'patient@example.com'); INSERT INTO handle (ROWID, id) VALUES (1, '+15555550101'), (2, 'alpha@example.com'), (3, '+15555550103'); INSERT INTO chat_handle_join (chat_id, handle_id) VALUES (1, 1), (1, 2), (2, 3); INSERT INTO message (ROWID, guid, date, text, attributedBody, handle_id) VALUES (1, 'alpha-old-message', {alpha_old}, 'alpha old body', NULL, 1), (2, 'alpha-message', {alpha_latest}, 'alpha private body', NULL, 2), (3, 'raw-guid-message', {beta_latest}, 'beta selected body', NULL, 3); INSERT INTO chat_message_join (chat_id, message_id) VALUES (1, 1), (1, 2), (2, 3);",
         alpha_old = apple_nanoseconds(1_700_000_000),
         alpha_latest = apple_nanoseconds(1_700_000_100),
         beta_latest = apple_nanoseconds(1_700_000_200),

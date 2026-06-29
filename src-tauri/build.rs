@@ -11,6 +11,7 @@ fn main() {
 fn compile_eventkit_native_bridge() {
     let mut build = cc::Build::new();
     build
+        .file("src/native_bridge/messages_attributed_body.m")
         .file("src/native_bridge/eventkit_cleanup.m")
         .file("src/native_bridge/eventkit_proposal.m")
         .flag("-fobjc-arc");

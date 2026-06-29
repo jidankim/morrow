@@ -175,6 +175,36 @@ fn respects_seven_day_backfill_window() {
 }
 
 #[test]
+fn skips_empty_text_rows_without_aborting_selected_chat_ingestion() {
+    // Given: Messages returns attachment/system rows with no text before a real scheduling row.
+    let source = FakeMessages::with_batch(NativeBatch {
+        chats: vec![RawChat {
+            guid: ChatGuid::parse("chat-alpha").expect("chat guid"),
+            participant_count: 2,
+            participant_ids: Vec::new(),
+            messages: vec![
+                message("chat-alpha", "msg-empty", 1_783_000_180, "", None),
+                message(
+                    "chat-alpha",
+                    "msg-real",
+                    1_783_000_190,
+                    "Morrow QA sync on 2026-07-02 15:30",
+                    None,
+                ),
+            ],
+        }],
+    });
+    let request = request_with_whitelist("chat-alpha", 2, 7, 1_783_000_200);
+
+    // When: ingestion runs.
+    let report = ingest_selected_threads(&source, &request).expect("ingest");
+
+    // Then: the empty row is ignored and the text row remains eligible.
+    assert_eq!(report.messages.len(), 1);
+    assert_eq!(report.messages[0].message_guid.as_str(), "msg-real");
+}
+
+#[test]
 fn returns_unavailable_warning_and_no_messages_when_permission_is_denied() {
     // Given: the native Messages surface denies access.
     let source = FakeMessages::permission_denied();

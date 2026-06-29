@@ -140,6 +140,9 @@ fn append_recent_messages(
         if message.chat_guid.as_str() != chat.guid.as_str() {
             continue;
         }
+        if message.text.is_empty() {
+            continue;
+        }
         validate_text("message_text", &message.text, 4_000)?;
         let timestamp = message.timestamp.as_i64();
         if timestamp < window.since.as_i64() || timestamp > window.until.as_i64() {
