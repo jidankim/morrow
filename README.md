@@ -8,7 +8,7 @@ This repository is prepared as a v0.1 source snapshot. Local OMO planning and ev
 
 1. Synthetic pipeline QA passes: fake Messages fixtures can become typed candidates and fake Calendar/Reminders proposals.
 2. Real Calendar surface QA passes: this machine can create, read back, and clean up a synthetic EventKit event in `Morrow Proposed`.
-3. Real Messages discovery and selected-chat scanning are wired through the production Tauri path. "Production-wired" means the app can use the native Tauri path for local Messages discovery, selected-chat metadata, and selected-chat scanning after local permissions are complete. It does not mean real Messages-to-Calendar event creation is verified end to end yet: `Sync Now` still needs the production provider/LLM path and Calendar/EventKit proposal creation before it can create a real event from a real message.
+3. Real Messages discovery, selected-chat scanning, the Codex provider path, and EventKit proposal creation are wired through the production Tauri path. "Production-wired" means the app can use the native Tauri path after local permissions and Codex CLI login are complete. It does not mean real Messages-to-Calendar event creation is verified end to end yet: live QA still needs a real environment that allows EventKit readback and cleanup after `Sync Now` creates a proposed event from a real message.
 
 Because of that, do not treat synthetic e2e success as proof that a real message has created a real Calendar event.
 
@@ -17,12 +17,12 @@ Because of that, do not treat synthetic e2e success as proof that a real message
 To run a true manual QA pass from Messages to Calendar, the app needs all of these pieces working in the production Tauri path:
 
 - Messages discovery and selected-thread scanning after Full Disk Access is granted.
-- A configured LLM/provider path that can return strict scheduling candidates. Codex OAuth, if used, belongs here as the personal-prototype LLM auth path. It is not needed for native Messages discovery or Calendar/EventKit write QA by itself.
+- A configured LLM/provider path that can return strict scheduling candidates. For the no-API-key prototype path, Morrow uses the user's existing Codex CLI ChatGPT login through `codex exec`; run `codex login` first and keep the Codex CLI installed. Morrow does not own, store, print, or delete global Codex tokens or sessions.
 - A native Calendar proposal adapter in `scan_selected_chats` that creates EventKit events, not only local external-object mappings.
 - macOS Calendar permission for the app or terminal process running real EventKit QA.
 - At least one explicitly selected chat, a reference timezone, and setup marked complete.
 
-No OAuth is required for native Messages discovery. Messages discovery is a local macOS read of the Messages database, so Full Disk Access is the relevant prerequisite for discovery and selected-chat scanning. OAuth or provider auth only belongs to a later LLM/provider path.
+No OAuth or provider credential is required for native Messages discovery. Messages discovery is a local macOS read of the Messages database, so Full Disk Access is the relevant prerequisite for discovery and selected-chat scanning. Provider auth only belongs to scheduling-candidate extraction, and Calendar access is a separate macOS gate for EventKit proposal creation.
 
 The latest-message body preview is not part of the default MVP. Discovery rows should remain limited to privacy-safe metadata such as a sanitized chat label, participant count, latest activity timestamp, and selected/verified state.
 
@@ -47,6 +47,13 @@ macOS permissions needed for real-surface QA:
 - Full Disk Access for Terminal/Codex when running Messages QA from terminal.
 - Calendar access for the app or Terminal/Codex when creating real EventKit test events.
 - Reminders access only for Reminders QA.
+
+Provider auth boundary:
+
+- `codex login` is required for the Codex CLI session-backed provider path.
+- `MORROW_REAL_QA_OPENAI_API_KEY` is not required for the target Messages-to-Calendar real QA path.
+- Delete-all and privacy cleanup only remove Morrow-owned legacy provider credentials/markers, such as old Keychain entries created by Morrow. They leave the user's global Codex CLI login unchanged.
+- Messages Full Disk Access and Calendar access remain independent macOS permissions; fixing one does not grant the other.
 
 To recover from a Messages permission denial, open System Settings, go to Privacy & Security, then Full Disk Access, and enable the terminal app or the signed Morrow app that will run the QA. Restart that app after changing the permission. The Messages smoke below intentionally prints only metadata and aggregate counts.
 
@@ -127,13 +134,21 @@ Privacy inspection for the real Messages smoke evidence:
 scripts/privacy-inspect.sh /tmp/morrow-native-messages-discovery.sqlite .omo/evidence/native-messages-discovery .omo/evidence/native-messages-discovery-forbidden-tokens.txt
 ```
 
-The real Messages discovery smoke does not prove true message-to-calendar QA. That still requires the production LLM/provider path and Calendar/EventKit event creation wiring in addition to Messages discovery.
+The real Messages discovery smoke does not prove true message-to-calendar QA. That still requires a live Codex provider run plus EventKit readback and cleanup in addition to Messages discovery.
+
+Real Messages-to-Calendar QA through the Codex CLI provider:
+
+```bash
+env -u MORROW_REAL_QA_OPENAI_API_KEY scripts/messages-calendar-real-qa.sh
+```
+
+This path must use the local Codex CLI session and must not require an OpenAI API key. It can still block on external setup: missing Codex CLI login, missing Full Disk Access for Messages, missing Calendar access, or missing real QA chat environment variables.
 
 ## Manual QA Script Once Production Wiring Exists
 
 1. Start the app with `npm run tauri:dev`.
 2. Grant Full Disk Access and Calendar access to the app.
-3. Complete onboarding: choose Calendar source, set reference timezone, configure LLM auth, and select exactly one test chat.
+3. Complete onboarding: choose Calendar source, set reference timezone, confirm Codex provider readiness, and select exactly one test chat.
 4. Send a scheduling-shaped message in that selected chat, for example a future meeting with a concrete time.
 5. Run `Sync Now`.
 6. Open Calendar and confirm a new `Morrow Proposed` event appears.
