@@ -1,9 +1,13 @@
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 use std::error::Error;
 
 use morrow_detection::{
     AiProvider, ConfidenceThreshold, DetectionConfig, DetectionOutcome, ProviderError,
     ProviderIdentity, ProviderRequest, ProviderResponse, ReferenceTime, SourceExcerptPolicy,
+};
+use morrow_diagnostics::{
+    validate_trace_record_privacy, TraceComponent, TraceDecision, TraceOperation, TraceOutcome,
+    TracePrivacyTier, TraceRecord, TraceRecorder, TraceRecorderError,
 };
 use morrow_messages::{ChatGuid, MessageEvidence, MessageGuid, MessageTimestamp};
 use serde::Deserialize;
@@ -47,7 +51,37 @@ impl AiProvider for FakeProvider {
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Default)]
+pub struct CollectingRecorder {
+    records: RefCell<Vec<TraceRecord>>,
+    privacy_failures: RefCell<Vec<String>>,
+}
+
+impl CollectingRecorder {
+    pub fn records(&self) -> Result<Vec<TraceRecord>, Box<dyn Error>> {
+        let failures = self.privacy_failures.borrow();
+        if !failures.is_empty() {
+            return Err(format!("trace privacy validation failed: {}", failures.join("; ")).into());
+        }
+        let records = self.records.borrow().clone();
+        for record in &records {
+            validate_trace_record_privacy(record)?;
+        }
+        Ok(records)
+    }
+}
+
+impl TraceRecorder for CollectingRecorder {
+    fn record(&self, record: &TraceRecord) -> Result<(), TraceRecorderError> {
+        if let Err(error) = validate_trace_record_privacy(record) {
+            self.privacy_failures.borrow_mut().push(error.to_string());
+        }
+        self.records.borrow_mut().push(record.clone());
+        Ok(())
+    }
+}
+
+#[derive(Clone, Deserialize)]
 pub struct Fixture {
     pub reference_time: String,
     pub timezone: String,
@@ -55,7 +89,7 @@ pub struct Fixture {
     pub scenarios: Vec<Scenario>,
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize)]
 pub struct Scenario {
     pub name: String,
     pub messages: Vec<MessageFixture>,
@@ -63,17 +97,28 @@ pub struct Scenario {
     pub expected_candidate_count: usize,
     pub expected_quiet_count: usize,
     pub expected_provider_calls: usize,
+    pub expected_trace: Vec<ExpectedTraceStep>,
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize)]
+pub struct ExpectedTraceStep {
+    pub component: TraceComponent,
+    pub operation: TraceOperation,
+    pub decision: Option<TraceDecision>,
+    pub outcome: TraceOutcome,
+    pub reason_code: Option<String>,
+    pub privacy_tier: TracePrivacyTier,
+}
+
+#[derive(Clone, Deserialize)]
 pub struct MessageFixture {
-    chat_guid: String,
-    message_guid: String,
-    timestamp: i64,
-    participant_count: u16,
-    tapback_signal: bool,
-    excerpt: String,
-    evidence_pointer: String,
+    pub chat_guid: String,
+    pub message_guid: String,
+    pub timestamp: i64,
+    pub participant_count: u16,
+    pub tapback_signal: bool,
+    pub excerpt: String,
+    pub evidence_pointer: String,
 }
 
 impl MessageFixture {
