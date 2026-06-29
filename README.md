@@ -22,7 +22,7 @@ To run a true manual QA pass from Messages to Calendar, the app needs all of the
 - macOS Calendar permission for the app or terminal process running real EventKit QA.
 - At least one explicitly selected chat, a reference timezone, and setup marked complete.
 
-No OAuth or provider credential is required for native Messages discovery. Messages discovery is a local macOS read of the Messages database, so Full Disk Access is the relevant prerequisite for discovery and selected-chat scanning. Provider auth only belongs to scheduling-candidate extraction, and Calendar access is a separate macOS gate for EventKit proposal creation.
+No OAuth is required for native Messages discovery. Messages discovery is a local macOS read of the Messages database, so Full Disk Access is the relevant prerequisite for discovery and selected-chat scanning. Provider auth only belongs to scheduling-candidate extraction, and Calendar access is a separate macOS gate for EventKit proposal creation.
 
 The latest-message body preview is not part of the default MVP. Discovery rows should remain limited to privacy-safe metadata such as a sanitized chat label, participant count, latest activity timestamp, and selected/verified state.
 
@@ -55,15 +55,25 @@ Provider auth boundary:
 - Delete-all and privacy cleanup only remove Morrow-owned legacy provider credentials/markers, such as old Keychain entries created by Morrow. They leave the user's global Codex CLI login unchanged.
 - Messages Full Disk Access and Calendar access remain independent macOS permissions; fixing one does not grant the other.
 
-To recover from a Messages permission denial, open System Settings, go to Privacy & Security, then Full Disk Access, and enable the terminal app or the signed Morrow app that will run the QA. Restart that app after changing the permission. The Messages smoke below intentionally prints only metadata and aggregate counts.
+### Guided Full Disk Access Recovery
+
+When native Messages discovery is denied or unavailable, Morrow can open Full Disk Access settings with the `Open Full Disk Access` action. Opening System Settings is only a shortcut: macOS still requires the user to manually enable or add Morrow before the app can read local Messages metadata.
+
+Use the runtime target shown by Morrow when granting access:
+
+- Bundled builds should enable or add `Morrow.app`.
+- Unbundled dev or release runs may need the exact executable path shown by the app, such as `target/debug/morrow` or `target/release/morrow`.
+- If macOS opens a file picker, press `Cmd+Shift+G`, paste the shown path, then choose the `morrow` executable.
+
+After changing Full Disk Access, restart Morrow, then retry native discovery with `Retry chat discovery`. Terminal/Codex Full Disk Access only proves terminal QA and does not grant app access; grant the app bundle or executable that is actually running Morrow. The Messages smoke below intentionally prints only metadata and aggregate counts.
 
 ## Native Messages Discovery Onboarding QA
 
 Use this flow when validating the native Messages setup surface:
 
-1. Grant Full Disk Access to the app, or to Terminal/Codex when running terminal QA.
+1. Grant Full Disk Access to the Morrow app bundle or executable that is running the app. Grant Terminal/Codex only when running terminal QA.
 2. Start the app and open the setup surface. Messages discovery should show a distinct state while Morrow checks local Messages access.
-3. If discovery is denied or unavailable, use `Retry chat discovery` after fixing local permissions. The recovery copy should point to Full Disk Access when permission is denied.
+3. If discovery is denied or unavailable, use `Open Full Disk Access`, manually enable or add the shown Morrow target, restart Morrow, then use `Retry chat discovery`. The recovery copy should point to Full Disk Access when permission is denied.
 4. When eligible chats appear, use the chat checkboxes to `Select at least one chat`. Newly selected chats keep `Ask before backfilling older messages` enabled by default.
 5. Confirm the setup checklist shows Messages discovery ready, chat selection complete, and selected-chat verification complete after native chat discovery is ready and at least one selected chat is verified.
 6. Confirm `Sync Now` is enabled by checking the `Sync Now` metric for `Enabled` and by checking that the `Sync Now` button is no longer disabled. If `Sync Now` is blocked, confirm the status explains the active discovery, selection, stale discovery, paused, or syncing blocker.
