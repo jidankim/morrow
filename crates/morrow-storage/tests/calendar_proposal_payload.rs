@@ -246,3 +246,32 @@ fn calendar_proposal_payload_substitutes_generic_title_for_unproven_raw_titles()
     assert_eq!(payloads[0].title, "Messages event candidate");
     assert!(!format!("{:?}", payloads[0]).contains("5551234567"));
 }
+
+#[test]
+fn calendar_proposal_payload_preserves_safe_candidate_title() {
+    // Given: a cap-selected calendar candidate with a short generated title.
+    let (_dir, _db_path, store) = fresh_store("calendar-payload-safe-title.sqlite");
+    let candidate = store
+        .create_candidate(candidate_draft(
+            CandidateKind::CalendarEvent,
+            "msg-morrow-qa",
+            "chat-morrow-qa",
+            "Morrow QA",
+            950,
+            "2026-07-15T19:00:00Z",
+        ))
+        .expect("create candidate");
+    let cap_plan = store
+        .apply_visibility_caps(CapPolicy::refill_for_pending(1, 0), 1_783_010_000)
+        .expect("apply visibility caps");
+    assert_eq!(cap_plan.visible.len(), 1);
+
+    // When
+    let payloads = store
+        .calendar_proposal_payloads(std::slice::from_ref(&candidate))
+        .expect("calendar replay payloads");
+
+    // Then
+    assert_eq!(payloads.len(), 1);
+    assert_eq!(payloads[0].title, "Morrow QA");
+}

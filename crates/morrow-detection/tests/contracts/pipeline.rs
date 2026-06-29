@@ -140,6 +140,36 @@ fn ambiguous_scheduling_message_routes_to_provider() -> Result<(), Box<dyn Error
 }
 
 #[test]
+fn calendar_event_creation_wording_routes_to_provider() -> Result<(), Box<dyn Error>> {
+    // Given
+    let provider = FakeProvider::new(Some(
+        "{\"kind\":\"calendar_event\",\"title\":\"Morrow QA\",\
+         \"confidence_millis\":820,\
+         \"normalized_time\":\"2026-07-02T15:30:00\",\
+         \"anchor_message_guid\":\"msg-calendar-event-1\",\
+         \"evidence_message_guids\":[\"msg-calendar-event-1\"]}",
+    ));
+    let pipeline = DetectionPipeline::new(&provider);
+    let messages = vec![message(
+        "chat-1",
+        "msg-calendar-event-1",
+        "Morrow QA: create a calendar event for July 2, 2026 at 3:30 PM.",
+        false,
+    )?];
+    let config = config(550)?;
+
+    // When
+    let report = pipeline.detect(&messages, &config);
+
+    // Then
+    assert_eq!(provider.calls(), 1);
+    let candidate = only_candidate(&report.outcomes)?;
+    assert_eq!(candidate.title, "Morrow QA");
+    assert_eq!(candidate.normalized_time, "2026-07-02T15:30:00[Asia/Seoul]");
+    Ok(())
+}
+
+#[test]
 fn invalid_json_becomes_quiet_log() -> Result<(), Box<dyn Error>> {
     // Given
     let provider = FakeProvider::new(Some("{not-json"));

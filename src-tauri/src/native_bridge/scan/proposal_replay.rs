@@ -14,6 +14,8 @@ pub use calendar::CalendarProposalReceipt;
 
 const MAPPED_AT: i64 = 1_782_352_400;
 const DEFAULT_CALENDAR_EVENT_DURATION_SECONDS: i64 = 30 * 60;
+const EXTERNAL_PROPOSAL_CREATION_FAILED: &str = "external_proposal_creation_failed";
+const MAX_CANDIDATE_REASON_BYTES: usize = 240;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) struct ProposalReplaySummary {
@@ -159,12 +161,13 @@ pub(super) fn replay_external_proposals(
                     failed += 1;
                 }
             }
-            Err(_error) => {
+            Err(error) => {
+                let reason = external_proposal_failure_reason(&error);
                 store
                     .transition_candidate(
                         &candidate.candidate_id,
                         CandidateState::Failed,
-                        "external_proposal_creation_failed",
+                        &reason,
                         MAPPED_AT,
                     )
                     .map_err(storage_error)?;
@@ -234,4 +237,30 @@ fn finalize_external_mapping(
 
 fn external_proposal_error(message: impl Into<String>) -> ScanSelectedChatsError {
     ScanSelectedChatsError::ExternalProposal(message.into())
+}
+
+fn external_proposal_failure_reason(error: &ScanSelectedChatsError) -> String {
+    let ScanSelectedChatsError::ExternalProposal(message) = error else {
+        return EXTERNAL_PROPOSAL_CREATION_FAILED.to_owned();
+    };
+    let detail = truncated_failure_detail(message);
+    if detail.is_empty() {
+        return EXTERNAL_PROPOSAL_CREATION_FAILED.to_owned();
+    }
+    format!("{EXTERNAL_PROPOSAL_CREATION_FAILED}: {detail}")
+}
+
+fn truncated_failure_detail(message: &str) -> String {
+    let mut detail = String::new();
+    let max_detail_bytes = MAX_CANDIDATE_REASON_BYTES
+        .saturating_sub(EXTERNAL_PROPOSAL_CREATION_FAILED.len())
+        .saturating_sub(2);
+    for ch in message.chars().filter(|ch| !ch.is_control()) {
+        let next_len = detail.len() + ch.len_utf8();
+        if next_len > max_detail_bytes {
+            break;
+        }
+        detail.push(ch);
+    }
+    detail
 }
