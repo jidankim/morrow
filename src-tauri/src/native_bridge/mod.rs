@@ -1,3 +1,5 @@
+mod codex_auth;
+mod codex_provider;
 mod crash_log;
 mod delete_all;
 mod delete_all_protocol;
@@ -9,16 +11,24 @@ mod keychain;
 pub mod messages_sqlite;
 mod openai_provider;
 mod permissions;
+mod provider_contract;
 mod public_chat_id;
 mod scan;
+mod state;
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
-use eventkit_cleanup::{EventKitProposedItemCleaner, NoopProposedItemCleaner};
-use messages_sqlite::MessagesSqliteAdapter;
-use morrow_messages::{MessagesDiscoveryDataSource, MessagesDiscoveryReport, MessagesError};
 use tauri::{AppHandle, Manager, State};
 
+pub use codex_auth::{
+    probe_codex_provider_auth, probe_codex_provider_auth_with_runner, CodexAuthCommandOutput,
+    CodexAuthCommandRunner, CodexAuthProbeOptions, CodexAuthStatus, CodexLoginStatusRun,
+    CodexProviderAuthReadiness, ProcessCodexAuthCommandRunner,
+};
+pub use codex_provider::{
+    CodexCommandOutput, CodexExecRequest, CodexExecRun, CodexExecRunner, CodexProvider,
+    CodexProviderError, ProcessCodexExecRunner,
+};
 pub use crash_log::{
     __cmd__record_crash_log, __tauri_command_name_record_crash_log, record_crash_log,
     CrashLogReceipt, CrashLogRequest,
@@ -44,178 +54,7 @@ pub use permissions::{
 };
 #[rustfmt::skip]
 pub use scan::{scan_selected_chats_with_dependencies, CalendarProposalReceipt, CapPolicyRequest, ProposalReplayAdapter, ScanSelectedChatsDependencies, ScanSelectedChatsError, ScanSelectedChatsRequest, ScanSelectedChatsResult};
-
-#[derive(Debug)]
-pub struct NativeBridgeState {
-    bridge: NativeBridgeBackend,
-}
-
-#[derive(Debug)]
-enum NativeBridgeBackend {
-    Production(ProductionNativeBridge),
-    Fake(FakeNativeBridge),
-}
-
-#[derive(Debug, Default)]
-struct ProductionNativeBridge {
-    token_vault: MorrowTokenVault,
-}
-
-impl Default for NativeBridgeState {
-    fn default() -> Self {
-        Self {
-            bridge: NativeBridgeBackend::Production(ProductionNativeBridge::default()),
-        }
-    }
-}
-
-impl NativeBridgeState {
-    pub fn with_bridge(bridge: FakeNativeBridge) -> Self {
-        Self {
-            bridge: NativeBridgeBackend::Fake(bridge),
-        }
-    }
-
-    pub fn query_permission_statuses(&self) -> Vec<PermissionStatus> {
-        match &self.bridge {
-            NativeBridgeBackend::Production(_) => PermissionKind::ALL
-                .into_iter()
-                .map(|kind| map_permission_status(kind, PermissionState::Unavailable))
-                .collect(),
-            NativeBridgeBackend::Fake(bridge) => bridge.query_permission_statuses(),
-        }
-    }
-
-    pub fn create_morrow_token(
-        &self,
-        request: TokenWriteRequest,
-    ) -> Result<TokenCommandReceipt, KeychainBridgeError> {
-        match &self.bridge {
-            NativeBridgeBackend::Production(bridge) => bridge.token_vault.create(request),
-            NativeBridgeBackend::Fake(bridge) => bridge.create_morrow_token(request),
-        }
-    }
-
-    pub fn read_morrow_token(
-        &self,
-        request: TokenLookupRequest,
-    ) -> Result<TokenReadResponse, KeychainBridgeError> {
-        match &self.bridge {
-            NativeBridgeBackend::Production(bridge) => bridge.token_vault.read(request),
-            NativeBridgeBackend::Fake(bridge) => bridge.read_morrow_token(request),
-        }
-    }
-
-    pub fn delete_morrow_token(
-        &self,
-        request: TokenLookupRequest,
-    ) -> Result<TokenCommandReceipt, KeychainBridgeError> {
-        match &self.bridge {
-            NativeBridgeBackend::Production(bridge) => bridge.token_vault.delete(request),
-            NativeBridgeBackend::Fake(bridge) => bridge.delete_morrow_token(request),
-        }
-    }
-
-    pub fn delete_morrow_data(
-        &self,
-        request: DeleteMorrowDataRequest,
-    ) -> Result<MorrowDataDeleteReceipt, DeleteMorrowDataError> {
-        match &self.bridge {
-            NativeBridgeBackend::Production(_) => Err(DeleteMorrowDataError::storage_unavailable(
-                "production Morrow store deletion requires an app data path",
-            )),
-            NativeBridgeBackend::Fake(bridge) => {
-                let store_path = bridge.morrow_store_path().ok_or_else(|| {
-                    DeleteMorrowDataError::storage_unavailable(
-                        "fake Morrow store deletion requires a configured store path",
-                    )
-                })?;
-                delete_all::delete_morrow_data_at(
-                    request,
-                    store_path,
-                    &bridge.vault,
-                    &NoopProposedItemCleaner,
-                )
-            }
-        }
-    }
-
-    fn delete_morrow_data_at(
-        &self,
-        request: DeleteMorrowDataRequest,
-        store_path: &Path,
-    ) -> Result<MorrowDataDeleteReceipt, DeleteMorrowDataError> {
-        match &self.bridge {
-            NativeBridgeBackend::Production(bridge) => delete_all::delete_morrow_data_at(
-                request,
-                store_path,
-                &bridge.token_vault,
-                &EventKitProposedItemCleaner,
-            ),
-            NativeBridgeBackend::Fake(bridge) => delete_all::delete_morrow_data_at(
-                request,
-                store_path,
-                &bridge.vault,
-                &NoopProposedItemCleaner,
-            ),
-        }
-    }
-
-    pub fn scan_selected_chats_at(
-        &self,
-        request: ScanSelectedChatsRequest,
-        store_path: &Path,
-        messages_db_path: &Path,
-    ) -> Result<ScanSelectedChatsResult, ScanSelectedChatsError> {
-        match &self.bridge {
-            NativeBridgeBackend::Production(bridge) => {
-                let proposal_adapter = eventkit_proposal::EventKitProposalBridge;
-                let provider_token = bridge
-                    .token_vault
-                    .read(TokenLookupRequest::new(
-                        MORROW_KEYCHAIN_SERVICE,
-                        MORROW_PROVIDER_TOKEN_KIND,
-                    ))
-                    .map_err(|error| ScanSelectedChatsError::Detection(error.to_string()))?
-                    .token;
-                match provider_token {
-                    Some(token) => {
-                        let provider =
-                            OpenAiProvider::new(token, ReqwestOpenAiTransport::default());
-                        scan::scan_selected_chats_at_with_dependencies(
-                            request,
-                            store_path,
-                            messages_db_path,
-                            &provider,
-                            &proposal_adapter,
-                        )
-                    }
-                    None => scan::scan_selected_chats_at_with_unavailable_provider(
-                        request,
-                        store_path,
-                        messages_db_path,
-                        &proposal_adapter,
-                    ),
-                }
-            }
-            NativeBridgeBackend::Fake(bridge) => {
-                scan::scan_selected_chats_with_source(request, store_path, bridge)
-            }
-        }
-    }
-
-    pub fn discover_messages_chats_at(
-        &self,
-        db_path: &Path,
-    ) -> Result<MessagesDiscoveryReport, MessagesError> {
-        match &self.bridge {
-            NativeBridgeBackend::Production(_) => {
-                MessagesSqliteAdapter::new(db_path.to_path_buf()).discover_chats()
-            }
-            NativeBridgeBackend::Fake(bridge) => bridge.discover_chats(),
-        }
-    }
-}
+pub use state::{NativeBridgeState, ProductionScanCodexDependencies};
 
 #[tauri::command]
 pub fn get_native_permission_statuses(
@@ -297,6 +136,11 @@ pub fn discover_messages_chats(
             "Messages discovery is unavailable. Grant Full Disk Access or try again.".to_owned()
         })?;
     Ok(MessagesDiscoveryCommandReport::from_report(&report))
+}
+
+#[tauri::command]
+pub fn check_provider_auth() -> CodexProviderAuthReadiness {
+    codex_auth::probe_codex_provider_auth()
 }
 
 fn messages_database_path() -> Result<PathBuf, String> {

@@ -1,29 +1,23 @@
+mod config;
 mod dependencies;
 mod messages;
+mod privacy;
 mod proposal_replay;
 
 use std::{fmt::Display, path::Path};
 
 use super::messages_sqlite::MessagesSqliteAdapter;
-use super::public_chat_id::{public_chat_id, public_message_id};
+use config::{detection_config, reference_unix_seconds};
 pub use dependencies::ScanSelectedChatsDependencies;
 use dependencies::{empty_scan_result, UnavailableProvider};
 use messages::ingestion_request;
-use morrow_detection::{
-    AiProvider, ConfidenceThreshold, DetectionConfig, DetectionOutcome, DetectionPipeline,
-    ProviderIdentity, ReferenceTime, SourceExcerptPolicy,
-};
+use morrow_detection::{AiProvider, DetectionOutcome, DetectionPipeline};
 use morrow_messages::{ingest_selected_threads, ChatGuid, IngestionStatus, MessagesDataSource};
-use morrow_storage::{CandidateDraft, CandidateId, CapPolicy, QuietLogDraft, Store};
+use morrow_storage::{CapPolicy, Store};
+use privacy::{candidate_ids_for_response, privacy_safe_candidate, privacy_safe_quiet_log};
 use proposal_replay::{replay_external_proposals, LocalProposalAdapter};
 pub use proposal_replay::{CalendarProposalReceipt, ProposalReplayAdapter};
 use serde::{Deserialize, Serialize};
-
-const REFERENCE_TIME: &str = "2026-06-26T09:00:00";
-const NATIVE_CANDIDATE_TITLE: &str = "Messages event candidate";
-const HIDDEN_SOURCE_EXCERPT: &str = "Source excerpt hidden by settings.";
-const SUPPORTED_REFERENCE_TIMEZONES: &[&str] =
-    &["Asia/Seoul", "America/New_York", "Europe/London", "UTC"];
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -33,6 +27,8 @@ pub struct ScanSelectedChatsRequest {
     pub reference_timezone: String,
     pub backfill_prompt_chat_ids: Vec<String>,
     pub source_excerpts_enabled: bool,
+    #[serde(default)]
+    pub reference_unix_seconds: Option<i64>,
     pub cap_policy: CapPolicyRequest,
 }
 
@@ -163,12 +159,16 @@ where
 {
     let store = Store::open(store_path).map_err(storage_error)?;
     let pipeline = DetectionPipeline::new(dependencies.provider);
-    let ingestion = ingest_selected_threads(dependencies.source, &ingestion_request(&request)?)
-        .map_err(messages_error)?;
+    let reference_unix_seconds = reference_unix_seconds(&request)?;
+    let ingestion = ingest_selected_threads(
+        dependencies.source,
+        &ingestion_request(&request, reference_unix_seconds)?,
+    )
+    .map_err(messages_error)?;
     if ingestion.status == IngestionStatus::Unavailable {
         return Ok(empty_scan_result());
     }
-    let config = detection_config(&request)?;
+    let config = detection_config(&request, reference_unix_seconds)?;
     let report = pipeline.detect(&ingestion.messages, &config);
     let mut created_candidate_ids = Vec::new();
     let mut quiet_log_count = 0;
@@ -189,7 +189,7 @@ where
     }
 
     let cap_plan = store
-        .apply_visibility_caps(request.cap_policy.into(), 1_782_352_400)
+        .apply_visibility_caps(request.cap_policy.into(), reference_unix_seconds)
         .map_err(storage_error)?;
     let mut replay_candidates = cap_plan.visible.clone();
     let mut recoverable_candidates = store
@@ -226,59 +226,6 @@ impl From<CapPolicyRequest> for CapPolicy {
             } => Self::refill_for_pending(max_visible, pending_count),
         }
     }
-}
-
-fn detection_config(
-    request: &ScanSelectedChatsRequest,
-) -> Result<DetectionConfig, ScanSelectedChatsError> {
-    if !SUPPORTED_REFERENCE_TIMEZONES
-        .iter()
-        .any(|timezone| *timezone == request.reference_timezone)
-    {
-        return Err(ScanSelectedChatsError::Detection(
-            "unsupported reference timezone".to_owned(),
-        ));
-    }
-    Ok(DetectionConfig {
-        reference: ReferenceTime::parse(REFERENCE_TIME, &request.reference_timezone)
-            .map_err(detection_error)?,
-        threshold: ConfidenceThreshold::new(550).map_err(detection_error)?,
-        provider: ProviderIdentity::new("native-bridge", "deterministic", "scan-v1")
-            .map_err(detection_error)?,
-        source_excerpts: SourceExcerptPolicy::Hide,
-    })
-}
-
-fn privacy_safe_candidate(
-    mut candidate: CandidateDraft,
-) -> Result<CandidateDraft, ScanSelectedChatsError> {
-    candidate.chat_guid =
-        public_chat_id(&ChatGuid::parse(&candidate.chat_guid).map_err(messages_error)?);
-    candidate.anchor_message_guid = public_message_id(&candidate.anchor_message_guid);
-    candidate.title = NATIVE_CANDIDATE_TITLE.to_owned();
-    candidate.evidence_excerpt = HIDDEN_SOURCE_EXCERPT.to_owned();
-    Ok(candidate)
-}
-
-fn privacy_safe_quiet_log(
-    mut quiet_log: QuietLogDraft,
-) -> Result<QuietLogDraft, ScanSelectedChatsError> {
-    quiet_log.chat_guid =
-        public_chat_id(&ChatGuid::parse(&quiet_log.chat_guid).map_err(messages_error)?);
-    quiet_log.anchor_message_guid = public_message_id(&quiet_log.anchor_message_guid);
-    quiet_log.excerpt = HIDDEN_SOURCE_EXCERPT.to_owned();
-    Ok(quiet_log)
-}
-
-fn candidate_ids_for_response(candidate_ids: &[CandidateId]) -> Vec<String> {
-    candidate_ids
-        .iter()
-        .map(|candidate_id| candidate_id.as_str().to_owned())
-        .collect()
-}
-
-fn detection_error(error: morrow_detection::DetectionError) -> ScanSelectedChatsError {
-    ScanSelectedChatsError::Detection(error.to_string())
 }
 
 fn messages_error(error: morrow_messages::MessagesError) -> ScanSelectedChatsError {

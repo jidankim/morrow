@@ -8,6 +8,7 @@ use morrow_detection::{AiProvider, ProviderError, ProviderRequest, ProviderRespo
 use morrow_messages::MessageEvidence;
 use serde_json::Value;
 
+use super::provider_contract::ProviderContractError;
 pub use transport::ReqwestOpenAiTransport;
 
 pub const OPENAI_RESPONSES_URL: &str = "https://api.openai.com/v1/responses";
@@ -129,6 +130,18 @@ impl fmt::Display for OpenAiProviderError {
 }
 
 impl std::error::Error for OpenAiProviderError {}
+
+impl From<ProviderContractError> for OpenAiProviderError {
+    fn from(error: ProviderContractError) -> Self {
+        match error {
+            ProviderContractError::EvidenceSerialization => Self::InvalidResponse {
+                reason: "evidence serialization failed",
+            },
+            ProviderContractError::EvidenceTooLarge => Self::EvidenceTooLarge,
+            ProviderContractError::InvalidCandidate { reason } => Self::InvalidResponse { reason },
+        }
+    }
+}
 
 pub(super) const fn invalid_response(reason: &'static str) -> OpenAiProviderError {
     OpenAiProviderError::InvalidResponse { reason }

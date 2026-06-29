@@ -36,6 +36,7 @@ pub fn run() -> tauri::Result<()> {
             native_bridge::read_morrow_token,
             native_bridge::delete_morrow_token,
             native_bridge::delete_morrow_data,
+            native_bridge::check_provider_auth,
             native_bridge::discover_messages_chats,
             native_bridge::reconcile_now,
             native_bridge::scan_selected_chats,

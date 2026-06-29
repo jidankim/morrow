@@ -154,7 +154,7 @@ fn production_scan_uses_provider_and_proposal_adapter_dependencies() -> Result<(
     // Then
     assert_counts(&result, (1, 1, 0, 1, 0));
     assert_eq!(result.created_external_proposal_count, 1);
-    assert_eq!(adapter.created_titles(), ["Messages event candidate"]);
+    assert_eq!(adapter.created_titles(), ["Provider supplied title"]);
     let store = Store::open(&store_path).map_err(|error| error.to_string())?;
     assert_eq!(candidate_state(&store, &result)?, CandidateState::Visible);
     Ok(())
@@ -188,7 +188,7 @@ fn production_scan_uses_eventkit_bridge_for_visible_calendar_candidates() -> Res
     assert_counts(&result, (1, 1, 0, 1, 0));
     assert_eq!(result.created_external_proposal_count, 1);
     assert_eq!(result.failed_external_proposal_count, 0);
-    assert_eq!(adapter.created_titles(), ["Messages event candidate"]);
+    assert_eq!(adapter.created_titles(), ["Provider supplied title"]);
     let store = Store::open(&store_path).map_err(|error| error.to_string())?;
     assert_eq!(candidate_state(&store, &result)?, CandidateState::Visible);
     assert_eq!(external_mapping_count(&store_path)?, 1);
@@ -427,7 +427,7 @@ fn malformed_request(selected_chat_ids: Value, selected_chats: Value) -> Result<
 
 #[rustfmt::skip]
 fn request_value(selected_chat_ids: Value, selected_chats: Value, backfill_prompt_chat_ids: Vec<String>, source_excerpts_enabled: bool, max_visible: usize, pending_count: usize) -> Result<ScanSelectedChatsRequest, String> {
-    serde_json::from_value(json!({ "selectedChatIds": selected_chat_ids, "selectedChats": selected_chats, "referenceTimezone": "Asia/Seoul", "backfillPromptChatIds": backfill_prompt_chat_ids, "sourceExcerptsEnabled": source_excerpts_enabled, "capPolicy": { "mode": "refillForPending", "maxVisible": max_visible, "pendingCount": pending_count } })).map_err(|error| error.to_string())
+    serde_json::from_value(json!({ "selectedChatIds": selected_chat_ids, "selectedChats": selected_chats, "referenceTimezone": "Asia/Seoul", "referenceUnixSeconds": 1_782_352_400, "backfillPromptChatIds": backfill_prompt_chat_ids, "sourceExcerptsEnabled": source_excerpts_enabled, "capPolicy": { "mode": "refillForPending", "maxVisible": max_visible, "pendingCount": pending_count } })).map_err(|error| error.to_string())
 }
 
 #[rustfmt::skip]
@@ -449,7 +449,7 @@ struct ChatFixture<'a> {
 
 #[rustfmt::skip]
 fn create_messages_fixture(db_path: &Path) -> Result<(), String> {
-    run_sqlite(db_path, &format!("CREATE TABLE chat (ROWID INTEGER PRIMARY KEY, guid TEXT NOT NULL, display_name TEXT); CREATE TABLE handle (ROWID INTEGER PRIMARY KEY, id TEXT NOT NULL); CREATE TABLE message (ROWID INTEGER PRIMARY KEY, guid TEXT NOT NULL, date INTEGER NOT NULL, text TEXT, handle_id INTEGER); CREATE TABLE chat_message_join (chat_id INTEGER NOT NULL, message_id INTEGER NOT NULL); CREATE TABLE chat_handle_join (chat_id INTEGER NOT NULL, handle_id INTEGER NOT NULL); INSERT INTO chat (ROWID, guid, display_name) VALUES (1, 'iMessage;-;+15555550103', 'Messages chat'); INSERT INTO handle (ROWID, id) VALUES (3, '+15555550103'); INSERT INTO chat_handle_join (chat_id, handle_id) VALUES (1, 3); INSERT INTO message (ROWID, guid, date, text, handle_id) VALUES (1, 'beta-provider-route', {}, 'Maybe meet tomorrow?', 3); INSERT INTO chat_message_join (chat_id, message_id) VALUES (1, 1);", apple_nanoseconds(1_782_352_400)))
+    run_sqlite(db_path, &format!("CREATE TABLE chat (ROWID INTEGER PRIMARY KEY, guid TEXT NOT NULL, display_name TEXT); CREATE TABLE handle (ROWID INTEGER PRIMARY KEY, id TEXT NOT NULL); CREATE TABLE message (ROWID INTEGER PRIMARY KEY, guid TEXT NOT NULL, date INTEGER NOT NULL, text TEXT, attributedBody BLOB, handle_id INTEGER); CREATE TABLE chat_message_join (chat_id INTEGER NOT NULL, message_id INTEGER NOT NULL); CREATE TABLE chat_handle_join (chat_id INTEGER NOT NULL, handle_id INTEGER NOT NULL); INSERT INTO chat (ROWID, guid, display_name) VALUES (1, 'iMessage;-;+15555550103', 'Messages chat'); INSERT INTO handle (ROWID, id) VALUES (3, '+15555550103'); INSERT INTO chat_handle_join (chat_id, handle_id) VALUES (1, 3); INSERT INTO message (ROWID, guid, date, text, attributedBody, handle_id) VALUES (1, 'beta-provider-route', {}, 'Maybe meet tomorrow?', NULL, 3); INSERT INTO chat_message_join (chat_id, message_id) VALUES (1, 1);", apple_nanoseconds(1_782_352_400)))
 }
 
 #[rustfmt::skip]
