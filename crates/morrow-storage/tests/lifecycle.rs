@@ -10,6 +10,28 @@ fn fresh_store(name: &str) -> (tempfile::TempDir, std::path::PathBuf, Store) {
     (dir, db_path, store)
 }
 
+#[test]
+fn open_creates_missing_app_data_directory_before_sqlite_initializes() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let db_path = dir
+        .path()
+        .join("Application Support")
+        .join("dev.morrow.desktop")
+        .join("morrow.sqlite");
+    let app_data_dir = db_path.parent().expect("db path has parent");
+
+    assert!(!app_data_dir.exists());
+    let store = Store::open(&db_path)
+        .expect("open store should create the app data directory before sqlite runs");
+
+    assert!(app_data_dir.is_dir());
+    assert!(db_path.is_file());
+    assert!(store
+        .table_names()
+        .expect("schema tables")
+        .contains(&"candidates".to_owned()));
+}
+
 fn event_draft(anchor: &str) -> CandidateDraft {
     CandidateDraft {
         kind: CandidateKind::CalendarEvent,

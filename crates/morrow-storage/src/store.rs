@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::{fs, path::Path};
 
 use crate::ids::CandidateId;
 use crate::privacy::summarize_privacy;
@@ -26,6 +26,9 @@ pub struct Store {
 
 impl Store {
     pub fn open(db_path: &Path) -> Result<Self, StorageError> {
+        if let Some(parent) = db_path.parent().filter(|path| !path.as_os_str().is_empty()) {
+            fs::create_dir_all(parent)?;
+        }
         let store = Self {
             sqlite: Sqlite::new(db_path),
             db_path: db_path.to_path_buf(),
