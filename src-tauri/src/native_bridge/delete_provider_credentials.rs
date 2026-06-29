@@ -5,7 +5,7 @@ use super::{
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct ProviderOAuthDeleteReceipt {
+pub(crate) struct ProviderCredentialDeleteSummary {
     pub(crate) deleted: bool,
     pub(crate) failed: bool,
     pub(crate) error: Option<String>,
@@ -79,9 +79,9 @@ fn provider_credential_delete_receipt(
     }
 }
 
-pub(crate) fn provider_oauth_delete_receipt(
+pub(crate) fn provider_credential_delete_summary(
     receipts: &[ProviderCredentialDeleteReceipt],
-) -> ProviderOAuthDeleteReceipt {
+) -> ProviderCredentialDeleteSummary {
     let deleted = receipts.iter().any(|receipt| receipt.deleted);
     let failed = receipts.iter().any(|receipt| receipt.failed);
     let error_messages = receipts
@@ -93,7 +93,7 @@ pub(crate) fn provider_oauth_delete_receipt(
                 .map(|error| format!("{}: {error}", receipt.token_kind))
         })
         .collect::<Vec<_>>();
-    ProviderOAuthDeleteReceipt {
+    ProviderCredentialDeleteSummary {
         deleted,
         failed,
         error: if error_messages.is_empty() {

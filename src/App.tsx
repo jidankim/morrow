@@ -57,9 +57,7 @@ export function App(): JSX.Element {
   )
   const {
     providerCredentialState,
-    checkProviderCredential,
-    deleteProviderCredential,
-    saveProviderCredential
+    checkProviderCredential
   } = useProviderCredentialActions(nativeBridge, setProviderCredentialStatus)
   const syncInFlight = useRef(false)
   const runSyncNowRef = useRef<() => void>(() => undefined)
@@ -238,9 +236,7 @@ export function App(): JSX.Element {
             providerCredentialState={providerCredentialState}
             onChange={updateConfig}
             onCheckProviderCredential={checkProviderCredential}
-            onDeleteProviderCredential={deleteProviderCredential}
             onDeleteAll={deleteAllMorrowData}
-            onSaveProviderCredential={saveProviderCredential}
             onOpenPrivacySettings={openPrivacySettings}
           />
         ) : (

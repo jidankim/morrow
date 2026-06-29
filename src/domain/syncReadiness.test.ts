@@ -50,9 +50,9 @@ describe("sync readiness", () => {
       },
       {
         id: "provider-credential",
-        label: "Provider credential",
+        label: "Codex provider",
         status: "complete",
-        detail: "OpenAI API key is configured for scheduling extraction."
+        detail: "Codex provider is ready for scheduling extraction."
       },
       {
         id: "pause-state",
@@ -84,7 +84,7 @@ describe("sync readiness", () => {
     expect(isSyncNowEnabled(readyWithoutManualPermission)).toBe(true)
   })
 
-  it("getSyncReadinessItems blocks real event creation when provider credential is missing", () => {
+  it("getSyncReadinessItems blocks real event creation when Codex provider readiness is missing", () => {
     // Given
     const missingProvider = {
       ...createReadyAppShellState(),
@@ -97,9 +97,9 @@ describe("sync readiness", () => {
     // Then
     expect(items).toContainEqual({
       id: "provider-credential",
-      label: "Provider credential",
+      label: "Codex provider",
       status: "blocking",
-      detail: "Save an OpenAI API key in Settings before scanning."
+      detail: "Finish Codex CLI setup in Settings before scanning."
     })
     expect(isSyncNowEnabled(missingProvider)).toBe(false)
   })
@@ -164,7 +164,7 @@ describe("sync readiness", () => {
       {
         state: { ...ready, providerCredentialStatus: "missing" },
         item: "provider-credential",
-        detail: "Save an OpenAI API key in Settings before scanning."
+        detail: "Finish Codex CLI setup in Settings before scanning."
       },
       {
         state: reduceAppShellState(ready, { type: "pause" }),

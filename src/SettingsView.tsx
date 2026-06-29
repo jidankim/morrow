@@ -15,9 +15,7 @@ type SettingsViewProps = {
   readonly providerCredentialState: ProviderCredentialState
   readonly onChange: (config: AppConfig) => void
   readonly onCheckProviderCredential: () => Promise<void>
-  readonly onDeleteProviderCredential: () => Promise<void>
   readonly onDeleteAll: (options: DeleteAllOptions) => void
-  readonly onSaveProviderCredential: (token: string) => Promise<void>
   readonly onOpenPrivacySettings: (pane: PrivacySettingsPane) => Promise<void>
 }
 
@@ -27,9 +25,7 @@ export function SettingsView({
   providerCredentialState,
   onChange,
   onCheckProviderCredential,
-  onDeleteProviderCredential,
   onDeleteAll,
-  onSaveProviderCredential,
   onOpenPrivacySettings
 }: SettingsViewProps): JSX.Element {
   return (
@@ -93,9 +89,7 @@ export function SettingsView({
         deleteAllState={deleteAllState}
         providerCredentialState={providerCredentialState}
         onCheckProviderCredential={onCheckProviderCredential}
-        onDeleteProviderCredential={onDeleteProviderCredential}
         onDeleteAll={onDeleteAll}
-        onSaveProviderCredential={onSaveProviderCredential}
         onOpenPrivacySettings={onOpenPrivacySettings}
       />
     </div>

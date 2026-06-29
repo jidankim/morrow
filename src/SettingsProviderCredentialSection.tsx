@@ -1,93 +1,72 @@
-import { KeyRound, Search, Trash2 } from "lucide-react"
+import { Clipboard, RefreshCw } from "lucide-react"
 import { useState } from "react"
+import type { CodexAuthStatus } from "./tauriBridge"
 
 export type ProviderCredentialState =
   | { readonly status: "idle" }
   | { readonly status: "checking" }
-  | { readonly status: "saving" }
-  | { readonly status: "deleting" }
-  | { readonly status: "present" }
-  | { readonly status: "missing" }
-  | { readonly status: "saved" }
-  | { readonly status: "deleted" }
+  | { readonly status: "ready" }
+  | { readonly status: "missing"; readonly reason: CodexAuthStatus }
   | { readonly status: "failed"; readonly message: string }
 
 type SettingsProviderCredentialSectionProps = {
   readonly state: ProviderCredentialState
   readonly onCheckProviderCredential: () => Promise<void>
-  readonly onDeleteProviderCredential: () => Promise<void>
-  readonly onSaveProviderCredential: (token: string) => Promise<void>
 }
+
+const CODEX_LOGIN_COMMAND = "codex login"
 
 export function SettingsProviderCredentialSection({
   state,
-  onCheckProviderCredential,
-  onDeleteProviderCredential,
-  onSaveProviderCredential
+  onCheckProviderCredential
 }: SettingsProviderCredentialSectionProps): JSX.Element {
-  const [providerToken, setProviderToken] = useState("")
-  const actionInFlight =
-    state.status === "checking" || state.status === "saving" || state.status === "deleting"
-  const canSave = providerToken.trim().length > 0 && !actionInFlight
+  const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "failed">("idle")
+  const actionInFlight = state.status === "checking"
 
-  const saveProviderCredential = async (): Promise<void> => {
-    if (!canSave) {
-      return
+  const copyLoginCommand = async (): Promise<void> => {
+    try {
+      await navigator.clipboard.writeText(CODEX_LOGIN_COMMAND)
+      setCopyStatus("copied")
+    } catch (error: unknown) {
+      if (isClipboardWriteError(error)) {
+        setCopyStatus("failed")
+        return
+      }
+      throw error
     }
-    await onSaveProviderCredential(providerToken.trim())
-    setProviderToken("")
   }
 
   return (
     <section className="settings-section" aria-labelledby="provider-credential-heading">
       <div>
-        <p className="eyebrow">Provider credential</p>
-        <h3 id="provider-credential-heading">OpenAI API key</h3>
+        <p className="eyebrow">Provider readiness</p>
+        <h3 id="provider-credential-heading">Codex provider</h3>
       </div>
       <p className="settings-copy">
-        Save an OpenAI API key in macOS Keychain for scheduling extraction. Morrow only shows
-        whether a key is stored.
+        Morrow uses your local Codex CLI ChatGPT login for scheduling extraction. No provider
+        tokens are stored in Morrow.
       </p>
-      <label className="field provider-token-field">
-        <span>API key</span>
-        <input
-          autoComplete="off"
-          inputMode="text"
-          type="password"
-          value={providerToken}
-          onChange={(event) => setProviderToken(event.currentTarget.value)}
-        />
-      </label>
       <div className="credential-action-row">
         <button
           className="button primary"
-          disabled={!canSave}
-          onClick={() => void saveProviderCredential()}
-          type="button"
-        >
-          <KeyRound aria-hidden="true" size={16} />
-          {state.status === "saving" ? "Saving key" : "Save key"}
-        </button>
-        <button
-          className="button secondary"
           disabled={actionInFlight}
           onClick={() => void onCheckProviderCredential()}
           type="button"
         >
-          <Search aria-hidden="true" size={16} />
-          {state.status === "checking" ? "Checking" : "Check key"}
+          <RefreshCw aria-hidden="true" size={16} />
+          {state.status === "checking" ? "Checking" : "Refresh readiness"}
         </button>
         <button
           className="button secondary"
-          disabled={actionInFlight}
-          onClick={() => void onDeleteProviderCredential()}
+          onClick={() => void copyLoginCommand()}
           type="button"
         >
-          <Trash2 aria-hidden="true" size={16} />
-          {state.status === "deleting" ? "Deleting key" : "Delete key"}
+          <Clipboard aria-hidden="true" size={16} />
+          Copy login command
         </button>
       </div>
       <ProviderCredentialMessage state={state} />
+      <ProviderCommandCopyMessage status={copyStatus} />
     </section>
   )
 }
@@ -101,39 +80,25 @@ function ProviderCredentialMessage({
     case "idle":
       return (
         <p className="inline-status">
-          Provider credential has not been checked.
+          Codex provider readiness has not been checked.
         </p>
       )
     case "checking":
       return (
         <p className="inline-status">
-          Checking provider credential...
+          Checking Codex provider readiness...
         </p>
       )
-    case "saving":
-      return (
-        <p className="inline-status">
-          Saving provider credential...
-        </p>
-      )
-    case "deleting":
-      return (
-        <p className="inline-status">
-          Deleting provider credential...
-        </p>
-      )
-    case "present":
-    case "saved":
+    case "ready":
       return (
         <p className="inline-status success">
-          OpenAI API key is stored.
+          Codex provider is ready.
         </p>
       )
     case "missing":
-    case "deleted":
       return (
         <p className="inline-status">
-          No OpenAI API key is stored.
+          Codex provider is not ready. {setupInstruction(state.reason)}
         </p>
       )
     case "failed":
@@ -145,6 +110,48 @@ function ProviderCredentialMessage({
     default:
       return assertNever(state)
   }
+}
+
+function ProviderCommandCopyMessage({
+  status
+}: {
+  readonly status: "idle" | "copied" | "failed"
+}): JSX.Element | null {
+  switch (status) {
+    case "idle":
+      return null
+    case "copied":
+      return <p className="inline-status success">Login command copied.</p>
+    case "failed":
+      return (
+        <p className="inline-status error" role="alert">
+          Login command could not be copied.
+        </p>
+      )
+    default:
+      return assertNever(status)
+  }
+}
+
+function setupInstruction(reason: CodexAuthStatus): string {
+  switch (reason) {
+    case "missingCli":
+      return "Install Codex CLI, then run codex login."
+    case "notLoggedIn":
+      return "Run codex login in Terminal."
+    case "timeout":
+      return "Refresh readiness or run codex login in Terminal."
+    case "unknownFailure":
+      return "Refresh readiness or check Codex CLI in Terminal."
+    case "loggedInUsingChatGpt":
+      return "Refresh readiness."
+    default:
+      return assertNever(reason)
+  }
+}
+
+function isClipboardWriteError(error: unknown): error is DOMException | Error {
+  return error instanceof DOMException || error instanceof Error
 }
 
 function assertNever(value: never): never {

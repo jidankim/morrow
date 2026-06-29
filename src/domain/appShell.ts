@@ -69,9 +69,9 @@ const appModeSchema = z.union([z.literal("scanning"), z.literal("paused"), z.lit
 const calendarSourceSchema = z.literal("apple-calendar")
 const providerCredentialStatusSchema = z.union([z.literal("unchecked"), z.literal("configured"), z.literal("missing")])
 const providerCredentialWarnings = {
-  unchecked: "Morrow is checking provider credential before scanning.",
+  unchecked: "Morrow is checking Codex provider readiness before scanning.",
   configured: undefined,
-  missing: "Save an OpenAI API key in Settings before scanning."
+  missing: "Finish Codex CLI setup in Settings before scanning."
 } as const satisfies Record<ProviderCredentialStatus, string | undefined>
 
 const timeZoneSchema = z.string().refine((value) => isSupportedReferenceTimeZone(value), {

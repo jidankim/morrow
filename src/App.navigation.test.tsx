@@ -16,6 +16,13 @@ const bridgeMock = vi.hoisted(() => {
     }),
     reconcileNow: vi.fn(async () => undefined),
     scanSelectedChats: vi.fn(async () => ({ pendingProposalCount: 12 })),
+    checkProviderAuth: vi.fn(async () => ({
+      status: "loggedInUsingChatGpt",
+      ready: true,
+      commandSurface: "codex login status",
+      commandOutputRedacted: true,
+      diagnostic: "Codex CLI ChatGPT session is ready."
+    })),
     discoverMessagesChats: vi.fn(async () => ({
       status: "ready",
       chats: [
@@ -47,6 +54,7 @@ describe("App native menu navigation", () => {
   beforeEach(() => {
     window.localStorage.clear()
     window.location.hash = ""
+    bridgeMock.checkProviderAuth.mockClear()
     bridgeMock.subscribeMenuCommand.mockClear()
   })
 

@@ -65,4 +65,50 @@ describe("createNativeShellBridge token commands", () => {
     expect(tauriMock.invoke).toHaveBeenNthCalledWith(2, "read_morrow_token", { request: lookup })
     expect(tauriMock.invoke).toHaveBeenNthCalledWith(3, "delete_morrow_token", { request: lookup })
   })
+
+  it("invokes provider auth readiness without token storage", async () => {
+    const { createNativeShellBridge } = await import("./tauriBridge")
+    const bridge = createNativeShellBridge()
+    tauriMock.invoke.mockResolvedValueOnce({
+      status: "loggedInUsingChatGpt",
+      ready: true,
+      commandSurface: "codex login status",
+      commandOutputRedacted: true,
+      diagnostic: "Codex CLI ChatGPT session is ready."
+    })
+
+    const readiness = await bridge.checkProviderAuth()
+
+    expect(readiness).toEqual({
+      status: "loggedInUsingChatGpt",
+      ready: true,
+      commandSurface: "codex login status",
+      commandOutputRedacted: true,
+      diagnostic: "Codex CLI ChatGPT session is ready."
+    })
+    expect(tauriMock.invoke).toHaveBeenCalledOnce()
+    expect(tauriMock.invoke).toHaveBeenCalledWith("check_provider_auth")
+  })
+
+  it("rejects malformed provider auth readiness from the bridge", async () => {
+    const { createNativeShellBridge } = await import("./tauriBridge")
+    const bridge = createNativeShellBridge()
+    tauriMock.invoke
+      .mockResolvedValueOnce({
+        status: "rawProviderOutput",
+        ready: true,
+        commandSurface: "codex login status",
+        commandOutputRedacted: false,
+        diagnostic: "untrusted"
+      })
+      .mockResolvedValueOnce({
+        ready: false,
+        commandSurface: "codex login status",
+        commandOutputRedacted: true,
+        diagnostic: "missing status"
+      })
+
+    await expect(bridge.checkProviderAuth()).rejects.toThrow()
+    await expect(bridge.checkProviderAuth()).rejects.toThrow()
+  })
 })

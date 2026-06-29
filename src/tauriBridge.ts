@@ -25,6 +25,10 @@ import {
   type PrivacySettingsReceipt,
   type PrivacySettingsRequest
 } from "./nativePrivacyBridge"
+import {
+  parseCodexProviderAuthReadiness,
+  type CodexProviderAuthReadiness
+} from "./providerAuthBridge"
 
 export type { NativePermissionStatus } from "./nativePermissionBridge"
 export { parseMessagesDiscoveryReport } from "./messagesDiscoveryBridge"
@@ -38,6 +42,7 @@ export type {
   PrivacySettingsReceipt,
   PrivacySettingsRequest
 } from "./nativePrivacyBridge"
+export type { CodexAuthStatus, CodexProviderAuthReadiness } from "./providerAuthBridge"
 
 const nativeAppShellStateSchema = z.object({
   mode: z.union([z.literal("scanning"), z.literal("paused"), z.literal("error")]),
@@ -100,6 +105,7 @@ export type NativeShellBridge = {
   readonly deleteMorrowToken: (
     request: MorrowTokenLookupRequest
   ) => Promise<MorrowTokenCommandReceipt | undefined>
+  readonly checkProviderAuth: () => Promise<CodexProviderAuthReadiness | undefined>
   readonly deleteMorrowData: (
     request: MorrowDataDeleteRequest
   ) => Promise<MorrowDataDeleteReceipt | undefined>
@@ -222,6 +228,13 @@ export function createNativeShellBridge(): NativeShellBridge {
       }
       const receipt = await invoke<unknown>("delete_morrow_token", { request })
       return parseTokenCommandReceipt(receipt)
+    },
+    checkProviderAuth: async () => {
+      if (!isTauriRuntime()) {
+        return undefined
+      }
+      const readiness = await invoke<unknown>("check_provider_auth")
+      return parseCodexProviderAuthReadiness(readiness)
     },
     deleteMorrowData: async (request) => {
       if (!isTauriRuntime()) {

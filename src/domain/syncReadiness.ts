@@ -26,7 +26,7 @@ const syncReadinessItemLabels = {
   discovery: "Messages discovery",
   "chat-selection": "Chat selection",
   "selected-chat-verification": "Selected chat verification",
-  "provider-credential": "Provider credential",
+  "provider-credential": "Codex provider",
   "pause-state": "Scanning state",
   "sync-activity": "Sync Now activity"
 } as const satisfies Record<SyncReadinessItemId, string>
@@ -70,19 +70,19 @@ function getProviderCredentialReadinessItem(
       return syncReadinessItem(
         "provider-credential",
         "complete",
-        "OpenAI API key is configured for scheduling extraction."
+        "Codex provider is ready for scheduling extraction."
       )
     case "unchecked":
       return syncReadinessItem(
         "provider-credential",
         "blocking",
-        "Morrow is checking provider credential before scanning."
+        "Morrow is checking Codex provider readiness before scanning."
       )
     case "missing":
       return syncReadinessItem(
         "provider-credential",
         "blocking",
-        "Save an OpenAI API key in Settings before scanning."
+        "Finish Codex CLI setup in Settings before scanning."
       )
     default:
       return assertNever(providerCredentialStatus)

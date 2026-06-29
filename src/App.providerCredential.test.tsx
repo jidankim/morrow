@@ -2,7 +2,6 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { App } from "./App"
 import { APP_SHELL_STATE_KEY, createDefaultAppShellState } from "./domain/appShell"
-import type { MorrowTokenReadResponse } from "./tauriBridge"
 
 const discoveredChat = {
   id: "messages-chat-11111111111111111111111111111111",
@@ -23,10 +22,16 @@ const bridgeMock = vi.hoisted(() => ({
   reconcileNow: vi.fn(async () => undefined),
   scanSelectedChats: vi.fn(async () => ({ pendingProposalCount: 12 })),
   storeMorrowToken: vi.fn(async () => ({ storageSurface: "keychainBridge", stored: true, deleted: false })),
-  readMorrowToken: vi.fn(async (): Promise<MorrowTokenReadResponse> => ({
+  checkProviderAuth: vi.fn(async () => ({
+    status: "loggedInUsingChatGpt",
+    ready: true,
+    commandSurface: "codex login status",
+    commandOutputRedacted: true,
+    diagnostic: "Codex CLI ChatGPT session is ready."
+  })),
+  readMorrowToken: vi.fn(async () => ({
     storageSurface: "keychainBridge",
-    present: true,
-    token: "redacted-provider-token-for-ui"
+    present: true
   })),
   deleteMorrowToken: vi.fn(async () => ({ storageSurface: "keychainBridge", stored: false, deleted: true })),
   discoverMessagesChats: vi.fn(async () => ({
@@ -81,62 +86,50 @@ describe("App provider credential controls", () => {
     window.localStorage.clear()
     window.location.hash = ""
     bridgeMock.storeMorrowToken.mockClear()
+    bridgeMock.checkProviderAuth.mockClear()
     bridgeMock.readMorrowToken.mockClear()
     bridgeMock.deleteMorrowToken.mockClear()
   })
 
-  it("saves checks and deletes provider credential without rendering the secret", async () => {
+  it("shows Codex provider readiness without an API-key password field", async () => {
     renderSettings()
-    await waitFor(() => expect(bridgeMock.readMorrowToken).toHaveBeenCalledOnce())
-    bridgeMock.readMorrowToken.mockClear()
 
-    fireEvent.change(await screen.findByLabelText("API key"), {
-      target: { value: "redacted-provider-token-for-ui" }
-    })
-    fireEvent.click(screen.getByRole("button", { name: "Save key" }))
+    await waitFor(() => expect(bridgeMock.checkProviderAuth).toHaveBeenCalledOnce())
 
-    await waitFor(() => expect(bridgeMock.storeMorrowToken).toHaveBeenCalledOnce())
-    expect(bridgeMock.storeMorrowToken).toHaveBeenCalledWith({
-      service: "com.morrow.desktop.token",
-      tokenKind: "morrow-openai-provider-api-key",
-      token: "redacted-provider-token-for-ui"
-    })
-    expect(screen.getByLabelText("API key")).toHaveValue("")
+    expect(screen.queryByText("OpenAI API key")).not.toBeInTheDocument()
+    expect(screen.queryByLabelText("API key")).not.toBeInTheDocument()
+    expect(document.querySelector('input[type="password"]')).toBeNull()
+    expect(screen.getByRole("heading", { name: "Codex provider" })).toBeInTheDocument()
+    expect(screen.getByText("Codex provider is ready.")).toBeInTheDocument()
+    expect(bridgeMock.storeMorrowToken).not.toHaveBeenCalled()
+    expect(bridgeMock.readMorrowToken).not.toHaveBeenCalled()
+    expect(bridgeMock.deleteMorrowToken).not.toHaveBeenCalled()
     expect(document.body).not.toHaveTextContent("redacted-provider-token-for-ui")
 
-    fireEvent.click(screen.getByRole("button", { name: "Check key" }))
-    await waitFor(() => expect(bridgeMock.readMorrowToken).toHaveBeenCalledOnce())
-    expect(bridgeMock.readMorrowToken).toHaveBeenCalledWith({
-      service: "com.morrow.desktop.token",
-      tokenKind: "morrow-openai-provider-api-key"
-    })
-    expect(screen.getByText("OpenAI API key is stored.")).toBeInTheDocument()
-    expect(document.body).not.toHaveTextContent("redacted-provider-token-for-ui")
-
-    fireEvent.click(screen.getByRole("button", { name: "Delete key" }))
-    await waitFor(() => expect(bridgeMock.deleteMorrowToken).toHaveBeenCalledOnce())
-    expect(bridgeMock.deleteMorrowToken).toHaveBeenCalledWith({
-      service: "com.morrow.desktop.token",
-      tokenKind: "morrow-openai-provider-api-key"
-    })
-    expect(screen.getByText("No OpenAI API key is stored.")).toBeInTheDocument()
+    fireEvent.click(screen.getByRole("button", { name: "Refresh readiness" }))
+    await waitFor(() => expect(bridgeMock.checkProviderAuth).toHaveBeenCalledTimes(2))
   })
 
-  it("blocks Sync Now and links to Settings when the provider credential is missing", async () => {
-    bridgeMock.readMorrowToken.mockResolvedValueOnce({
-      storageSurface: "keychainBridge",
-      present: false
+  it("blocks Sync Now and links to Settings when Codex provider readiness is missing", async () => {
+    bridgeMock.checkProviderAuth.mockResolvedValueOnce({
+      status: "notLoggedIn",
+      ready: false,
+      commandSurface: "codex login status --raw codex_access_token=leaked",
+      commandOutputRedacted: true,
+      diagnostic: "raw codex_access_token=leaked"
     })
     seedReadyState()
     render(<App />)
 
-    await waitFor(() => expect(bridgeMock.readMorrowToken).toHaveBeenCalledOnce())
+    await waitFor(() => expect(bridgeMock.checkProviderAuth).toHaveBeenCalledOnce())
     await waitFor(() => expect(screen.getByRole("button", { name: "Sync Now" })).toBeDisabled())
 
     expect(screen.getByTestId("sync-state")).toHaveTextContent("Disabled")
-    expect(screen.getByText("Provider credential")).toBeInTheDocument()
-    expect(screen.getAllByText("Save an OpenAI API key in Settings before scanning.")).not.toEqual([])
+    expect(screen.getByText("Codex provider")).toBeInTheDocument()
+    expect(screen.getAllByText("Finish Codex CLI setup in Settings before scanning.")).not.toEqual([])
     expect(document.body).not.toHaveTextContent("redacted-provider-token-for-ui")
+    expect(document.body).not.toHaveTextContent("codex_access_token=leaked")
+    expect(document.body).not.toHaveTextContent("codex login status --raw")
 
     fireEvent.click(screen.getByRole("button", { name: "Sync Now" }))
     expect(bridgeMock.reconcileNow).not.toHaveBeenCalled()
@@ -144,5 +137,30 @@ describe("App provider credential controls", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Configure provider" }))
     expect(screen.getByRole("heading", { name: "Settings" })).toBeInTheDocument()
+  })
+
+  it("copies the static Codex login command without showing provider output", async () => {
+    const writeText = vi.fn(async () => undefined)
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText }
+    })
+    bridgeMock.checkProviderAuth.mockResolvedValueOnce({
+      status: "missingCli",
+      ready: false,
+      commandSurface: "codex login status with secret raw output",
+      commandOutputRedacted: true,
+      diagnostic: "codex_access_token=raw-output"
+    })
+
+    renderSettings()
+    await waitFor(() => expect(bridgeMock.checkProviderAuth).toHaveBeenCalledOnce())
+
+    fireEvent.click(screen.getByRole("button", { name: "Copy login command" }))
+
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith("codex login"))
+    expect(screen.getByText("Login command copied.")).toBeInTheDocument()
+    expect(document.body).not.toHaveTextContent("codex_access_token=raw-output")
+    expect(document.body).not.toHaveTextContent("secret raw output")
   })
 })

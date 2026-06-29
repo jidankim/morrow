@@ -77,6 +77,13 @@ const bridgeMock = vi.hoisted(() => {
       storageSurface: "keychainBridge",
       present: true
     })),
+    checkProviderAuth: vi.fn(async () => ({
+      status: "loggedInUsingChatGpt",
+      ready: true,
+      commandSurface: "codex login status",
+      commandOutputRedacted: true,
+      diagnostic: "Codex CLI ChatGPT session is ready."
+    })),
     deleteMorrowToken: vi.fn(async () => ({
       storageSurface: "keychainBridge",
       stored: false,
@@ -110,6 +117,7 @@ vi.mock("./tauriBridge", () => ({
     scanSelectedChats: bridgeMock.scanSelectedChats,
     storeMorrowToken: bridgeMock.storeMorrowToken,
     readMorrowToken: bridgeMock.readMorrowToken,
+    checkProviderAuth: bridgeMock.checkProviderAuth,
     deleteMorrowToken: bridgeMock.deleteMorrowToken,
     discoverMessagesChats: bridgeMock.discoverMessagesChats,
     openPrivacySettings: bridgeMock.openPrivacySettings
@@ -141,6 +149,7 @@ describe("App native shell bridge", () => {
     bridgeMock.scanSelectedChats.mockClear()
     bridgeMock.storeMorrowToken.mockClear()
     bridgeMock.readMorrowToken.mockClear()
+    bridgeMock.checkProviderAuth.mockClear()
     bridgeMock.readMorrowToken.mockResolvedValue({
       storageSurface: "keychainBridge",
       present: true
@@ -201,6 +210,7 @@ describe("App native shell bridge", () => {
       selectedChatIds: ["messages-chat-11111111111111111111111111111111"],
       selectedChats: [discoveredChat],
       referenceTimezone: "Asia/Seoul",
+      referenceUnixSeconds: expect.any(Number),
       backfillPromptChatIds: ["messages-chat-11111111111111111111111111111111"],
       sourceExcerptsEnabled: true,
       capPolicy: {

@@ -15,6 +15,13 @@ const bridgeMock = vi.hoisted(() => ({
   reconcileNow: vi.fn(async () => undefined),
   scanSelectedChats: vi.fn(async () => ({ pendingProposalCount: 12 })),
   storeMorrowToken: vi.fn(async () => ({ storageSurface: "keychainBridge", stored: true, deleted: false })),
+  checkProviderAuth: vi.fn(async () => ({
+    status: "loggedInUsingChatGpt",
+    ready: true,
+    commandSurface: "codex login status",
+    commandOutputRedacted: true,
+    diagnostic: "Codex CLI ChatGPT session is ready."
+  })),
   readMorrowToken: vi.fn(async () => ({
     storageSurface: "keychainBridge",
     present: true,
@@ -46,9 +53,9 @@ const bridgeMock = vi.hoisted(() => ({
     storageSurface: "morrowStore",
     databaseDeleted: true,
     approvedExternalItemsDeleted: false,
-    providerOAuthDeleteRequested: true,
-    providerOAuthDeleted: true,
-    providerOAuthDeleteFailed: false,
+    providerCredentialsDeleteRequested: true,
+    providerCredentialsDeleted: true,
+    providerCredentialsDeleteFailed: false,
     providerCredentialDeletes: [
       {
         tokenKind: "morrow-owned-token",
@@ -92,6 +99,7 @@ const seedReadyState = (): void => {
     APP_SHELL_STATE_KEY,
     JSON.stringify({
       ...initial,
+      providerCredentialStatus: "configured",
       config: { ...initial.config, permissionsGranted: true },
       discovery: { status: "ready", chats: [chat] },
       selectedChats: [{ ...chat, backfillPromptEnabled: true }]
@@ -105,6 +113,7 @@ describe("App privacy controls", () => {
     window.location.hash = ""
     bridgeMock.scanSelectedChats.mockClear()
     bridgeMock.storeMorrowToken.mockClear()
+    bridgeMock.checkProviderAuth.mockClear()
     bridgeMock.readMorrowToken.mockClear()
     bridgeMock.deleteMorrowToken.mockClear()
     bridgeMock.discoverMessagesChats.mockClear()
@@ -146,6 +155,7 @@ describe("App privacy controls", () => {
         }
       ],
       referenceTimezone: "Asia/Seoul",
+      referenceUnixSeconds: expect.any(Number),
       backfillPromptChatIds: ["messages-chat-11111111111111111111111111111111"],
       sourceExcerptsEnabled: false,
       capPolicy: {

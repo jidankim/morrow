@@ -60,6 +60,7 @@ const bridgeMock = vi.hoisted(() => ({
   subscribeMenuCommand: vi.fn(async () => vi.fn()),
   reconcileNow: vi.fn(async () => undefined),
   scanSelectedChats: vi.fn(async () => ({ pendingProposalCount: 12 })),
+  checkProviderAuth: vi.fn(async () => ({ status: "loggedInUsingChatGpt", ready: true, commandSurface: "codex login status", commandOutputRedacted: true, diagnostic: "Codex CLI ChatGPT session is ready." })),
   discoverMessagesChats: vi.fn(async (): Promise<NativeDiscoveryReportForTest> => nativeReadyReport),
   openPrivacySettings: vi.fn(async () => ({ pane: "fullDiskAccess", opened: true })),
   deleteMorrowData: vi.fn(async () => undefined),
@@ -100,6 +101,7 @@ describe("App Messages chat discovery onboarding", () => {
     bridgeMock.setShellState.mockClear()
     bridgeMock.reconcileNow.mockClear()
     bridgeMock.scanSelectedChats.mockClear()
+    bridgeMock.checkProviderAuth.mockClear()
     bridgeMock.discoverMessagesChats.mockClear()
     bridgeMock.discoverMessagesChats.mockResolvedValue(nativeReadyReport)
     bridgeMock.openPrivacySettings.mockClear()
@@ -258,6 +260,7 @@ describe("App Messages chat discovery onboarding", () => {
       selectedChatIds: ["messages-chat-11111111111111111111111111111111"],
       selectedChats: [rediscoveredChat],
       referenceTimezone: fixtureReferenceTimezone,
+      referenceUnixSeconds: expect.any(Number),
       backfillPromptChatIds: ["messages-chat-11111111111111111111111111111111"],
       sourceExcerptsEnabled: true,
       capPolicy: { mode: "refillForPending", maxVisible: 10, pendingCount: 0 }

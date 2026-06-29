@@ -84,7 +84,7 @@ describe("app shell state", () => {
     expect(isSyncNowEnabled(ready)).toBe(true)
   })
 
-  it("requires provider credential before real event creation is available", () => {
+  it("requires Codex provider readiness before real event creation is available", () => {
     const initial = createDefaultAppShellState()
     const missingProvider = {
       ...initial,
@@ -98,7 +98,7 @@ describe("app shell state", () => {
     } as const
 
     expect(getOnboardingWarnings(missingProvider)).toContain(
-      "Save an OpenAI API key in Settings before scanning."
+      "Finish Codex CLI setup in Settings before scanning."
     )
     expect(isSyncNowEnabled(missingProvider)).toBe(false)
     expect(isOnboardingComplete(configuredProvider)).toBe(true)

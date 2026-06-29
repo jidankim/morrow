@@ -1,19 +1,11 @@
-import { useCallback, useMemo, useState } from "react"
+import { useCallback, useState } from "react"
 import { type ProviderCredentialState } from "./SettingsView"
 import type { ProviderCredentialStatus } from "./domain/appShell"
-import {
-  MORROW_KEYCHAIN_SERVICE,
-  MORROW_PROVIDER_TOKEN_KIND,
-  type MorrowTokenLookupRequest,
-  type NativeShellBridge
-} from "./tauriBridge"
-import { nativeErrorMessage } from "./nativeErrors"
+import type { CodexProviderAuthReadiness, NativeShellBridge } from "./tauriBridge"
 
 type ProviderCredentialActions = {
   readonly providerCredentialState: ProviderCredentialState
   readonly checkProviderCredential: () => Promise<void>
-  readonly deleteProviderCredential: () => Promise<void>
-  readonly saveProviderCredential: (token: string) => Promise<void>
 }
 
 export function useProviderCredentialActions(
@@ -22,74 +14,42 @@ export function useProviderCredentialActions(
 ): ProviderCredentialActions {
   const [providerCredentialState, setProviderCredentialState] =
     useState<ProviderCredentialState>({ status: "idle" })
-  const providerTokenLookup = useMemo<MorrowTokenLookupRequest>(
-    () => ({
-      service: MORROW_KEYCHAIN_SERVICE,
-      tokenKind: MORROW_PROVIDER_TOKEN_KIND
-    }),
-    []
-  )
-
-  const saveProviderCredential = useCallback(
-    async (token: string): Promise<void> => {
-      setProviderCredentialState({ status: "saving" })
-      try {
-        const receipt = await nativeBridge.storeMorrowToken({
-          ...providerTokenLookup,
-          token
-        })
-        if (receipt === undefined || !receipt.stored) {
-          throw new Error("Provider credential could not be saved.")
-        }
-        onProviderCredentialStatusChange?.("configured")
-        setProviderCredentialState({ status: "saved" })
-      } catch (error: unknown) {
-        const message =
-          error instanceof Error || typeof error === "string"
-            ? nativeErrorMessage(error, "Provider credential could not be saved.")
-            : "Provider credential could not be saved."
-        setProviderCredentialState({ status: "failed", message })
-      }
-    },
-    [nativeBridge, onProviderCredentialStatusChange, providerTokenLookup]
-  )
 
   const checkProviderCredential = useCallback(async (): Promise<void> => {
     setProviderCredentialState({ status: "checking" })
     try {
-      const response = await nativeBridge.readMorrowToken(providerTokenLookup)
-      const credentialConfigured = response?.present === true
-      onProviderCredentialStatusChange?.(credentialConfigured ? "configured" : "missing")
-      setProviderCredentialState({ status: credentialConfigured ? "present" : "missing" })
+      const readiness = await nativeBridge.checkProviderAuth()
+      const nextState = providerStateFromReadiness(readiness)
+      onProviderCredentialStatusChange?.(nextState.status === "ready" ? "configured" : "missing")
+      setProviderCredentialState(nextState)
     } catch (error: unknown) {
-      const message =
-        error instanceof Error || typeof error === "string"
-          ? nativeErrorMessage(error, "Provider credential could not be checked.")
-          : "Provider credential could not be checked."
-      onProviderCredentialStatusChange?.("missing")
-      setProviderCredentialState({ status: "failed", message })
+      if (isHandledProviderReadinessError(error)) {
+        onProviderCredentialStatusChange?.("missing")
+        setProviderCredentialState({
+          status: "failed",
+          message: "Codex provider readiness could not be checked."
+        })
+        return
+      }
+      throw error
     }
-  }, [nativeBridge, onProviderCredentialStatusChange, providerTokenLookup])
-
-  const deleteProviderCredential = useCallback(async (): Promise<void> => {
-    setProviderCredentialState({ status: "deleting" })
-    try {
-      await nativeBridge.deleteMorrowToken(providerTokenLookup)
-      onProviderCredentialStatusChange?.("missing")
-      setProviderCredentialState({ status: "deleted" })
-    } catch (error: unknown) {
-      const message =
-        error instanceof Error || typeof error === "string"
-          ? nativeErrorMessage(error, "Provider credential could not be deleted.")
-          : "Provider credential could not be deleted."
-      setProviderCredentialState({ status: "failed", message })
-    }
-  }, [nativeBridge, onProviderCredentialStatusChange, providerTokenLookup])
+  }, [nativeBridge, onProviderCredentialStatusChange])
 
   return {
     providerCredentialState,
-    checkProviderCredential,
-    deleteProviderCredential,
-    saveProviderCredential
+    checkProviderCredential
   }
+}
+
+function providerStateFromReadiness(
+  readiness: CodexProviderAuthReadiness | undefined
+): ProviderCredentialState {
+  if (readiness?.ready === true && readiness.status === "loggedInUsingChatGpt") {
+    return { status: "ready" }
+  }
+  return { status: "missing", reason: readiness?.status ?? "unknownFailure" }
+}
+
+function isHandledProviderReadinessError(error: unknown): error is Error | string {
+  return error instanceof Error || typeof error === "string"
 }

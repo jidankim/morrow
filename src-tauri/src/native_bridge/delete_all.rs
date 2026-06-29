@@ -8,7 +8,7 @@ use super::{
         MorrowDataDeleteReceipt, MorrowDataStorageSurface,
     },
     delete_provider_credentials::{
-        provider_credential_delete_receipts, provider_oauth_delete_receipt, MorrowTokenDeleter,
+        provider_credential_delete_receipts, provider_credential_delete_summary, MorrowTokenDeleter,
     },
     eventkit_cleanup::{ProposedItemCleaner, ProposedItemCleanupReceipt},
 };
@@ -32,16 +32,16 @@ pub(crate) fn delete_morrow_data_at(
     let delete_receipt = delete_all_at(store_path, confirmation)?;
     let provider_credentials =
         provider_credential_delete_receipts(request.revoke_provider_oauth, token_vault);
-    let provider_oauth = provider_oauth_delete_receipt(&provider_credentials);
+    let provider_credential_summary = provider_credential_delete_summary(&provider_credentials);
 
     Ok(MorrowDataDeleteReceipt {
         storage_surface: MorrowDataStorageSurface::MorrowStore,
         database_deleted: delete_receipt.database_deleted,
         approved_external_items_deleted: delete_receipt.approved_external_items_deleted,
-        provider_oauth_delete_requested: request.revoke_provider_oauth,
-        provider_oauth_deleted: provider_oauth.deleted,
-        provider_oauth_delete_failed: provider_oauth.failed,
-        provider_oauth_delete_error: provider_oauth.error,
+        provider_credentials_delete_requested: request.revoke_provider_oauth,
+        provider_credentials_deleted: provider_credential_summary.deleted,
+        provider_credentials_delete_failed: provider_credential_summary.failed,
+        provider_credentials_delete_error: provider_credential_summary.error,
         provider_credential_deletes: provider_credentials,
         cleanup_plan: cleanup_plan(&request, proposed_items),
     })
@@ -82,7 +82,10 @@ mod tests {
     use morrow_storage::StorageError;
 
     use super::*;
-    use crate::native_bridge::eventkit_cleanup::NoopProposedItemCleaner;
+    use crate::native_bridge::{
+        eventkit_cleanup::NoopProposedItemCleaner, keychain::FakeMorrowTokenVault,
+        KeychainBridgeError, TokenLookupRequest,
+    };
 
     #[derive(Debug)]
     struct FailingTokenVault;
@@ -114,11 +117,11 @@ mod tests {
 
         assert!(receipt.database_deleted);
         assert!(!db_path.exists());
-        assert!(receipt.provider_oauth_delete_requested);
-        assert!(!receipt.provider_oauth_deleted);
-        assert!(receipt.provider_oauth_delete_failed);
+        assert!(receipt.provider_credentials_delete_requested);
+        assert!(!receipt.provider_credentials_deleted);
+        assert!(receipt.provider_credentials_delete_failed);
         assert!(receipt
-            .provider_oauth_delete_error
+            .provider_credentials_delete_error
             .as_deref()
             .is_some_and(|message| message.contains("-60008")));
     }

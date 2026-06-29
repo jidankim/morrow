@@ -97,7 +97,7 @@ function DeleteOptionControls({
           }
           type="checkbox"
         />
-        <span>Delete stored provider credentials</span>
+        <span>Delete Morrow-owned provider credentials</span>
       </label>
     </>
   )

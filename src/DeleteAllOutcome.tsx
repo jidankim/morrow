@@ -66,16 +66,16 @@ function DeleteAllSuccess({
 }
 
 function providerCredentialText(receipt: MorrowDataDeleteReceipt): string {
-  if (!receipt.providerOAuthDeleteRequested) {
-    return "Stored provider credentials were left unchanged."
+  if (!receipt.providerCredentialsDeleteRequested) {
+    return "Morrow-owned provider credentials were left unchanged. Codex CLI login was left unchanged."
   }
-  if (receipt.providerOAuthDeleteFailed) {
-    return "Stored provider credentials could not be deleted by macOS."
+  if (receipt.providerCredentialsDeleteFailed) {
+    return "Morrow-owned provider credentials could not be deleted by macOS. Codex CLI login was left unchanged."
   }
-  if (receipt.providerOAuthDeleted) {
-    return "Stored provider credentials were deleted."
+  if (receipt.providerCredentialsDeleted) {
+    return "Morrow-owned provider credentials were deleted. Codex CLI login was left unchanged."
   }
-  return "No stored provider credentials were found."
+  return "No Morrow-owned provider credentials were found. Codex CLI login was left unchanged."
 }
 
 function proposedCleanupText(receipt: MorrowDataDeleteReceipt): string {

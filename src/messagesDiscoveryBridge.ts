@@ -55,6 +55,7 @@ const syncScanRequestSchema = z.object({
   selectedChatIds: z.array(chatIdSchema).min(1),
   selectedChats: z.array(discoveredChatSchema).min(1),
   referenceTimezone: z.string().min(1),
+  referenceUnixSeconds: z.number().int().min(0).optional(),
   backfillPromptChatIds: z.array(chatIdSchema),
   sourceExcerptsEnabled: z.boolean(),
   capPolicy: z.object({
@@ -68,6 +69,7 @@ export type SyncScanRequest = {
   readonly selectedChatIds: readonly ChatId[]
   readonly selectedChats: readonly DiscoveredChat[]
   readonly referenceTimezone: string
+  readonly referenceUnixSeconds?: number | undefined
   readonly backfillPromptChatIds: readonly ChatId[]
   readonly sourceExcerptsEnabled: boolean
   readonly capPolicy: {
@@ -88,6 +90,7 @@ export function syncScanRequestFromState(state: SyncScanRequestState): SyncScanR
     selectedChatIds: state.selectedChats.map((chat) => chat.id),
     selectedChats: scanSelectedChatMetadata(state.selectedChats),
     referenceTimezone: state.config.referenceTimezone,
+    referenceUnixSeconds: Math.floor(Date.now() / 1000),
     backfillPromptChatIds: state.selectedChats
       .filter((chat) => chat.backfillPromptEnabled)
       .map((chat) => chat.id),
