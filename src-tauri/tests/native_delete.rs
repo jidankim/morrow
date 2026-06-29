@@ -4,6 +4,11 @@ use morrow_lib::native_bridge::{
 };
 use morrow_storage::{CandidateDraft, CandidateKind, Store};
 
+#[path = "native_delete/diagnostics.rs"]
+mod diagnostics;
+#[path = "native_delete/provider_credentials.rs"]
+mod provider_credentials;
+
 #[test]
 fn delete_morrow_data_request_accepts_ui_oauth_field_casing() -> Result<(), String> {
     let request = serde_json::from_str::<DeleteMorrowDataRequest>(

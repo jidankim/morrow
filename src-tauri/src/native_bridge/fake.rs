@@ -1,5 +1,10 @@
-use std::{collections::BTreeMap, path::PathBuf};
+use std::{
+    collections::BTreeMap,
+    path::{Path, PathBuf},
+};
 
+use morrow_detection::AiProvider;
+use morrow_diagnostics::TraceRecorder;
 use morrow_messages::{
     DiscoveredChat, MessagesDataSource, MessagesDiscoveryDataSource, MessagesDiscoveryReport,
     MessagesDiscoveryStatus, MessagesError, NativeBatch, NativeReadRequest,
@@ -13,6 +18,10 @@ use super::{
     },
     permissions::{map_permission_status, PermissionKind, PermissionState, PermissionStatus},
     public_chat_id::public_chat_id,
+    scan::{
+        scan_selected_chats_with_dependencies, LocalProposalAdapter, ScanSelectedChatsDependencies,
+        ScanSelectedChatsError, ScanSelectedChatsRequest, ScanSelectedChatsResult,
+    },
 };
 
 #[derive(Debug)]
@@ -175,6 +184,31 @@ impl FakeNativeBridge {
 
     pub fn morrow_store_path(&self) -> Option<&PathBuf> {
         self.morrow_store_path.as_ref()
+    }
+
+    #[doc(hidden)]
+    pub fn scan_selected_chats_with_provider_and_trace<P, R>(
+        &self,
+        request: ScanSelectedChatsRequest,
+        store_path: &Path,
+        provider: &P,
+        recorder: &R,
+    ) -> Result<ScanSelectedChatsResult, ScanSelectedChatsError>
+    where
+        P: AiProvider,
+        R: TraceRecorder + ?Sized,
+    {
+        let proposal_adapter = LocalProposalAdapter;
+        scan_selected_chats_with_dependencies(
+            request,
+            store_path,
+            ScanSelectedChatsDependencies {
+                source: self,
+                provider,
+                proposal_adapter: &proposal_adapter,
+                trace_recorder: recorder,
+            },
+        )
     }
 }
 

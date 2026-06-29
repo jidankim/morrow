@@ -7,10 +7,10 @@ use super::{
         DeleteCleanupAction, DeleteCleanupPlan, DeleteMorrowDataError, DeleteMorrowDataRequest,
         MorrowDataDeleteReceipt, MorrowDataStorageSurface,
     },
+    delete_provider_credentials::{
+        provider_credential_delete_receipts, provider_oauth_delete_receipt, MorrowTokenDeleter,
+    },
     eventkit_cleanup::{ProposedItemCleaner, ProposedItemCleanupReceipt},
-    keychain::FakeMorrowTokenVault,
-    KeychainBridgeError, MorrowTokenVault, TokenLookupRequest, MORROW_KEYCHAIN_SERVICE,
-    MORROW_TOKEN_KIND,
 };
 
 pub(crate) fn delete_morrow_data_at(
@@ -30,77 +30,22 @@ pub(crate) fn delete_morrow_data_at(
         }
     };
     let delete_receipt = delete_all_at(store_path, confirmation)?;
-    let provider_oauth = provider_oauth_delete_receipt(request.revoke_provider_oauth, token_vault);
+    let provider_credentials =
+        provider_credential_delete_receipts(request.revoke_provider_oauth, token_vault);
+    let provider_oauth = provider_oauth_delete_receipt(&provider_credentials);
 
     Ok(MorrowDataDeleteReceipt {
         storage_surface: MorrowDataStorageSurface::MorrowStore,
         database_deleted: delete_receipt.database_deleted,
         approved_external_items_deleted: delete_receipt.approved_external_items_deleted,
+        diagnostics_artifacts_deleted: delete_receipt.diagnostics_artifacts_deleted,
         provider_oauth_delete_requested: request.revoke_provider_oauth,
         provider_oauth_deleted: provider_oauth.deleted,
         provider_oauth_delete_failed: provider_oauth.failed,
         provider_oauth_delete_error: provider_oauth.error,
+        provider_credential_deletes: provider_credentials,
         cleanup_plan: cleanup_plan(&request, proposed_items),
     })
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct ProviderOAuthDeleteReceipt {
-    deleted: bool,
-    failed: bool,
-    error: Option<String>,
-}
-
-fn provider_oauth_delete_receipt(
-    requested: bool,
-    token_vault: &impl MorrowTokenDeleter,
-) -> ProviderOAuthDeleteReceipt {
-    if !requested {
-        return ProviderOAuthDeleteReceipt {
-            deleted: false,
-            failed: false,
-            error: None,
-        };
-    }
-
-    match token_vault.delete_morrow_token(TokenLookupRequest::new(
-        MORROW_KEYCHAIN_SERVICE,
-        MORROW_TOKEN_KIND,
-    )) {
-        Ok(deleted) => ProviderOAuthDeleteReceipt {
-            deleted,
-            failed: false,
-            error: None,
-        },
-        Err(error) => ProviderOAuthDeleteReceipt {
-            deleted: false,
-            failed: true,
-            error: Some(error.to_string()),
-        },
-    }
-}
-
-pub(crate) trait MorrowTokenDeleter {
-    fn delete_morrow_token(&self, request: TokenLookupRequest)
-        -> Result<bool, KeychainBridgeError>;
-}
-
-impl MorrowTokenDeleter for MorrowTokenVault {
-    fn delete_morrow_token(
-        &self,
-        request: TokenLookupRequest,
-    ) -> Result<bool, KeychainBridgeError> {
-        self.delete(request).map(|receipt| receipt.deleted)
-    }
-}
-
-impl MorrowTokenDeleter for FakeMorrowTokenVault {
-    fn delete_morrow_token(
-        &self,
-        request: TokenLookupRequest,
-    ) -> Result<bool, KeychainBridgeError> {
-        self.delete(request).map(|receipt| receipt.deleted)
-    }
 }
 
 fn cleanup_plan(
@@ -139,6 +84,8 @@ mod tests {
 
     use super::*;
     use crate::native_bridge::eventkit_cleanup::NoopProposedItemCleaner;
+    use crate::native_bridge::keychain::FakeMorrowTokenVault;
+    use crate::native_bridge::{KeychainBridgeError, TokenLookupRequest};
 
     #[derive(Debug)]
     struct FailingTokenVault;

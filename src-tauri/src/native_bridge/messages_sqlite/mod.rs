@@ -1,3 +1,5 @@
+mod attributed_body;
+mod hex;
 mod queries;
 mod sqlite_cli;
 mod timestamp;
@@ -11,6 +13,8 @@ use morrow_messages::{
 };
 
 use super::public_chat_id::{public_chat_id, public_participant_id};
+use attributed_body::text_from_hex;
+use hex::text as hex_text;
 use queries::{all_chat_guids_sql, discovery_sql, read_recent_sql};
 pub use sqlite_cli::SqliteReadProtections;
 use sqlite_cli::{sqlite_error_from_stderr, Sqlite};
@@ -183,7 +187,10 @@ fn rows_to_batch(
             chat_guid: chat_guid.clone(),
             message_guid: MessageGuid::parse(row_value(row, 3, "message_guid")?)?,
             timestamp,
-            text: hex_text(row_value(row, 5, "text_hex")?)?,
+            text: message_text(
+                row_value(row, 5, "text_hex")?,
+                row_value(row, 6, "attributed_body_hex")?,
+            )?,
             tapback: None,
         };
         chats
@@ -238,30 +245,12 @@ fn row_u16(row: &[String], index: usize, field: &'static str) -> Result<u16, Mes
         .map_err(|error| unavailable(format!("sqlite row has invalid {field}: {error}")))
 }
 
-fn hex_text(value: &str) -> Result<String, MessagesError> {
-    let bytes = value.as_bytes();
-    if bytes.len() % 2 != 0 {
-        return Err(unavailable("sqlite returned odd-length hex text"));
+fn message_text(text_hex: &str, attributed_body_hex: &str) -> Result<String, MessagesError> {
+    let text = hex_text(text_hex)?;
+    if !text.is_empty() {
+        return Ok(text);
     }
-    let mut decoded = Vec::with_capacity(bytes.len() / 2);
-    for pair in bytes.chunks_exact(2) {
-        let high =
-            hex_nibble(pair[0]).ok_or_else(|| unavailable("sqlite returned invalid hex text"))?;
-        let low =
-            hex_nibble(pair[1]).ok_or_else(|| unavailable("sqlite returned invalid hex text"))?;
-        decoded.push((high << 4) | low);
-    }
-    String::from_utf8(decoded)
-        .map_err(|error| unavailable(format!("sqlite returned non-utf8 text: {error}")))
-}
-
-const fn hex_nibble(byte: u8) -> Option<u8> {
-    match byte {
-        b'0'..=b'9' => Some(byte - b'0'),
-        b'a'..=b'f' => Some(byte - b'a' + 10),
-        b'A'..=b'F' => Some(byte - b'A' + 10),
-        _ => None,
-    }
+    Ok(text_from_hex(attributed_body_hex)?.unwrap_or_default())
 }
 
 fn unavailable(reason: impl Into<String>) -> MessagesError {

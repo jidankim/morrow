@@ -9,10 +9,13 @@ use morrow_storage::{
 
 use super::super::eventkit_proposal::EventKitProposalBridge;
 use super::{storage_error, ScanSelectedChatsError};
-use calendar::{calendar_mapping_from_store, CalendarProposalReceipt};
+use calendar::calendar_mapping_from_store;
+pub use calendar::CalendarProposalReceipt;
 
 const MAPPED_AT: i64 = 1_782_352_400;
 const DEFAULT_CALENDAR_EVENT_DURATION_SECONDS: i64 = 30 * 60;
+const EXTERNAL_PROPOSAL_CREATION_FAILED: &str = "external_proposal_creation_failed";
+const MAX_CANDIDATE_REASON_BYTES: usize = 240;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) struct ProposalReplaySummary {
@@ -20,9 +23,9 @@ pub(super) struct ProposalReplaySummary {
     pub(super) failed: usize,
 }
 
-pub(super) struct LocalProposalAdapter;
+pub(in crate::native_bridge) struct LocalProposalAdapter;
 
-pub(super) trait ProposalReplayAdapter {
+pub trait ProposalReplayAdapter {
     fn create_calendar_proposal(
         &self,
         event: ProposedEvent,
@@ -115,37 +118,56 @@ pub(super) fn replay_external_proposals(
     let mut created = 0;
     let mut failed = 0;
     for candidate in candidates {
-        let replay_result = match candidate.kind {
-            CandidateKind::CalendarEvent => calendar_mapping_from_store(store, candidate, adapter),
-            CandidateKind::TaskReminder
-            | CandidateKind::EventUpdate
-            | CandidateKind::EventReschedule
-            | CandidateKind::EventCancellation
-            | CandidateKind::ReminderUpdate
-            | CandidateKind::ReminderReschedule
-            | CandidateKind::ReminderCancellation => adapter.create_legacy_proposal(candidate),
+        let replay_result = match mapping_for_candidate(store, candidate)? {
+            Some(mapping) => Ok(ReplayMapping {
+                mapping,
+                created_external: false,
+            }),
+            None => match candidate.kind {
+                CandidateKind::CalendarEvent => {
+                    calendar_mapping_from_store(store, candidate, adapter).map(|mapping| {
+                        ReplayMapping {
+                            mapping,
+                            created_external: true,
+                        }
+                    })
+                }
+                CandidateKind::TaskReminder
+                | CandidateKind::EventUpdate
+                | CandidateKind::EventReschedule
+                | CandidateKind::EventCancellation
+                | CandidateKind::ReminderUpdate
+                | CandidateKind::ReminderReschedule
+                | CandidateKind::ReminderCancellation => adapter
+                    .create_legacy_proposal(candidate)
+                    .map(|mapping| ReplayMapping {
+                        mapping,
+                        created_external: true,
+                    }),
+            },
         };
         match replay_result {
-            Ok(mapping) => {
-                store
-                    .upsert_external_mapping(mapping)
-                    .map_err(storage_error)?;
-                store
-                    .transition_candidate(
-                        &candidate.candidate_id,
-                        CandidateState::Visible,
-                        "external_proposal_created",
-                        MAPPED_AT,
-                    )
-                    .map_err(storage_error)?;
-                created += 1;
+            Ok(replay_mapping) => {
+                if replay_mapping.created_external {
+                    store
+                        .record_candidate_external_receipt(&replay_mapping.mapping)
+                        .map_err(storage_error)?;
+                }
+                if finalize_external_mapping(store, &replay_mapping.mapping)? {
+                    if replay_mapping.created_external {
+                        created += 1;
+                    }
+                } else {
+                    failed += 1;
+                }
             }
-            Err(_error) => {
+            Err(error) => {
+                let reason = external_proposal_failure_reason(&error);
                 store
                     .transition_candidate(
                         &candidate.candidate_id,
                         CandidateState::Failed,
-                        "external_proposal_creation_failed",
+                        &reason,
                         MAPPED_AT,
                     )
                     .map_err(storage_error)?;
@@ -156,6 +178,89 @@ pub(super) fn replay_external_proposals(
     Ok(ProposalReplaySummary { created, failed })
 }
 
+#[derive(Debug, Clone)]
+struct ReplayMapping {
+    mapping: ExternalObjectMapping,
+    created_external: bool,
+}
+
+fn mapping_for_candidate(
+    store: &Store,
+    candidate: &QueuedProposal,
+) -> Result<Option<ExternalObjectMapping>, ScanSelectedChatsError> {
+    match candidate.kind {
+        CandidateKind::CalendarEvent => store
+            .candidate_external_mapping(
+                &candidate.candidate_id,
+                ExternalSource::Calendar,
+                MAPPED_AT,
+            )
+            .map_err(storage_error),
+        CandidateKind::TaskReminder
+        | CandidateKind::EventUpdate
+        | CandidateKind::EventReschedule
+        | CandidateKind::EventCancellation
+        | CandidateKind::ReminderUpdate
+        | CandidateKind::ReminderReschedule
+        | CandidateKind::ReminderCancellation => Ok(None),
+    }
+}
+
+fn finalize_external_mapping(
+    store: &Store,
+    mapping: &ExternalObjectMapping,
+) -> Result<bool, ScanSelectedChatsError> {
+    let finalized = store
+        .upsert_external_mapping(mapping.clone())
+        .and_then(|()| {
+            store.transition_candidate(
+                &mapping.candidate_id,
+                CandidateState::Visible,
+                "external_proposal_created",
+                MAPPED_AT,
+            )
+        });
+    match finalized {
+        Ok(()) => Ok(true),
+        Err(_error) => {
+            store
+                .record_external_replay_recovery_pending(
+                    &mapping.candidate_id,
+                    "external_proposal_recovery_pending",
+                    MAPPED_AT,
+                )
+                .map_err(storage_error)?;
+            Ok(false)
+        }
+    }
+}
+
 fn external_proposal_error(message: impl Into<String>) -> ScanSelectedChatsError {
     ScanSelectedChatsError::ExternalProposal(message.into())
+}
+
+fn external_proposal_failure_reason(error: &ScanSelectedChatsError) -> String {
+    let ScanSelectedChatsError::ExternalProposal(message) = error else {
+        return EXTERNAL_PROPOSAL_CREATION_FAILED.to_owned();
+    };
+    let detail = truncated_failure_detail(message);
+    if detail.is_empty() {
+        return EXTERNAL_PROPOSAL_CREATION_FAILED.to_owned();
+    }
+    format!("{EXTERNAL_PROPOSAL_CREATION_FAILED}: {detail}")
+}
+
+fn truncated_failure_detail(message: &str) -> String {
+    let mut detail = String::new();
+    let max_detail_bytes = MAX_CANDIDATE_REASON_BYTES
+        .saturating_sub(EXTERNAL_PROPOSAL_CREATION_FAILED.len())
+        .saturating_sub(2);
+    for ch in message.chars().filter(|ch| !ch.is_control()) {
+        let next_len = detail.len() + ch.len_utf8();
+        if next_len > max_detail_bytes {
+            break;
+        }
+        detail.push(ch);
+    }
+    detail
 }

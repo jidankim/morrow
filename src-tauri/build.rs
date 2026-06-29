@@ -13,6 +13,7 @@ fn compile_eventkit_native_bridge() {
     build
         .file("src/native_bridge/eventkit_cleanup.m")
         .file("src/native_bridge/eventkit_proposal.m")
+        .file("src/native_bridge/messages_attributed_body.m")
         .flag("-fobjc-arc");
     if !build.get_compiler().is_like_clang() {
         build.compiler("clang");

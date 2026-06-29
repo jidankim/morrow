@@ -11,6 +11,7 @@ use super::{
 
 pub(super) fn ingestion_request(
     request: &ScanSelectedChatsRequest,
+    reference_unix_seconds: i64,
 ) -> Result<IngestionRequest, ScanSelectedChatsError> {
     validate_selected_chat_metadata(request)?;
     let whitelist = request
@@ -21,7 +22,7 @@ pub(super) fn ingestion_request(
     IngestionRequest::new(
         whitelist,
         BackfillDays::new(7).map_err(messages_error)?,
-        MessageTimestamp::new(1_782_352_400).map_err(messages_error)?,
+        MessageTimestamp::new(reference_unix_seconds).map_err(messages_error)?,
     )
     .map_err(messages_error)
 }

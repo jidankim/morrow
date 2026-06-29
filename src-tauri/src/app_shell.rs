@@ -14,6 +14,7 @@ pub enum AppMode {
 #[serde(rename_all = "camelCase")]
 pub struct AppShellState {
     pub mode: AppMode,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub error_message: Option<String>,
     pub onboarding_complete: bool,
     pub pending_proposal_count: u32,
