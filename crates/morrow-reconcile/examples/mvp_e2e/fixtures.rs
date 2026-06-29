@@ -1,5 +1,3 @@
-#![allow(clippy::redundant_pub_crate)]
-
 use morrow_detection::{
     AiProvider, ConfidenceThreshold, DetectionConfig, DetectionOutcome, DetectionPipeline,
     ProviderError, ProviderIdentity, ProviderRequest, ProviderResponse, ReferenceTime,
@@ -14,14 +12,21 @@ use morrow_storage::{CandidateDraft, Store};
 
 const NON_WHITELISTED_SECRET: &str = "NON_WHITELISTED_NEVER_STORE_TASK12";
 
-pub(crate) struct WorkflowCandidates {
-    pub(crate) calendar: CandidateDraft,
-    pub(crate) reminder: CandidateDraft,
-    pub(crate) quiet_logs: usize,
-    pub(crate) ignored_non_whitelisted: bool,
+/// Candidate set detected from whitelisted message fixtures.
+#[derive(Debug)]
+pub struct WorkflowCandidates {
+    /// Calendar candidate detected from the fixture provider.
+    pub calendar: CandidateDraft,
+    /// Reminder candidate detected from the fixture provider.
+    pub reminder: CandidateDraft,
+    /// Number of quiet-log records persisted.
+    pub quiet_logs: usize,
+    /// Whether the non-whitelisted chat was ignored.
+    pub ignored_non_whitelisted: bool,
 }
 
-pub(crate) fn detect_from_whitelisted_messages(
+/// Detects workflow candidates from whitelisted synthetic Messages data.
+pub fn detect_from_whitelisted_messages(
     store: &Store,
 ) -> Result<WorkflowCandidates, Box<dyn std::error::Error>> {
     let source = FixtureMessages;
@@ -98,16 +103,25 @@ impl AiProvider for FixtureProvider {
                 reason: "missing evidence".to_owned(),
             })?;
         let raw = match message.message_guid.as_str() {
-            "msg-reminder-date-only" => {
-                r#"{"kind":"task_reminder","title":"Send launch notes","confidence_millis":810,"normalized_time":"2026-07-02T00:00:00[Asia/Seoul]","anchor_message_guid":"msg-reminder-date-only","evidence_message_guids":["msg-reminder-date-only"]}"#
-            }
-            _ => {
-                r#"{"kind":"calendar_event","title":"Unexpected","confidence_millis":100,"normalized_time":"2026-07-03T10:00:00[Asia/Seoul]","anchor_message_guid":"msg-unknown","evidence_message_guids":["msg-unknown"]}"#
-            }
+            "msg-reminder-date-only" => REMINDER_PROVIDER_RESPONSE,
+            _ => CALENDAR_PROVIDER_RESPONSE,
         };
         Ok(ProviderResponse::new(raw))
     }
 }
+
+const REMINDER_PROVIDER_RESPONSE: &str = concat!(
+    r#"{"kind":"task_reminder","title":"Send launch notes","confidence_millis":810,"#,
+    r#""normalized_time":"2026-07-02T00:00:00[Asia/Seoul]","#,
+    r#""anchor_message_guid":"msg-reminder-date-only","#,
+    r#""evidence_message_guids":["msg-reminder-date-only"]}"#,
+);
+
+const CALENDAR_PROVIDER_RESPONSE: &str = concat!(
+    r#"{"kind":"calendar_event","title":"Unexpected","confidence_millis":100,"#,
+    r#""normalized_time":"2026-07-03T10:00:00[Asia/Seoul]","#,
+    r#""anchor_message_guid":"msg-unknown","evidence_message_guids":["msg-unknown"]}"#,
+);
 
 fn ingestion_request() -> Result<IngestionRequest, Box<dyn std::error::Error>> {
     let chat = WhitelistedChat::with_participants(
@@ -156,8 +170,12 @@ fn whitelisted_chat() -> Result<RawChat, MessagesError> {
                 chat_guid: chat_guid.clone(),
                 message_guid: MessageGuid::parse("msg-reminder-date-only")?,
                 timestamp: MessageTimestamp::new(1_782_352_000)?,
-                text: "I will send launch notes by 2026-07-02 after the morning review and include the partner checklist, rollout notes, and ownership table. DO_NOT_STORE_FULL_REMINDER_MESSAGE_TASK12"
-                    .to_owned(),
+                text: [
+                    "I will send launch notes by 2026-07-02 after the morning review and ",
+                    "include the partner checklist, rollout notes, and ownership table. ",
+                    "DO_NOT_STORE_FULL_REMINDER_MESSAGE_TASK12",
+                ]
+                .concat(),
                 tapback: None,
             },
             RawMessage {

@@ -1,5 +1,3 @@
-#![allow(clippy::redundant_pub_crate)]
-
 use std::path::Path;
 
 use morrow_reconcile::{
@@ -11,27 +9,45 @@ use morrow_storage::{
     ExternalObjectMapping, ExternalSource, Store,
 };
 
-pub(crate) struct LifecycleSummary {
-    pub(crate) visible_proposals: u64,
-    pub(crate) approvals: u64,
-    pub(crate) deletions: u64,
-    pub(crate) latency_seconds: u64,
+/// Lifecycle scenario aggregate counts.
+#[derive(Debug)]
+pub struct LifecycleSummary {
+    /// Number of visible proposal scenarios.
+    pub visible_proposals: u64,
+    /// Number of approval scenarios.
+    pub approvals: u64,
+    /// Number of deletion scenarios.
+    pub deletions: u64,
+    /// Synthetic latency for metrics.
+    pub latency_seconds: u64,
 }
 
-pub(crate) struct DeleteSummary {
-    pub(crate) database_deleted: bool,
-    pub(crate) readbacks: DeleteReadbacks,
+/// Delete All scenario summary.
+#[derive(Debug)]
+pub struct DeleteSummary {
+    /// Whether the storage database was deleted.
+    pub database_deleted: bool,
+    /// Pre-delete and sidecar readbacks.
+    pub readbacks: DeleteReadbacks,
 }
 
-pub(crate) struct DeleteReadbacks {
-    pub(crate) approved_candidate_read_before_delete: bool,
-    pub(crate) fake_approved_external_item_preserved: bool,
-    pub(crate) fake_apple_message_source_preserved: bool,
+/// Delete All readback checks.
+#[derive(Debug)]
+pub struct DeleteReadbacks {
+    /// Approved candidate was readable before deletion.
+    pub approved_candidate_read_before_delete: bool,
+    /// Non-Morrow external sidecar was preserved.
+    pub fake_approved_external_item_preserved: bool,
+    /// Apple Messages sidecar was preserved.
+    pub fake_apple_message_source_preserved: bool,
 }
 
-pub(crate) fn run_lifecycle_cases(
-    store: &Store,
-) -> Result<LifecycleSummary, Box<dyn std::error::Error>> {
+/// Runs the lifecycle approval, rejection, completion, and partial-write cases.
+///
+/// # Panics
+///
+/// Panics when the generated plans do not contain the expected observable action.
+pub fn run_lifecycle_cases(store: &Store) -> Result<LifecycleSummary, Box<dyn std::error::Error>> {
     let moved = visible_candidate(store, CandidateKind::CalendarEvent, "move")?;
     let moved_plan = reconcile_candidate(
         &lifecycle(
@@ -102,9 +118,8 @@ pub(crate) fn run_lifecycle_cases(
     })
 }
 
-pub(crate) fn run_delete_all_case(
-    delete_db: &Path,
-) -> Result<DeleteSummary, Box<dyn std::error::Error>> {
+/// Runs the Delete All storage boundary case.
+pub fn run_delete_all_case(delete_db: &Path) -> Result<DeleteSummary, Box<dyn std::error::Error>> {
     let store = Store::open(delete_db)?;
     let candidate_id = store.create_candidate(draft(CandidateKind::CalendarEvent, "delete-all"))?;
     store.transition_candidate(

@@ -1,4 +1,4 @@
-#![allow(missing_docs)]
+//! Reconciliation lifecycle regression tests.
 
 use morrow_reconcile::{
     apply_reconciliation, reconcile_candidate, CandidateLifecycle, DisappearanceEvidence,
@@ -6,7 +6,8 @@ use morrow_reconcile::{
 };
 use morrow_storage::{CandidateKind, CandidateState, ExternalSource, Store};
 
-mod support;
+/// Shared lifecycle test fixtures.
+pub mod support;
 use support::{
     assert_audit_reason, creating_candidate, db_path, draft, mapping, mapping_with_source,
     visible_candidate, visible_lifecycle, TestError,

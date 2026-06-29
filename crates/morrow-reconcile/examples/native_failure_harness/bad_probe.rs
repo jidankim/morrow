@@ -7,7 +7,8 @@ use crate::partial_replay::ReplaySummary;
 use crate::provider::ProviderSummary;
 use crate::validation::{validate_harness, HarnessSummaries};
 
-pub(crate) fn run() -> Result<(), Box<dyn Error>> {
+/// Runs the adversarial validation probe.
+pub fn run() -> Result<(), Box<dyn Error>> {
     let messages = MessagesSummary {
         permission_status: "available",
         permission_warning: "wrong_warning".to_owned(),

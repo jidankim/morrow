@@ -1,5 +1,3 @@
-#![allow(clippy::redundant_pub_crate)]
-
 use std::io::Error;
 use std::path::PathBuf;
 
@@ -9,7 +7,8 @@ use morrow_storage::{
     ExternalSource, Store,
 };
 
-pub(crate) fn prepare_candidate(
+/// Creates a candidate in the requested setup state.
+pub fn prepare_candidate(
     store: &Store,
     kind: CandidateKind,
     suffix: &str,
@@ -58,7 +57,8 @@ pub(crate) fn prepare_candidate(
     Ok(candidate_id)
 }
 
-pub(crate) fn lifecycle(
+/// Builds a candidate lifecycle fixture.
+pub fn lifecycle(
     candidate_id: &CandidateId,
     kind: CandidateKind,
     state: CandidateState,
@@ -79,7 +79,8 @@ pub(crate) fn lifecycle(
     }
 }
 
-pub(crate) fn count_reason(
+/// Counts audit entries with the requested lifecycle reason.
+pub fn count_reason(
     store: &Store,
     candidate_id: &CandidateId,
     reason: LifecycleReason,
@@ -91,7 +92,8 @@ pub(crate) fn count_reason(
         .count())
 }
 
-pub(crate) fn mapping(
+/// Builds an external object mapping fixture.
+pub fn mapping(
     candidate_id: &CandidateId,
     source: ExternalSource,
     external_object_id: &str,
@@ -106,7 +108,8 @@ pub(crate) fn mapping(
     }
 }
 
-pub(crate) fn db_path() -> PathBuf {
+/// Returns the smoke-suite database path.
+pub fn db_path() -> PathBuf {
     std::env::temp_dir().join(format!(
         "morrow-reconcile-smoke-{}.sqlite3",
         std::process::id()

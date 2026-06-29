@@ -7,16 +7,25 @@ use morrow_messages::{
     NativeReadRequest, ParticipantId, RawChat, RawMessage, WhitelistedChat,
 };
 
+/// Messages ingestion failure scenario summary.
 #[derive(Debug, Clone)]
-pub(crate) struct MessagesSummary {
-    pub(crate) permission_status: &'static str,
-    pub(crate) permission_warning: String,
-    pub(crate) unavailable_warning: String,
-    pub(crate) unavailable_messages: usize,
-    pub(crate) guid_change_warning: String,
-    pub(crate) guid_change_messages: usize,
-    pub(crate) group_pause_reason: String,
-    pub(crate) group_messages: usize,
+pub struct MessagesSummary {
+    /// Permission-denial ingestion status.
+    pub permission_status: &'static str,
+    /// Permission-denial warning.
+    pub permission_warning: String,
+    /// Unavailable-chat warning.
+    pub unavailable_warning: String,
+    /// Messages emitted for the unavailable-chat case.
+    pub unavailable_messages: usize,
+    /// GUID-change warning.
+    pub guid_change_warning: String,
+    /// Messages emitted for the GUID-change case.
+    pub guid_change_messages: usize,
+    /// Group-membership pause reason.
+    pub group_pause_reason: String,
+    /// Messages emitted for the group-membership case.
+    pub group_messages: usize,
 }
 
 #[derive(Debug)]
@@ -53,7 +62,8 @@ impl MessagesDataSource for FakeMessages {
     }
 }
 
-pub(crate) fn run() -> Result<MessagesSummary, Box<dyn Error>> {
+/// Runs Messages ingestion failure scenarios.
+pub fn run() -> Result<MessagesSummary, Box<dyn Error>> {
     let permission = ingest_selected_threads(
         &FakeMessages::permission_denied(),
         &request("chat-alpha", 2)?,

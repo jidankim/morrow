@@ -1,5 +1,3 @@
-#![allow(clippy::redundant_pub_crate)]
-
 use std::io::Error;
 
 use morrow_reconcile::{
@@ -11,11 +9,13 @@ use morrow_storage::{CandidateKind, CandidateState, ExternalSource, Store};
 use crate::summary::SmokeCounts;
 
 #[path = "fixtures.rs"]
-mod fixtures;
+/// Storage and lifecycle fixtures for the smoke suite.
+pub mod fixtures;
 
 use fixtures::{count_reason, db_path, lifecycle, mapping, prepare_candidate};
 
-pub(crate) fn run_lifecycle_suite() -> Result<SmokeCounts, Box<dyn std::error::Error>> {
+/// Runs all lifecycle smoke cases and returns their readback counts.
+pub fn run_lifecycle_suite() -> Result<SmokeCounts, Box<dyn std::error::Error>> {
     let store = Store::open(&db_path())?;
     Ok(SmokeCounts {
         approved_by_move: run_audited_case(

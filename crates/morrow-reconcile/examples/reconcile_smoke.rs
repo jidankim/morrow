@@ -1,9 +1,11 @@
-#![allow(missing_docs)]
+//! Reconcile lifecycle smoke harness for storage readback validation.
 
 #[path = "reconcile_smoke/suite.rs"]
-mod suite;
+/// Lifecycle smoke suite runner.
+pub mod suite;
 #[path = "reconcile_smoke/summary.rs"]
-mod summary;
+/// Lifecycle smoke summary writer.
+pub mod summary;
 
 use std::io::Error;
 

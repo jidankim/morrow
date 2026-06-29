@@ -11,15 +11,21 @@ struct CountExpectation {
     expected: usize,
 }
 
-#[derive(Clone, Copy)]
-pub(crate) struct HarnessSummaries<'a> {
-    pub(crate) messages: &'a MessagesSummary,
-    pub(crate) native: &'a NativeSummary,
-    pub(crate) replay: &'a ReplaySummary,
-    pub(crate) provider: &'a ProviderSummary,
+/// Summaries validated by the native failure harness.
+#[derive(Clone, Copy, Debug)]
+pub struct HarnessSummaries<'a> {
+    /// Messages ingestion summary.
+    pub messages: &'a MessagesSummary,
+    /// Native adapter summary.
+    pub native: &'a NativeSummary,
+    /// Replay recovery summary.
+    pub replay: &'a ReplaySummary,
+    /// Provider summary.
+    pub provider: &'a ProviderSummary,
 }
 
-pub(crate) fn validate_harness(summaries: HarnessSummaries<'_>) -> Result<(), HarnessError> {
+/// Validates native failure harness summaries.
+pub fn validate_harness(summaries: HarnessSummaries<'_>) -> Result<(), HarnessError> {
     validate_messages(summaries.messages, summaries.native)?;
     validate_native(summaries.native)?;
     validate_partial_write(summaries.native, summaries.replay)?;

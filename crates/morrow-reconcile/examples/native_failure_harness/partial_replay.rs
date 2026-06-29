@@ -11,14 +11,19 @@ use morrow_storage::{
     ReplayStream, Store,
 };
 
+/// Partial replay recovery summary.
 #[derive(Debug, Clone)]
-pub(crate) struct ReplaySummary {
-    pub(crate) recovered_reason_count: usize,
-    pub(crate) replay_create_actions: usize,
-    pub(crate) replay_candidates: usize,
+pub struct ReplaySummary {
+    /// Partial-write recovery audit count.
+    pub recovered_reason_count: usize,
+    /// Replay create-action count.
+    pub replay_create_actions: usize,
+    /// Replay candidate count after recovery.
+    pub replay_candidates: usize,
 }
 
-pub(crate) fn run() -> Result<ReplaySummary, Box<dyn Error>> {
+/// Runs the partial-write replay recovery scenario.
+pub fn run() -> Result<ReplaySummary, Box<dyn Error>> {
     let db_path = db_path();
     let result = run_with_db(&db_path);
     let cleanup = std::fs::remove_file(&db_path);

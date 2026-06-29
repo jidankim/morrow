@@ -1,27 +1,43 @@
-#![allow(clippy::redundant_pub_crate)]
-
 use std::path::Path;
 
-pub(crate) struct MetricsInput {
-    pub(crate) visible_proposals: u64,
-    pub(crate) approvals: u64,
-    pub(crate) deletions: u64,
-    pub(crate) false_positives: u64,
-    pub(crate) latency_seconds_total: u64,
-    pub(crate) quiet_logs: usize,
-    pub(crate) user_days: u64,
+/// Inputs used to calculate the MVP E2E metrics report.
+#[derive(Debug)]
+pub struct MetricsInput {
+    /// Visible proposal count.
+    pub visible_proposals: u64,
+    /// Approval count.
+    pub approvals: u64,
+    /// Deletion count.
+    pub deletions: u64,
+    /// False-positive count.
+    pub false_positives: u64,
+    /// Total synthetic latency.
+    pub latency_seconds_total: u64,
+    /// Quiet-log candidate count.
+    pub quiet_logs: usize,
+    /// Number of user-days represented.
+    pub user_days: u64,
 }
 
-pub(crate) struct MetricsReport {
-    pub(crate) approval_rate_millis: u64,
-    pub(crate) deletion_rate_millis: u64,
-    pub(crate) false_positives: u64,
-    pub(crate) average_latency_seconds: u64,
-    pub(crate) proposals_per_user_day: u64,
-    pub(crate) quiet_log_candidates: usize,
+/// Calculated MVP E2E metrics.
+#[derive(Debug)]
+pub struct MetricsReport {
+    /// Approval rate in thousandths.
+    pub approval_rate_millis: u64,
+    /// Deletion rate in thousandths.
+    pub deletion_rate_millis: u64,
+    /// False-positive count.
+    pub false_positives: u64,
+    /// Average synthetic latency.
+    pub average_latency_seconds: u64,
+    /// Proposal count per user-day.
+    pub proposals_per_user_day: u64,
+    /// Quiet-log candidate count.
+    pub quiet_log_candidates: usize,
 }
 
-pub(crate) fn calculate(input: &MetricsInput) -> Result<MetricsReport, Box<dyn std::error::Error>> {
+/// Calculates the MVP E2E metrics report.
+pub fn calculate(input: &MetricsInput) -> Result<MetricsReport, Box<dyn std::error::Error>> {
     if input.visible_proposals == 0 || input.user_days == 0 {
         return Err("metrics require visible proposals and user-days".into());
     }
@@ -36,7 +52,8 @@ pub(crate) fn calculate(input: &MetricsInput) -> Result<MetricsReport, Box<dyn s
 }
 
 impl MetricsReport {
-    pub(crate) fn write_report(&self, path: &Path) -> Result<(), Box<dyn std::error::Error>> {
+    /// Writes the metrics report as key-value lines.
+    pub fn write_report(&self, path: &Path) -> Result<(), Box<dyn std::error::Error>> {
         std::fs::write(
             path,
             format!(

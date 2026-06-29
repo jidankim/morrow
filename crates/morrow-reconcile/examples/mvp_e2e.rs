@@ -1,13 +1,17 @@
-#![allow(missing_docs)]
+//! End-to-end reconcile workflow harness for local proposal lifecycle coverage.
 
 #[path = "mvp_e2e/external.rs"]
-mod external;
+/// External proposal fixture operations.
+pub mod external;
 #[path = "mvp_e2e/fixtures.rs"]
-mod fixtures;
+/// Messages and detection fixtures.
+pub mod fixtures;
 #[path = "mvp_e2e/lifecycle.rs"]
-mod lifecycle;
+/// Reconciliation lifecycle fixtures.
+pub mod lifecycle;
 #[path = "mvp_e2e/metrics.rs"]
-mod metrics;
+/// Metrics report helpers.
+pub mod metrics;
 
 use std::path::PathBuf;
 

@@ -1,4 +1,4 @@
-#![allow(missing_docs)]
+//! Reconciliation boundary validation tests.
 
 use morrow_reconcile::{
     reconcile_candidate, CandidateLifecycle, ExternalItemObservation, ReconcileError,
@@ -9,7 +9,8 @@ use morrow_storage::{
 use std::io::Error;
 
 #[path = "../examples/reconcile_smoke/summary.rs"]
-mod smoke_summary;
+/// Reused smoke summary validation fixture.
+pub mod smoke_summary;
 
 #[test]
 fn rejects_malformed_external_observations_when_boundary_fields_are_blank(

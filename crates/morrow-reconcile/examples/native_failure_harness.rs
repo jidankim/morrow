@@ -1,23 +1,28 @@
 //! Fake native failure harness for Morrow proposal boundary failures.
 
-#![allow(clippy::redundant_pub_crate)]
-
 use std::error::Error;
 
 #[path = "native_failure_harness/bad_probe.rs"]
-mod bad_probe;
+/// Adversarial bad-summary probe.
+pub mod bad_probe;
 #[path = "native_failure_harness/calendar_reminders.rs"]
-mod calendar_reminders;
+/// Calendar and Reminders native-failure fixtures.
+pub mod calendar_reminders;
 #[path = "native_failure_harness/harness_error.rs"]
-mod harness_error;
+/// Harness error type.
+pub mod harness_error;
 #[path = "native_failure_harness/messages.rs"]
-mod messages;
+/// Messages ingestion failure fixtures.
+pub mod messages;
 #[path = "native_failure_harness/partial_replay.rs"]
-mod partial_replay;
+/// Partial replay recovery fixtures.
+pub mod partial_replay;
 #[path = "native_failure_harness/provider.rs"]
-mod provider;
+/// Provider failure fixtures.
+pub mod provider;
 #[path = "native_failure_harness/validation.rs"]
-mod validation;
+/// Harness summary validation.
+pub mod validation;
 
 fn main() -> Result<(), Box<dyn Error>> {
     if std::env::args().any(|arg| arg == "--adversarial-bad-probe") {
