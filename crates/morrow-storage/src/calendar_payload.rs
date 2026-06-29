@@ -24,7 +24,7 @@ impl Store {
         candidate_id: &CandidateId,
     ) -> Result<Option<CalendarProposalPayload>, StorageError> {
         let sql = format!(
-            "SELECT c.id, c.kind, c.normalized_time
+            "SELECT c.id, c.kind, c.normalized_time, c.title
              FROM candidates c
              LEFT JOIN external_object_mappings m
                ON m.candidate_id = c.id AND m.source = {source}
@@ -45,14 +45,48 @@ impl Store {
         if !is_normalized_calendar_time(normalized_time) {
             return Ok(None);
         }
+        let title = calendar_payload_title(row_value(row, 3, "calendar_payload.title")?);
         Ok(Some(CalendarProposalPayload {
             candidate_id: CandidateId::from_storage(row_value(row, 0, "calendar_payload.id")?)?,
             kind: CandidateKind::parse(row_value(row, 1, "calendar_payload.kind")?)?,
             normalized_time: normalized_time.to_owned(),
-            title: NATIVE_SCAN_TITLE.to_owned(),
+            title,
             source_id: SELECTED_MESSAGES_SOURCE_ID.to_owned(),
         }))
     }
+}
+
+fn calendar_payload_title(raw: &str) -> String {
+    let title = raw.trim();
+    if title.is_empty() || title_has_private_marker(title) {
+        NATIVE_SCAN_TITLE.to_owned()
+    } else {
+        title.to_owned()
+    }
+}
+
+fn title_has_private_marker(title: &str) -> bool {
+    let lowered = title.to_ascii_lowercase();
+    title.contains('@')
+        || title.contains('+')
+        || lowered.contains("private")
+        || lowered.contains("raw-")
+        || has_digit_run(title, 7)
+}
+
+fn has_digit_run(value: &str, threshold: usize) -> bool {
+    let mut run = 0;
+    for ch in value.chars() {
+        if ch.is_ascii_digit() {
+            run += 1;
+            if run >= threshold {
+                return true;
+            }
+        } else {
+            run = 0;
+        }
+    }
+    false
 }
 
 fn is_normalized_calendar_time(value: &str) -> bool {

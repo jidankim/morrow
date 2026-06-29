@@ -1,115 +1,13 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { beforeEach, describe, expect, it } from "vitest"
+import {
+  bridgeMock,
+  discoveredChat,
+  nativeReadyReport,
+  seedReadyState
+} from "./AppShellBridgeTestHarness"
 import { App } from "./App"
-import { APP_SHELL_STATE_KEY, createDefaultAppShellState } from "./domain/appShell"
-
-type NativeStateForTest = {
-  readonly mode: "scanning" | "paused" | "error"
-  readonly errorMessage?: string
-  readonly onboardingComplete: boolean
-  readonly pendingProposalCount: number
-}
-
-type NativeMenuCommandForTest = "sync-now" | "open-settings" | "open-calendar" | "open-reminders"
-
-type NativeDiscoveryReportForTest =
-  | {
-      readonly status: "ready"
-      readonly chats: readonly {
-        readonly chatId: string
-        readonly displayLabel: string
-        readonly participantCount: number
-        readonly participantIds: readonly string[]
-        readonly latestActivityTimestamp: number
-      }[]
-    }
-  | { readonly status: "empty" | "permissionDenied" | "unavailable"; readonly chats: readonly [] }
-
-const discoveredChat = {
-  id: "messages-chat-11111111111111111111111111111111",
-  label: "Chat alpha",
-  participantCount: 2,
-  participantIds: ["messages-participant-11111111111111111111111111111111", "messages-participant-22222222222222222222222222222222"],
-  latestActivityTimestamp: 1_783_000_000
-} as const
-
-const nativeReadyReport = {
-  status: "ready",
-  chats: [
-    {
-      chatId: "messages-chat-11111111111111111111111111111111",
-      displayLabel: "Chat alpha",
-      participantCount: 2,
-      participantIds: ["messages-participant-11111111111111111111111111111111", "messages-participant-22222222222222222222222222222222"],
-      latestActivityTimestamp: 1_783_000_000
-    }
-  ]
-} as const satisfies NativeDiscoveryReportForTest
-
-const bridgeMock = vi.hoisted(() => {
-  let nativeStateListener: ((state: NativeStateForTest) => void) | undefined
-  let nativeMenuCommandListener: ((command: NativeMenuCommandForTest) => void) | undefined
-  const syncCalls: string[] = []
-  return {
-    getState: vi.fn(async () => undefined),
-    setShellState: vi.fn(async () => undefined),
-    subscribeAppState: vi.fn(async (listener: (state: NativeStateForTest) => void) => {
-      nativeStateListener = listener
-      return vi.fn()
-    }),
-    subscribeMenuCommand: vi.fn(async (listener: (command: NativeMenuCommandForTest) => void) => {
-      nativeMenuCommandListener = listener
-      return vi.fn()
-    }),
-    reconcileNow: vi.fn(async () => {
-      syncCalls.push("reconcile")
-    }),
-    scanSelectedChats: vi.fn(async () => {
-      syncCalls.push("scan")
-      return { pendingProposalCount: 12 }
-    }),
-    discoverMessagesChats: vi.fn(async (): Promise<NativeDiscoveryReportForTest> => nativeReadyReport),
-    openPrivacySettings: vi.fn(async () => ({ pane: "fullDiskAccess", opened: true })),
-    emitNativeState: (state: NativeStateForTest): void => {
-      nativeStateListener?.(state)
-    },
-    emitMenuCommand: (command: NativeMenuCommandForTest): void => {
-      nativeMenuCommandListener?.(command)
-    },
-    getSyncCalls: (): readonly string[] => syncCalls,
-    resetSyncCalls: (): void => {
-      syncCalls.length = 0
-    }
-  }
-})
-
-vi.mock("./tauriBridge", () => ({
-  MORROW_KEYCHAIN_SERVICE: "com.morrow.desktop.token",
-  MORROW_TOKEN_KIND: "morrow-owned-token",
-  createNativeShellBridge: () => ({
-    getState: bridgeMock.getState,
-    setShellState: bridgeMock.setShellState,
-    subscribeAppState: bridgeMock.subscribeAppState,
-    subscribeMenuCommand: bridgeMock.subscribeMenuCommand,
-    reconcileNow: bridgeMock.reconcileNow,
-    scanSelectedChats: bridgeMock.scanSelectedChats,
-    discoverMessagesChats: bridgeMock.discoverMessagesChats,
-    openPrivacySettings: bridgeMock.openPrivacySettings
-  })
-}))
-
-const seedReadyState = (): void => {
-  const initial = createDefaultAppShellState()
-  window.localStorage.setItem(
-    APP_SHELL_STATE_KEY,
-    JSON.stringify({
-      ...initial,
-      config: { ...initial.config, permissionsGranted: false },
-      discovery: { status: "ready", chats: [discoveredChat] },
-      selectedChats: [{ ...discoveredChat, backfillPromptEnabled: true }]
-    })
-  )
-}
+import { APP_SHELL_STATE_KEY } from "./domain/appShell"
 
 describe("App native shell bridge", () => {
   beforeEach(() => {
@@ -121,6 +19,7 @@ describe("App native shell bridge", () => {
     bridgeMock.subscribeMenuCommand.mockClear()
     bridgeMock.reconcileNow.mockClear()
     bridgeMock.scanSelectedChats.mockClear()
+    bridgeMock.readMorrowToken.mockClear()
     bridgeMock.discoverMessagesChats.mockClear()
     bridgeMock.discoverMessagesChats.mockResolvedValue(nativeReadyReport)
     bridgeMock.openPrivacySettings.mockClear()
@@ -176,6 +75,7 @@ describe("App native shell bridge", () => {
       selectedChatIds: ["messages-chat-11111111111111111111111111111111"],
       selectedChats: [discoveredChat],
       referenceTimezone: "Asia/Seoul",
+      referenceUnixSeconds: expect.any(Number),
       backfillPromptChatIds: ["messages-chat-11111111111111111111111111111111"],
       sourceExcerptsEnabled: true,
       capPolicy: {

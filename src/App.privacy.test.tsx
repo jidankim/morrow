@@ -1,86 +1,14 @@
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { beforeEach, describe, expect, it } from "vitest"
+import { bridgeMock, openAppRoute, seedReadyState } from "./AppPrivacyTestHarness"
 import { App } from "./App"
-import { APP_SHELL_STATE_KEY, createDefaultAppShellState } from "./domain/appShell"
-
-type CrashLogRequestForTest = {
-  readonly message: string
-}
-
-const bridgeMock = vi.hoisted(() => ({
-  getState: vi.fn(async () => undefined),
-  setShellState: vi.fn(async () => undefined),
-  subscribeAppState: vi.fn(async () => vi.fn()),
-  subscribeMenuCommand: vi.fn(async () => vi.fn()),
-  reconcileNow: vi.fn(async () => undefined),
-  scanSelectedChats: vi.fn(async () => ({ pendingProposalCount: 12 })),
-  discoverMessagesChats: vi.fn(async () => ({
-    status: "ready",
-    chats: [
-      {
-        chatId: "messages-chat-11111111111111111111111111111111",
-        displayLabel: "Chat alpha",
-        participantCount: 2,
-        participantIds: ["messages-participant-11111111111111111111111111111111", "messages-participant-22222222222222222222222222222222"],
-        latestActivityTimestamp: 1_783_000_000
-      },
-      {
-        chatId: "messages-chat-33333333333333333333333333333333",
-        displayLabel: "Messages chat",
-        participantCount: 1,
-        participantIds: ["messages-participant-33333333333333333333333333333333"],
-        latestActivityTimestamp: 1_783_000_100,
-        latestMessageBody: "private clinic visit"
-      }
-    ]
-  })),
-  openPrivacySettings: vi.fn(async () => ({ pane: "fullDiskAccess", opened: true })),
-  deleteMorrowData: vi.fn(async (): Promise<import("./tauriBridge").MorrowDataDeleteReceipt> => ({
-    storageSurface: "morrowStore",
-    databaseDeleted: true,
-    approvedExternalItemsDeleted: false,
-    providerOAuthDeleteRequested: true,
-    providerOAuthDeleted: true,
-    providerOAuthDeleteFailed: false,
-    cleanupPlan: {
-      proposedItems: "completed",
-      emptyProposalContainers: "skippedByUser",
-      proposedCalendarItemsDeleted: 1,
-      proposedReminderItemsDeleted: 1
-    }
-  })),
-  recordCrashLog: vi.fn(async (_request: CrashLogRequestForTest) => ({ stored: true }))
-}))
-
-vi.mock("./tauriBridge", () => ({
-  createNativeShellBridge: () => bridgeMock
-}))
-
-const seedReadyState = (): void => {
-  const initial = createDefaultAppShellState()
-  const chat = {
-    id: "messages-chat-11111111111111111111111111111111",
-    label: "Chat alpha",
-    participantCount: 2,
-    participantIds: ["messages-participant-11111111111111111111111111111111", "messages-participant-22222222222222222222222222222222"],
-    latestActivityTimestamp: 1_783_000_000
-  } as const
-  window.localStorage.setItem(
-    APP_SHELL_STATE_KEY,
-    JSON.stringify({
-      ...initial,
-      config: { ...initial.config, permissionsGranted: true },
-      discovery: { status: "ready", chats: [chat] },
-      selectedChats: [{ ...chat, backfillPromptEnabled: true }]
-    })
-  )
-}
 
 describe("App privacy controls", () => {
   beforeEach(() => {
     window.localStorage.clear()
     window.location.hash = ""
     bridgeMock.scanSelectedChats.mockClear()
+    bridgeMock.readMorrowToken.mockClear()
     bridgeMock.discoverMessagesChats.mockClear()
     bridgeMock.openPrivacySettings.mockClear()
     bridgeMock.deleteMorrowData.mockClear()
@@ -91,15 +19,9 @@ describe("App privacy controls", () => {
     seedReadyState()
     render(<App />)
 
-    act(() => {
-      window.location.hash = "#settings"
-      window.dispatchEvent(new HashChangeEvent("hashchange"))
-    })
+    openAppRoute("#settings")
     fireEvent.click(screen.getByLabelText("Show short source excerpts in future proposal notes"))
-    act(() => {
-      window.location.hash = "#status"
-      window.dispatchEvent(new HashChangeEvent("hashchange"))
-    })
+    openAppRoute("#status")
     await waitFor(() => expect(screen.getByRole("button", { name: "Sync Now" })).toBeEnabled())
     await waitFor(() => expect(screen.getByText("Messages chat")).toBeInTheDocument())
     expect(document.body).not.toHaveTextContent("messages-chat-33333333333333333333333333333333")
@@ -115,11 +37,15 @@ describe("App privacy controls", () => {
           id: "messages-chat-11111111111111111111111111111111",
           label: "Chat alpha",
           participantCount: 2,
-          participantIds: ["messages-participant-11111111111111111111111111111111", "messages-participant-22222222222222222222222222222222"],
+          participantIds: [
+            "messages-participant-11111111111111111111111111111111",
+            "messages-participant-22222222222222222222222222222222"
+          ],
           latestActivityTimestamp: 1_783_000_000
         }
       ],
       referenceTimezone: "Asia/Seoul",
+      referenceUnixSeconds: expect.any(Number),
       backfillPromptChatIds: ["messages-chat-11111111111111111111111111111111"],
       sourceExcerptsEnabled: false,
       capPolicy: {
@@ -133,10 +59,7 @@ describe("App privacy controls", () => {
   it("requires type-to-confirm before delete-all calls native Morrow data deletion", async () => {
     render(<App />)
 
-    act(() => {
-      window.location.hash = "#settings"
-      window.dispatchEvent(new HashChangeEvent("hashchange"))
-    })
+    openAppRoute("#settings")
 
     const deleteButton = screen.getByRole("button", { name: "Delete Morrow data" })
     expect(screen.getByLabelText("Delete proposed Morrow items")).toBeChecked()
@@ -162,7 +85,25 @@ describe("App privacy controls", () => {
     })
     await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Morrow data reset"))
     expect(screen.getByText("Approved Calendar and Reminders items were preserved.")).toBeInTheDocument()
+    expect(screen.getByText("Local diagnostics artifacts were deleted.")).toBeInTheDocument()
     expect(screen.getByText("Deleted 1 proposed Calendar item(s) and 1 proposed Reminder item(s).")).toBeInTheDocument()
+  })
+
+  it("surfaces local diagnostics artifacts as private local files without remote telemetry controls", async () => {
+    render(<App />)
+
+    openAppRoute("#settings")
+
+    expect(screen.queryByLabelText("Write private local diagnostics files")).not.toBeInTheDocument()
+    expect(screen.queryByLabelText("Local diagnostics retention")).not.toBeInTheDocument()
+    expect(
+      screen.getByText(/Local diagnostics artifacts generated by local diagnostics tooling/)
+    ).toBeInTheDocument()
+    expect(screen.getByText(/stay in private files on this Mac/)).toBeInTheDocument()
+    expect(screen.getByText(/are not uploaded/)).toBeInTheDocument()
+    expect(screen.getByText(/are deleted by Delete All/)).toBeInTheDocument()
+    expect(screen.queryByLabelText(/telemetry/i)).not.toBeInTheDocument()
+    await waitFor(() => expect(bridgeMock.discoverMessagesChats).toHaveBeenCalledOnce())
   })
 
   it("reports non-fatal OAuth revoke failures after delete-all succeeds", async () => {
@@ -170,10 +111,27 @@ describe("App privacy controls", () => {
       storageSurface: "morrowStore",
       databaseDeleted: false,
       approvedExternalItemsDeleted: false,
+      diagnosticsArtifactsDeleted: false,
       providerOAuthDeleteRequested: true,
       providerOAuthDeleted: false,
       providerOAuthDeleteFailed: true,
       providerOAuthDeleteError: "Morrow Keychain delete failed with OSStatus -60008",
+      providerCredentialDeletes: [
+        {
+          tokenKind: "morrow-owned-token",
+          deleteRequested: true,
+          deleted: false,
+          failed: true,
+          error: "Morrow Keychain delete failed with OSStatus -60008"
+        },
+        {
+          tokenKind: "morrow-openai-provider-api-key",
+          deleteRequested: true,
+          deleted: false,
+          failed: true,
+          error: "Morrow Keychain delete failed with OSStatus -60008"
+        }
+      ],
       cleanupPlan: {
         proposedItems: "completed",
         emptyProposalContainers: "skippedByUser",
@@ -183,26 +141,25 @@ describe("App privacy controls", () => {
     })
     render(<App />)
 
-    act(() => {
-      window.location.hash = "#settings"
-      window.dispatchEvent(new HashChangeEvent("hashchange"))
-    })
+    openAppRoute("#settings")
+
     fireEvent.change(await screen.findByLabelText("Type DELETE MORROW DATA to confirm"), {
       target: { value: "DELETE MORROW DATA" }
     })
     fireEvent.click(screen.getByRole("button", { name: "Delete Morrow data" }))
 
     await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Morrow data reset"))
-    expect(screen.getByText("Morrow OAuth grant could not be revoked by macOS.")).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        "Morrow-owned provider credentials could not be deleted by macOS. Codex CLI login was left unchanged."
+      )
+    ).toBeInTheDocument()
   })
 
   it("opens macOS privacy panes for Messages Calendar and Reminders access", async () => {
     render(<App />)
 
-    act(() => {
-      window.location.hash = "#settings"
-      window.dispatchEvent(new HashChangeEvent("hashchange"))
-    })
+    openAppRoute("#settings")
 
     expect(screen.getByText("For QA from Terminal, add Terminal to Full Disk Access too.")).toBeInTheDocument()
 
@@ -222,10 +179,7 @@ describe("App privacy controls", () => {
     )
     render(<App />)
 
-    act(() => {
-      window.location.hash = "#settings"
-      window.dispatchEvent(new HashChangeEvent("hashchange"))
-    })
+    openAppRoute("#settings")
     fireEvent.change(await screen.findByLabelText("Type DELETE MORROW DATA to confirm"), {
       target: { value: "DELETE MORROW DATA" }
     })
@@ -245,20 +199,14 @@ describe("App privacy controls", () => {
     )
     render(<App />)
 
-    act(() => {
-      window.location.hash = "#settings"
-      window.dispatchEvent(new HashChangeEvent("hashchange"))
-    })
+    openAppRoute("#settings")
     fireEvent.change(await screen.findByLabelText("Type DELETE MORROW DATA to confirm"), {
       target: { value: "DELETE MORROW DATA" }
     })
     fireEvent.click(screen.getByRole("button", { name: "Delete Morrow data" }))
 
     await waitFor(() => expect(bridgeMock.recordCrashLog).toHaveBeenCalledOnce())
-    act(() => {
-      window.location.hash = "#status"
-      window.dispatchEvent(new HashChangeEvent("hashchange"))
-    })
+    openAppRoute("#status")
     expect(screen.getByTestId("status-label")).toHaveTextContent("Error")
     expect(screen.getByText("Calendar access was denied excerpt=[redacted]")).toBeInTheDocument()
   })

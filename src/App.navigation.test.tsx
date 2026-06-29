@@ -16,6 +16,16 @@ const bridgeMock = vi.hoisted(() => {
     }),
     reconcileNow: vi.fn(async () => undefined),
     scanSelectedChats: vi.fn(async () => ({ pendingProposalCount: 12 })),
+    checkProviderAuth: vi.fn(async () => ({
+      status: "loggedInUsingChatGpt",
+      ready: true,
+      commandSurface: "codex login status",
+      commandOutputRedacted: true,
+      diagnostic: "Codex CLI ChatGPT session is ready."
+    })),
+    storeMorrowToken: vi.fn(async () => ({ storageSurface: "keychainBridge", stored: true, deleted: false })),
+    readMorrowToken: vi.fn(async () => ({ storageSurface: "keychainBridge", present: true })),
+    deleteMorrowToken: vi.fn(async () => ({ storageSurface: "keychainBridge", stored: false, deleted: true })),
     discoverMessagesChats: vi.fn(async () => ({
       status: "ready",
       chats: [
@@ -40,6 +50,7 @@ const bridgeMock = vi.hoisted(() => {
 vi.mock("./tauriBridge", () => ({
   MORROW_KEYCHAIN_SERVICE: "com.morrow.desktop.token",
   MORROW_TOKEN_KIND: "morrow-owned-token",
+  MORROW_PROVIDER_TOKEN_KIND: "morrow-openai-provider-api-key",
   createNativeShellBridge: () => bridgeMock
 }))
 
@@ -47,6 +58,7 @@ describe("App native menu navigation", () => {
   beforeEach(() => {
     window.localStorage.clear()
     window.location.hash = ""
+    bridgeMock.readMorrowToken.mockClear()
     bridgeMock.subscribeMenuCommand.mockClear()
   })
 

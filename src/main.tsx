@@ -77,6 +77,7 @@ function VisualChatDiscoveryHarness({
           onResume={noop}
           onSyncNow={noop}
           onRetryChatDiscovery={noop}
+          onOpenSettings={noop}
           onOpenFullDiskAccess={noop}
           onToggleChat={noopChatToggle}
           onToggleBackfillPrompt={noopBackfillToggle}

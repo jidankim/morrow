@@ -12,7 +12,16 @@ import {
   saveAppShellState
 } from "./appShell"
 
-const discoveredChat = { id: "messages-chat-11111111111111111111111111111111", label: "Chat alpha", participantCount: 2, participantIds: ["messages-participant-11111111111111111111111111111111", "messages-participant-22222222222222222222222222222222"], latestActivityTimestamp: 1_783_000_000 } as const
+const discoveredChat = {
+  id: "messages-chat-11111111111111111111111111111111",
+  label: "Chat alpha",
+  participantCount: 2,
+  participantIds: [
+    "messages-participant-11111111111111111111111111111111",
+    "messages-participant-22222222222222222222222222222222"
+  ],
+  latestActivityTimestamp: 1_783_000_000
+} as const
 const selectedChat = { ...discoveredChat, backfillPromptEnabled: true } as const
 
 describe("app shell state", () => {
@@ -42,6 +51,7 @@ describe("app shell state", () => {
     const setupNeeded = createDefaultAppShellState()
     const scanning = {
       ...setupNeeded,
+      providerCredentialStatus: "configured",
       discovery: { status: "ready", chats: [discoveredChat] },
       selectedChats: [selectedChat]
     } as const
@@ -71,6 +81,7 @@ describe("app shell state", () => {
     const initial = createDefaultAppShellState()
     const ready = {
       ...initial,
+      providerCredentialStatus: "configured",
       discovery: { status: "ready", chats: [discoveredChat] },
       selectedChats: [selectedChat]
     } as const
@@ -85,6 +96,7 @@ describe("app shell state", () => {
   it("loads old persisted permissionsGranted false payloads without blocking ready scanning", () => {
     const oldPersistedState = {
       ...createDefaultAppShellState(),
+      providerCredentialStatus: "configured",
       config: { ...createDefaultAppShellState().config, permissionsGranted: false },
       discovery: { status: "ready", chats: [discoveredChat] },
       selectedChats: [selectedChat]
@@ -96,8 +108,40 @@ describe("app shell state", () => {
     const reloaded = loadAppShellState(storage)
 
     expect(reloaded.config.permissionsGranted).toBe(false)
-    expect(isOnboardingComplete(reloaded)).toBe(true)
-    expect(isSyncNowEnabled(reloaded)).toBe(true)
+    expect(reloaded.providerCredentialStatus).toBe("unchecked")
+    expect(isOnboardingComplete(reloaded)).toBe(false)
+    expect(isSyncNowEnabled(reloaded)).toBe(false)
+  })
+
+  it("loads persisted null error messages as absent", () => {
+    const storage = new Map<string, string>([
+      [
+        APP_SHELL_STATE_KEY,
+        JSON.stringify({ ...createDefaultAppShellState(), errorMessage: null })
+      ]
+    ])
+
+    const reloaded = loadAppShellState(storage)
+
+    expect(reloaded.errorMessage).toBeUndefined()
+  })
+
+  it("loads persisted error state as normal startup state", () => {
+    const storage = new Map<string, string>([
+      [
+        APP_SHELL_STATE_KEY,
+        JSON.stringify({
+          ...createDefaultAppShellState(),
+          mode: "error",
+          errorMessage: "Expected string, received null"
+        })
+      ]
+    ])
+
+    const reloaded = loadAppShellState(storage)
+
+    expect(reloaded.mode).toBe("scanning")
+    expect(reloaded.errorMessage).toBeUndefined()
   })
 
   it("does not add demo chat selections when native discovery has no options", () => {
@@ -155,131 +199,11 @@ describe("app shell state", () => {
     }
   })
 
-  it("defaults privacy controls to no telemetry and scrubbed crash logs", () => {
-    const initial = createDefaultAppShellState()
-
-    expect(initial.config.telemetryEnabled).toBe(false)
-    expect(initial.config.crashLogExcerptsEnabled).toBe(false)
-    expect(initial.config.sourceExcerptsEnabled).toBe(true)
-  })
-
-  it("keeps old persisted settings on no-telemetry defaults", () => {
-    const storage = new Map<string, string>([
-      [
-        APP_SHELL_STATE_KEY,
-        JSON.stringify({
-          mode: "scanning",
-          config: {
-            referenceTimezone: "Asia/Seoul",
-            calendarSource: "apple-calendar",
-            permissionsGranted: true,
-            launchAtLogin: false,
-            sourceExcerptsEnabled: true,
-            firstProposalGuidanceEnabled: true
-          },
-          selectedChats: [],
-          pendingProposalCount: 0
-        })
-      ]
-    ])
-
-    const reloaded = loadAppShellState(storage)
-
-    expect(reloaded.config.telemetryEnabled).toBe(false)
-    expect(reloaded.config.crashLogExcerptsEnabled).toBe(false)
-  })
-
-  it("rejects persisted ICS feed calendar source at the local configuration boundary", () => {
-    const storage = new Map<string, string>([
-      [
-        APP_SHELL_STATE_KEY,
-        JSON.stringify({
-          mode: "scanning",
-          config: {
-            referenceTimezone: "Asia/Seoul",
-            calendarSource: "ics-feed",
-            permissionsGranted: true,
-            launchAtLogin: false,
-            sourceExcerptsEnabled: true,
-            firstProposalGuidanceEnabled: true
-          },
-          selectedChats: [],
-          pendingProposalCount: 0
-        })
-      ]
-    ])
-
-    expect(() => loadAppShellState(storage)).toThrow()
-  })
-
   it("renders pending proposal counts exactly until nine plus", () => {
     expect(formatPendingProposalCount(0)).toBe("0")
     expect(formatPendingProposalCount(8)).toBe("8")
     expect(formatPendingProposalCount(9)).toBe("9+")
     expect(formatPendingProposalCount(14)).toBe("9+")
-  })
-
-  it("rejects malformed persisted state at the local configuration boundary", () => {
-    const storage = new Map<string, string>([
-      [
-        APP_SHELL_STATE_KEY,
-        JSON.stringify({
-          mode: "paused",
-          config: {
-            referenceTimezone: "Mars/Olympus",
-            calendarSource: "apple-calendar",
-            permissionsGranted: true,
-            launchAtLogin: false,
-            sourceExcerptsEnabled: true,
-            firstProposalGuidanceEnabled: true
-          },
-          selectedChats: [
-            {
-              id: "../private-messages",
-              label: "Injected chat",
-              backfillPromptEnabled: true
-            }
-          ],
-          pendingProposalCount: 0
-        })
-      ]
-    ])
-
-    expect(() => loadAppShellState(storage)).toThrow()
-  })
-
-  it("rejects private-shaped selected chat metadata in local storage", () => {
-    const storage = new Map<string, string>([
-      [
-        APP_SHELL_STATE_KEY,
-        JSON.stringify({
-          mode: "scanning",
-          config: {
-            referenceTimezone: "Asia/Seoul",
-            calendarSource: "apple-calendar",
-            permissionsGranted: true,
-            launchAtLogin: false,
-            sourceExcerptsEnabled: true,
-            firstProposalGuidanceEnabled: true
-          },
-          discovery: { status: "unverified", chats: [] },
-          selectedChats: [
-            {
-              id: "messages-chat-11111111111111111111111111111111",
-              label: "Chat alpha",
-              participantCount: 1,
-              participantIds: ["person@example.com"],
-              latestActivityTimestamp: 1_783_000_000,
-              backfillPromptEnabled: true,
-              phone: "+15551234567"
-            }
-          ],
-          pendingProposalCount: 0
-        })
-      ]
-    ])
-
-    expect(() => loadAppShellState(storage)).toThrow()
   })
 
 })

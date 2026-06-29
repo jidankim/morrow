@@ -15,14 +15,24 @@ const morrowDataCleanupPlanSchema = z.object({
   proposedReminderItemsDeleted: z.number().int().min(0)
 })
 
+const providerCredentialDeleteReceiptSchema = z.object({
+  tokenKind: z.string().min(1),
+  deleteRequested: z.boolean(),
+  deleted: z.boolean(),
+  failed: z.boolean(),
+  error: z.string().min(1).optional()
+})
+
 const morrowDataDeleteReceiptSchema = z.object({
   storageSurface: z.literal("morrowStore"),
   databaseDeleted: z.boolean(),
   approvedExternalItemsDeleted: z.literal(false),
+  diagnosticsArtifactsDeleted: z.boolean().default(false),
   providerOAuthDeleteRequested: z.boolean(),
   providerOAuthDeleted: z.boolean(),
   providerOAuthDeleteFailed: z.boolean().default(false),
   providerOAuthDeleteError: z.string().min(1).optional(),
+  providerCredentialDeletes: z.array(providerCredentialDeleteReceiptSchema).default([]),
   cleanupPlan: morrowDataCleanupPlanSchema
 })
 

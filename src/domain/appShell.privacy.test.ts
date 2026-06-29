@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { APP_SHELL_STATE_KEY, loadAppShellState } from "./appShell"
+import { APP_SHELL_STATE_KEY, createDefaultAppShellState, loadAppShellState } from "./appShell"
 import {
   chatDiscoveryFromReport,
   parseMessagesDiscoveryReport,
@@ -7,6 +7,72 @@ import {
 } from "../messagesDiscoveryBridge"
 
 describe("app shell privacy boundaries", () => {
+  it("defaults local diagnostics off while remote telemetry stays disabled", () => {
+    const initial = createDefaultAppShellState()
+
+    expect(initial.config.telemetryEnabled).toBe(false)
+    expect(initial.config.localDiagnosticsEnabled).toBe(false)
+    expect(initial.config.localDiagnosticsRetentionDays).toBe(30)
+  })
+
+  it("parses local diagnostics settings without enabling remote telemetry", () => {
+    const storage = new Map<string, string>([
+      [
+        APP_SHELL_STATE_KEY,
+        JSON.stringify({
+          mode: "scanning",
+          config: {
+            referenceTimezone: "Asia/Seoul",
+            calendarSource: "apple-calendar",
+            permissionsGranted: true,
+            launchAtLogin: false,
+            sourceExcerptsEnabled: true,
+            firstProposalGuidanceEnabled: true,
+            telemetryEnabled: false,
+            localDiagnosticsEnabled: true,
+            localDiagnosticsRetentionDays: 14
+          },
+          discovery: { status: "unverified", chats: [] },
+          selectedChats: [],
+          pendingProposalCount: 0
+        })
+      ]
+    ])
+
+    const reloaded = loadAppShellState(storage)
+
+    expect(reloaded.config.telemetryEnabled).toBe(false)
+    expect(reloaded.config.localDiagnosticsEnabled).toBe(true)
+    expect(reloaded.config.localDiagnosticsRetentionDays).toBe(14)
+  })
+
+  it("rejects persisted remote telemetry opt-in", () => {
+    const storage = new Map<string, string>([
+      [
+        APP_SHELL_STATE_KEY,
+        JSON.stringify({
+          mode: "scanning",
+          config: {
+            referenceTimezone: "Asia/Seoul",
+            calendarSource: "apple-calendar",
+            permissionsGranted: true,
+            launchAtLogin: false,
+            sourceExcerptsEnabled: true,
+            firstProposalGuidanceEnabled: true,
+            telemetryEnabled: true,
+            localDiagnosticsEnabled: false,
+            localDiagnosticsRetentionDays: 30
+          },
+          discovery: { status: "unverified", chats: [] },
+          selectedChats: [],
+          pendingProposalCount: 0
+        })
+      ]
+    ])
+
+    expect(() => loadAppShellState(storage)).toThrow()
+  })
+
   it("rejects raw Messages chat guid shaped selected ids in local storage", () => {
     const storage = new Map<string, string>([
       [

@@ -1,0 +1,104 @@
+import { Trash2 } from "lucide-react"
+import { useState } from "react"
+import { DeleteAllOutcome, type DeleteAllState } from "./DeleteAllOutcome"
+import {
+  DELETE_ALL_CONFIRMATION_TEXT,
+  createDefaultDeleteAllOptions,
+  parseDeleteAllConfirmation,
+  type DeleteAllOptions
+} from "./domain/privacyControls"
+
+type SettingsDeleteAllSectionProps = {
+  readonly state: DeleteAllState
+  readonly onDeleteAll: (options: DeleteAllOptions) => void
+}
+
+export function SettingsDeleteAllSection({
+  state,
+  onDeleteAll
+}: SettingsDeleteAllSectionProps): JSX.Element {
+  const [confirmation, setConfirmation] = useState("")
+  const [deleteOptions, setDeleteOptions] = useState(createDefaultDeleteAllOptions)
+  const canDelete = parseDeleteAllConfirmation(confirmation).ok
+  const deleteInFlight = state.status === "deleting"
+
+  const submitDeleteAll = (): void => {
+    if (!canDelete || deleteInFlight) {
+      return
+    }
+    onDeleteAll(deleteOptions)
+    setConfirmation("")
+    setDeleteOptions(createDefaultDeleteAllOptions())
+  }
+
+  return (
+    <section className="danger-section" aria-labelledby="delete-all-heading">
+      <div>
+        <p className="eyebrow">Privacy reset</p>
+        <h3 id="delete-all-heading">Delete all Morrow data</h3>
+      </div>
+      <DeleteOptionControls options={deleteOptions} onChange={setDeleteOptions} />
+      <label className="field">
+        <span>Type {DELETE_ALL_CONFIRMATION_TEXT} to confirm</span>
+        <input
+          autoComplete="off"
+          value={confirmation}
+          onChange={(event) => setConfirmation(event.currentTarget.value)}
+        />
+      </label>
+      <DeleteAllOutcome state={state} />
+      <button
+        className="button danger"
+        disabled={!canDelete || deleteInFlight}
+        onClick={submitDeleteAll}
+        type="button"
+      >
+        <Trash2 aria-hidden="true" size={16} />
+        {deleteInFlight ? "Deleting Morrow data" : "Delete Morrow data"}
+      </button>
+    </section>
+  )
+}
+
+function DeleteOptionControls({
+  options,
+  onChange
+}: {
+  readonly options: DeleteAllOptions
+  readonly onChange: (options: DeleteAllOptions) => void
+}): JSX.Element {
+  return (
+    <>
+      <label className="check-row">
+        <input
+          checked={options.cleanupProposedItems}
+          onChange={(event) =>
+            onChange({ ...options, cleanupProposedItems: event.currentTarget.checked })
+          }
+          type="checkbox"
+        />
+        <span>Delete proposed Morrow items</span>
+      </label>
+      <label className="check-row">
+        <input
+          checked={options.deleteEmptyProposalContainers}
+          onChange={(event) =>
+            onChange({ ...options, deleteEmptyProposalContainers: event.currentTarget.checked })
+          }
+          type="checkbox"
+        />
+        <span>Delete empty Morrow Proposed containers</span>
+      </label>
+      <label className="check-row">
+        <input
+          checked={options.revokeProviderOAuth}
+          onChange={(event) =>
+            onChange({ ...options, revokeProviderOAuth: event.currentTarget.checked })
+          }
+          type="checkbox"
+        />
+        <span>Delete Morrow-owned provider credentials</span>
+      </label>
+    </>
+  )
+}

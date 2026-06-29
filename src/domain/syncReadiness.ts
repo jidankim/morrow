@@ -1,10 +1,11 @@
 import { selectedChatsAreVerified, type ChatDiscovery } from "./chatDiscovery"
-import type { AppMode, AppShellState } from "./appShell"
+import type { AppMode, AppShellState, ProviderCredentialStatus } from "./appShell"
 
 export type SyncReadinessItemId =
   | "discovery"
   | "chat-selection"
   | "selected-chat-verification"
+  | "provider-credential"
   | "pause-state"
   | "sync-activity"
 
@@ -25,6 +26,7 @@ const syncReadinessItemLabels = {
   discovery: "Messages discovery",
   "chat-selection": "Chat selection",
   "selected-chat-verification": "Selected chat verification",
+  "provider-credential": "Codex provider",
   "pause-state": "Scanning state",
   "sync-activity": "Sync Now activity"
 } as const satisfies Record<SyncReadinessItemId, string>
@@ -50,6 +52,7 @@ export function getSyncReadinessItems(
       selectedChatCount === 0 ? "pending" : selectedChatsVerified ? "complete" : "blocking",
       getSelectedChatVerificationDetail(selectedChatCount, selectedChatsVerified)
     ),
+    getProviderCredentialReadinessItem(state.providerCredentialStatus),
     getPauseReadinessItem(state.mode),
     syncReadinessItem(
       "sync-activity",
@@ -57,6 +60,33 @@ export function getSyncReadinessItems(
       options.syncing === true ? "Sync Now is already running." : "Sync Now is not already running."
     )
   ]
+}
+
+function getProviderCredentialReadinessItem(
+  providerCredentialStatus: ProviderCredentialStatus
+): SyncReadinessItem {
+  switch (providerCredentialStatus) {
+    case "configured":
+      return syncReadinessItem(
+        "provider-credential",
+        "complete",
+        "Codex provider is ready for scheduling extraction."
+      )
+    case "unchecked":
+      return syncReadinessItem(
+        "provider-credential",
+        "blocking",
+        "Morrow is checking Codex provider readiness before scanning."
+      )
+    case "missing":
+      return syncReadinessItem(
+        "provider-credential",
+        "blocking",
+        "Finish Codex CLI setup in Settings before scanning."
+      )
+    default:
+      return assertNever(providerCredentialStatus)
+  }
 }
 
 function getDiscoveryReadinessItem(discovery: ChatDiscovery): SyncReadinessItem {

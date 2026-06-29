@@ -49,6 +49,12 @@ describe("sync readiness", () => {
         detail: "Selected chats are verified for scanning."
       },
       {
+        id: "provider-credential",
+        label: "Codex provider",
+        status: "complete",
+        detail: "Codex provider is ready for scheduling extraction."
+      },
+      {
         id: "pause-state",
         label: "Scanning state",
         status: "complete",
@@ -136,6 +142,11 @@ describe("sync readiness", () => {
         detail: "Select at least one chat before scanning."
       },
       {
+        state: { ...ready, providerCredentialStatus: "missing" },
+        item: "provider-credential",
+        detail: "Finish Codex CLI setup in Settings before scanning."
+      },
+      {
         state: reduceAppShellState(ready, { type: "pause" }),
         item: "pause-state",
         detail: "Resume scanning to enable Sync Now."
@@ -173,6 +184,7 @@ function createReadyAppShellState(): AppShellState {
   return {
     ...initial,
     config: { ...initial.config, permissionsGranted: false },
+    providerCredentialStatus: "configured",
     discovery: { status: "ready", chats: [discoveredChat] },
     selectedChats: [selectedChat]
   }

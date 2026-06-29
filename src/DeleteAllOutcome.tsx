@@ -50,7 +50,12 @@ function DeleteAllSuccess({
             : "Local Morrow database was already clear."}
         </li>
         <li>Approved Calendar and Reminders items were preserved.</li>
-        <li>{providerOAuthText(receipt)}</li>
+        <li>
+          {receipt.diagnosticsArtifactsDeleted
+            ? "Local diagnostics artifacts were deleted."
+            : "No local diagnostics artifacts were found."}
+        </li>
+        <li>{providerCredentialText(receipt)}</li>
         <li>
           {proposedCleanupText(receipt)}
         </li>
@@ -65,23 +70,26 @@ function DeleteAllSuccess({
   )
 }
 
-function providerOAuthText(receipt: MorrowDataDeleteReceipt): string {
+function providerCredentialText(receipt: MorrowDataDeleteReceipt): string {
   if (!receipt.providerOAuthDeleteRequested) {
-    return "Morrow OAuth grant was left unchanged."
+    return "Morrow-owned provider credentials were left unchanged. Codex CLI login was left unchanged."
   }
   if (receipt.providerOAuthDeleteFailed) {
-    return "Morrow OAuth grant could not be revoked by macOS."
+    return "Morrow-owned provider credentials could not be deleted by macOS. Codex CLI login was left unchanged."
   }
   if (receipt.providerOAuthDeleted) {
-    return "Morrow OAuth grant was revoked."
+    return "Morrow-owned provider credentials were deleted. Codex CLI login was left unchanged."
   }
-  return "No stored Morrow OAuth grant was found."
+  return "No Morrow-owned provider credentials were found. Codex CLI login was left unchanged."
 }
 
 function proposedCleanupText(receipt: MorrowDataDeleteReceipt): string {
   switch (receipt.cleanupPlan.proposedItems) {
     case "completed":
-      return `Deleted ${receipt.cleanupPlan.proposedCalendarItemsDeleted} proposed Calendar item(s) and ${receipt.cleanupPlan.proposedReminderItemsDeleted} proposed Reminder item(s).`
+      return (
+        `Deleted ${receipt.cleanupPlan.proposedCalendarItemsDeleted} proposed Calendar item(s) and ` +
+        `${receipt.cleanupPlan.proposedReminderItemsDeleted} proposed Reminder item(s).`
+      )
     case "adapterDeferred":
       return "Proposed Calendar and Reminders cleanup is deferred to the native adapters."
     case "skippedByUser":
