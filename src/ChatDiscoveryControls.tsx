@@ -6,11 +6,14 @@ import {
   type SelectedChat
 } from "./domain/appShell"
 import { chatDisplayMetadata } from "./chatDisplay"
+import { FullDiskAccessRecoveryGuide } from "./FullDiskAccessRecoveryGuide"
+import type { RuntimeIdentity } from "./tauriBridge"
 
 type ChatDiscoveryControlsProps = {
   readonly discovery: ChatDiscovery
   readonly referenceTimezone: string
   readonly selectedChats: readonly SelectedChat[]
+  readonly runtimeIdentity?: RuntimeIdentity | undefined
   readonly onRetry: () => void
   readonly onOpenFullDiskAccess: () => void
   readonly onToggleChat: (chatId: ChatId) => void
@@ -21,6 +24,7 @@ export function ChatDiscoveryControls({
   discovery,
   referenceTimezone,
   selectedChats,
+  runtimeIdentity,
   onRetry,
   onOpenFullDiskAccess,
   onToggleChat,
@@ -53,27 +57,29 @@ export function ChatDiscoveryControls({
       )
     case "permissionDenied":
       return (
-        <DiscoveryState
-          actionLabel="Retry chat discovery"
-          detail="Grant Full Disk Access, restart Morrow, then retry chat discovery."
-          recoveryLabel="Open Full Disk Access"
-          label="Morrow needs Full Disk Access to read Messages."
-          onAction={onRetry}
-          onRecovery={onOpenFullDiskAccess}
+        <FullDiskAccessRecoveryGuide
+          runtimeIdentity={runtimeIdentity}
+          surface="discovery"
+          onOpenFullDiskAccess={onOpenFullDiskAccess}
+          onRetry={onRetry}
         />
       )
     case "unavailable":
       return (
-        <DiscoveryState
-          actionLabel="Retry chat discovery"
-          detail="Restart Morrow after permission changes, then retry chat discovery or check local Messages access."
-          label="Morrow could not read Messages."
-          onAction={onRetry}
+        <FullDiskAccessRecoveryGuide
+          runtimeIdentity={runtimeIdentity}
+          surface="discovery"
+          onOpenFullDiskAccess={onOpenFullDiskAccess}
+          onRetry={onRetry}
         />
       )
     case "ready":
       return (
-        <div className="chat-list" aria-label="Chats to monitor">
+        <div
+          className="chat-list"
+          aria-label="Chats to monitor"
+          data-runtime-kind={runtimeIdentity?.runtimeKind}
+        >
           <p className="chat-source-summary" data-visual-qa-text="chat-source-summary">
             Messages source: {formatEligibleChatCount(discovery.chats.length)},{" "}
             {formatSelectedDiscoveredChatCount(discovery, selectedChats)}.
@@ -104,9 +110,7 @@ type DiscoveryStateProps = {
   readonly detail?: string
   readonly icon?: JSX.Element
   readonly actionLabel?: string
-  readonly recoveryLabel?: string
   readonly onAction?: () => void
-  readonly onRecovery?: () => void
 }
 
 function DiscoveryState({
@@ -114,9 +118,7 @@ function DiscoveryState({
   detail,
   icon,
   actionLabel,
-  recoveryLabel,
-  onAction,
-  onRecovery
+  onAction
 }: DiscoveryStateProps): JSX.Element {
   return (
     <div className="discovery-state" role="status">
@@ -129,30 +131,17 @@ function DiscoveryState({
           {detail}
         </p>
       ) : null}
-      {actionLabel !== undefined || recoveryLabel !== undefined ? (
+      {actionLabel !== undefined ? (
         <div className="discovery-actions">
-          {actionLabel !== undefined ? (
-            <button
-              className="button secondary"
-              data-visual-qa-control="retry-discovery"
-              onClick={onAction}
-              type="button"
-            >
-              <RefreshCw aria-hidden="true" size={15} />
-              {actionLabel}
-            </button>
-          ) : null}
-          {recoveryLabel !== undefined ? (
-            <button
-              className="button secondary"
-              data-visual-qa-control="open-full-disk-access"
-              onClick={onRecovery}
-              type="button"
-            >
-              <DatabaseZap aria-hidden="true" size={15} />
-              {recoveryLabel}
-            </button>
-          ) : null}
+          <button
+            className="button secondary"
+            data-visual-qa-control="retry-discovery"
+            onClick={onAction}
+            type="button"
+          >
+            <RefreshCw aria-hidden="true" size={15} />
+            {actionLabel}
+          </button>
         </div>
       ) : null}
     </div>

@@ -7,7 +7,9 @@ import {
   parseDeleteAllConfirmation,
   type DeleteAllOptions
 } from "./domain/privacyControls"
+import { FullDiskAccessRecoveryGuide } from "./FullDiskAccessRecoveryGuide"
 import type { PrivacySettingsPane } from "./nativePrivacyBridge"
+import type { RuntimeIdentity } from "./tauriBridge"
 
 export type { DeleteAllState } from "./DeleteAllOutcome"
 
@@ -19,6 +21,7 @@ type PrivacyOpenState =
 
 type SettingsPrivacyControlsProps = {
   readonly deleteAllState: DeleteAllState
+  readonly runtimeIdentity?: RuntimeIdentity | undefined
   readonly onDeleteAll: (options: DeleteAllOptions) => void
   readonly onOpenPrivacySettings: (pane: PrivacySettingsPane) => Promise<void>
 }
@@ -27,13 +30,13 @@ const privacyActions: readonly {
   readonly pane: PrivacySettingsPane
   readonly label: string
 }[] = [
-  { pane: "fullDiskAccess", label: "Open Full Disk Access" },
   { pane: "calendar", label: "Open Calendar access" },
   { pane: "reminders", label: "Open Reminders access" }
 ]
 
 export function SettingsPrivacyControls({
   deleteAllState,
+  runtimeIdentity,
   onDeleteAll,
   onOpenPrivacySettings
 }: SettingsPrivacyControlsProps): JSX.Element {
@@ -66,13 +69,32 @@ export function SettingsPrivacyControls({
 
   return (
     <>
-      <section className="settings-section" aria-labelledby="macos-access-heading">
+      <section
+        className="settings-section"
+        aria-labelledby="macos-access-heading"
+        data-runtime-kind={runtimeIdentity?.runtimeKind}
+      >
         <div>
           <p className="eyebrow">macOS access</p>
           <h3 id="macos-access-heading">Privacy permissions</h3>
         </div>
         <p className="settings-copy">
-          Grant Morrow Full Disk Access for Messages. Calendar and Reminders access are separate.
+          Morrow's runtime needs Full Disk Access to read local Messages. Terminal/Codex
+          access is only for terminal QA and does not grant Morrow app access.
+        </p>
+        {runtimeIdentity === undefined ? (
+          <p className="settings-note">
+            Open Full Disk Access, add or enable Morrow, restart Morrow, then retry chat
+            discovery.
+          </p>
+        ) : null}
+        <FullDiskAccessRecoveryGuide
+          runtimeIdentity={runtimeIdentity}
+          surface="settings"
+          onOpenFullDiskAccess={() => openPrivacySettings("fullDiskAccess")}
+        />
+        <p className="settings-copy">
+          Calendar and Reminders access are separate from Messages Full Disk Access.
         </p>
         <div className="permission-action-row">
           {privacyActions.map((action) => (
@@ -90,9 +112,6 @@ export function SettingsPrivacyControls({
             </button>
           ))}
         </div>
-        <p className="settings-note">
-          For QA from Terminal, add Terminal to Full Disk Access too.
-        </p>
         <PrivacyOpenMessage state={privacyOpenState} />
       </section>
       <section className="danger-section" aria-labelledby="delete-all-heading">

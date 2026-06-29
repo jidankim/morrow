@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, it } from "vitest"
 import { bridgeMock, openAppRoute, seedReadyState } from "./AppPrivacyTestHarness"
+import { registerSettingsFullDiskAccessGuideTests } from "./AppPrivacySettingsGuideTestCases"
 import { App } from "./App"
 
 describe("App privacy controls", () => {
@@ -14,6 +15,8 @@ describe("App privacy controls", () => {
     bridgeMock.deleteMorrowData.mockClear()
     bridgeMock.recordCrashLog.mockClear()
   })
+
+  registerSettingsFullDiskAccessGuideTests()
 
   it("passes hidden source-excerpt setting through the scan request", async () => {
     seedReadyState()
@@ -156,26 +159,9 @@ describe("App privacy controls", () => {
     ).toBeInTheDocument()
   })
 
-  it("opens macOS privacy panes for Messages Calendar and Reminders access", async () => {
-    render(<App />)
-
-    openAppRoute("#settings")
-
-    expect(screen.getByText("For QA from Terminal, add Terminal to Full Disk Access too.")).toBeInTheDocument()
-
-    fireEvent.click(screen.getByRole("button", { name: "Open Full Disk Access" }))
-    fireEvent.click(screen.getByRole("button", { name: "Open Calendar access" }))
-    fireEvent.click(screen.getByRole("button", { name: "Open Reminders access" }))
-
-    await waitFor(() => expect(bridgeMock.openPrivacySettings).toHaveBeenCalledTimes(3))
-    expect(bridgeMock.openPrivacySettings).toHaveBeenNthCalledWith(1, { pane: "fullDiskAccess" })
-    expect(bridgeMock.openPrivacySettings).toHaveBeenNthCalledWith(2, { pane: "calendar" })
-    expect(bridgeMock.openPrivacySettings).toHaveBeenNthCalledWith(3, { pane: "reminders" })
-  })
-
   it("scrubs crash log text before reporting delete-all failures", async () => {
     bridgeMock.deleteMorrowData.mockRejectedValueOnce(
-      new Error('delete failed excerpt="private clinic visit" prompt="raw prompt"')
+      new Error('delete failed excerpt="synthetic diagnostic excerpt" prompt="raw prompt"')
     )
     render(<App />)
 
@@ -189,13 +175,13 @@ describe("App privacy controls", () => {
     const crashRequest = bridgeMock.recordCrashLog.mock.calls[0]?.[0]
     expect(crashRequest?.message).toContain("excerpt=[redacted]")
     expect(crashRequest?.message).toContain("prompt=[redacted]")
-    expect(crashRequest?.message).not.toContain("private clinic visit")
+    expect(crashRequest?.message).not.toContain("synthetic diagnostic excerpt")
     expect(crashRequest?.message).not.toContain("raw prompt")
   })
 
   it("surfaces scrubbed native string rejection from delete-all as a visible failure", async () => {
     bridgeMock.deleteMorrowData.mockRejectedValueOnce(
-      'Calendar access was denied excerpt="private clinic visit"'
+      'Calendar access was denied excerpt="synthetic diagnostic excerpt"'
     )
     render(<App />)
 

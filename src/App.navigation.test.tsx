@@ -9,6 +9,7 @@ const bridgeMock = vi.hoisted(() => {
   return {
     getState: vi.fn(async () => undefined),
     setShellState: vi.fn(async () => undefined),
+    getRuntimeIdentity: vi.fn(async () => undefined),
     subscribeAppState: vi.fn(async () => vi.fn()),
     subscribeMenuCommand: vi.fn(async (listener: (command: NativeMenuCommandForTest) => void) => {
       nativeMenuCommandListener = listener

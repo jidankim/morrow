@@ -1,7 +1,9 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { App } from "./App"
+import { registerDiscoveryGuideTests } from "./App.discoveryGuideTests"
 import { APP_SHELL_STATE_KEY, createDefaultAppShellState } from "./domain/appShell"
+import type { RuntimeIdentity } from "./tauriBridge"
 
 type NativeDiscoveryReportForTest =
   | {
@@ -62,6 +64,7 @@ const changedNativeReadyReport = { status: "ready", chats: [nativeChatFromFixtur
 const bridgeMock = vi.hoisted(() => ({
   getState: vi.fn(async () => undefined),
   setShellState: vi.fn(async () => undefined),
+  getRuntimeIdentity: vi.fn<() => Promise<RuntimeIdentity | undefined>>(async () => undefined),
   subscribeAppState: vi.fn(async () => vi.fn()),
   subscribeMenuCommand: vi.fn(async () => vi.fn()),
   reconcileNow: vi.fn(async () => undefined),
@@ -109,12 +112,21 @@ describe("App Messages chat discovery selection and sync", () => {
     window.localStorage.clear()
     window.location.hash = ""
     bridgeMock.setShellState.mockClear()
+    bridgeMock.getRuntimeIdentity.mockClear()
+    bridgeMock.getRuntimeIdentity.mockResolvedValue(undefined)
     bridgeMock.reconcileNow.mockClear()
     bridgeMock.scanSelectedChats.mockClear()
     bridgeMock.readMorrowToken.mockClear()
     bridgeMock.discoverMessagesChats.mockClear()
     bridgeMock.discoverMessagesChats.mockResolvedValue(nativeReadyReport)
     bridgeMock.openPrivacySettings.mockClear()
+  })
+
+  registerDiscoveryGuideTests({
+    renderApp: () => {
+      render(<App />)
+    },
+    bridgeMock
   })
 
   it("blocks Sync Now until required setup and at least one chat are selected", async () => {
@@ -195,10 +207,17 @@ describe("App Messages chat discovery selection and sync", () => {
     expect(screen.getByText("Selected")).toBeInTheDocument()
     expect(screen.getByRole("checkbox", { name: "Ask before backfilling older messages" })).toBeChecked()
     expect(screen.getByText("Morrow asks before using older messages from this chat.")).toBeInTheDocument()
-    expect(document.body).not.toHaveTextContent("iMessage;-;")
-    expect(document.body).not.toHaveTextContent("person@example.com")
-    expect(document.body).not.toHaveTextContent("+15555550103")
-    expect(document.body).not.toHaveTextContent("See you at 7")
+    const rawPrivateFixtureValues = [
+      "messages-chat-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "messages-chat-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "messages-participant-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "messages-participant-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "messages-participant-cccccccccccccccccccccccccccccccc",
+      "1783000000"
+    ] as const
+    for (const privateFixtureValue of rawPrivateFixtureValues) {
+      expect(document.body).not.toHaveTextContent(privateFixtureValue)
+    }
   })
 
   it("enables then disables Sync Now as a real discovered chat is selected and deselected", async () => {

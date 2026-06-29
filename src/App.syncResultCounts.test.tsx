@@ -30,6 +30,7 @@ const nativeReadyReport = {
 const bridgeMock = vi.hoisted(() => ({
   getState: vi.fn(async () => undefined),
   setShellState: vi.fn(async () => undefined),
+  getRuntimeIdentity: vi.fn(async () => undefined),
   subscribeAppState: vi.fn(async () => vi.fn()),
   subscribeMenuCommand: vi.fn(async () => vi.fn()),
   reconcileNow: vi.fn(async () => undefined),

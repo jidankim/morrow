@@ -8,7 +8,7 @@ import {
   SettingsProviderCredentialSection,
   type ProviderCredentialState
 } from "./SettingsProviderCredentialSection"
-import type { PrivacySettingsPane } from "./tauriBridge"
+import type { PrivacySettingsPane, RuntimeIdentity } from "./tauriBridge"
 
 export type { DeleteAllState } from "./SettingsPrivacyControls"
 export type { ProviderCredentialState } from "./SettingsProviderCredentialSection"
@@ -17,6 +17,7 @@ type SettingsViewProps = {
   readonly config: AppConfig
   readonly deleteAllState: DeleteAllState
   readonly providerCredentialState: ProviderCredentialState
+  readonly runtimeIdentity?: RuntimeIdentity | undefined
   readonly onChange: (config: AppConfig) => void
   readonly onCheckProviderCredential: () => Promise<void>
   readonly onDeleteAll: (options: DeleteAllOptions) => void
@@ -27,6 +28,7 @@ export function SettingsView({
   config,
   deleteAllState,
   providerCredentialState,
+  runtimeIdentity,
   onChange,
   onCheckProviderCredential,
   onDeleteAll,
@@ -95,6 +97,7 @@ export function SettingsView({
       />
       <SettingsPrivacyControls
         deleteAllState={deleteAllState}
+        runtimeIdentity={runtimeIdentity}
         onDeleteAll={onDeleteAll}
         onOpenPrivacySettings={onOpenPrivacySettings}
       />

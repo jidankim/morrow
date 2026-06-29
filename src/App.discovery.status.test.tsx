@@ -47,6 +47,7 @@ const nativeReadyReport = { status: "ready", chats: [nativeChatFromFixture(disco
 const bridgeMock = vi.hoisted(() => ({
   getState: vi.fn(async () => undefined),
   setShellState: vi.fn(async () => undefined),
+  getRuntimeIdentity: vi.fn(async () => undefined),
   subscribeAppState: vi.fn(async () => vi.fn()),
   subscribeMenuCommand: vi.fn(async () => vi.fn()),
   reconcileNow: vi.fn(async () => undefined),
@@ -124,9 +125,10 @@ describe("App Messages chat discovery status and recovery", () => {
     bridgeMock.discoverMessagesChats.mockResolvedValueOnce({ status: "permissionDenied", chats: [] })
     render(<App />)
 
-    expect(await screen.findByText("Morrow needs Full Disk Access to read Messages.")).toBeInTheDocument()
+    expect(await screen.findByText("Full Disk Access recovery")).toBeInTheDocument()
     expect(screen.getByText("Sync Now disabled: Grant Full Disk Access, restart Morrow, then retry chat discovery.")).toBeInTheDocument()
-    expect(screen.getAllByText("Grant Full Disk Access, restart Morrow, then retry chat discovery.").length).toBeGreaterThan(1)
+    expect(screen.getAllByText("Enable or add the app that launched Morrow in Full Disk Access.").length).toBeGreaterThan(0)
+    expect(screen.getAllByText("After changing Full Disk Access, restart Morrow, then retry chat discovery.").length).toBeGreaterThan(0)
     expect(screen.getByRole("button", { name: "Open Full Disk Access" })).toBeInTheDocument()
   })
 
@@ -134,8 +136,9 @@ describe("App Messages chat discovery status and recovery", () => {
     bridgeMock.discoverMessagesChats.mockResolvedValueOnce({ status: "permissionDenied", chats: [] })
     render(<App />)
 
-    expect(await screen.findByText("Morrow needs Full Disk Access to read Messages.")).toBeInTheDocument()
-    expect(screen.getAllByText("Grant Full Disk Access, restart Morrow, then retry chat discovery.").length).toBeGreaterThan(1)
+    expect(await screen.findByText("Full Disk Access recovery")).toBeInTheDocument()
+    expect(screen.getAllByText("Enable or add the app that launched Morrow in Full Disk Access.").length).toBeGreaterThan(0)
+    expect(screen.getAllByText("After changing Full Disk Access, restart Morrow, then retry chat discovery.").length).toBeGreaterThan(0)
     fireEvent.click(screen.getByRole("button", { name: "Open Full Disk Access" }))
 
     await waitFor(() => expect(bridgeMock.openPrivacySettings).toHaveBeenCalledWith({ pane: "fullDiskAccess" }))
@@ -149,8 +152,9 @@ describe("App Messages chat discovery status and recovery", () => {
       .mockResolvedValueOnce(nativeReadyReport)
     render(<App />)
 
-    expect(await screen.findByText("Morrow could not read Messages.")).toBeInTheDocument()
-    expect(screen.getAllByText("Restart Morrow after permission changes, then retry chat discovery or check local Messages access.").length).toBeGreaterThan(1)
+    expect(await screen.findByText("Full Disk Access recovery")).toBeInTheDocument()
+    expect(screen.getAllByText("Enable or add the app that launched Morrow in Full Disk Access.").length).toBeGreaterThan(0)
+    expect(screen.getAllByText("After changing Full Disk Access, restart Morrow, then retry chat discovery.").length).toBeGreaterThan(0)
     fireEvent.click(screen.getByRole("button", { name: "Retry chat discovery" }))
     expect(await screen.findByText("Messages discovery finished, but found no eligible chats.")).toBeInTheDocument()
     fireEvent.click(screen.getByRole("button", { name: "Retry chat discovery" }))

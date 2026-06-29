@@ -16,6 +16,7 @@ import {
   type SyncReadinessItemStatus,
   getSyncReadinessItems
 } from "./domain/appShell"
+import type { RuntimeIdentity } from "./tauriBridge"
 
 type StatusViewProps = {
   readonly state: AppShellState
@@ -23,6 +24,7 @@ type StatusViewProps = {
   readonly warnings: readonly string[]
   readonly syncing: boolean
   readonly syncEnabled: boolean
+  readonly runtimeIdentity?: RuntimeIdentity | undefined
   readonly onPause: () => void
   readonly onResume: () => void
   readonly onSyncNow: () => void
@@ -39,6 +41,7 @@ export function StatusView({
   warnings,
   syncing,
   syncEnabled,
+  runtimeIdentity,
   onPause,
   onResume,
   onSyncNow,
@@ -111,6 +114,7 @@ export function StatusView({
           discovery={state.discovery}
           referenceTimezone={state.config.referenceTimezone}
           selectedChats={state.selectedChats}
+          runtimeIdentity={runtimeIdentity}
           onOpenFullDiskAccess={onOpenFullDiskAccess}
           onRetry={onRetryChatDiscovery}
           onToggleBackfillPrompt={onToggleBackfillPrompt}
