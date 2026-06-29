@@ -97,13 +97,13 @@ fn delete_morrow_data_command_deletes_configured_store_and_returns_cleanup_recei
         serialized_receipt.get("providerOAuthDeleteFailed"),
         Some(&serde_json::json!(false))
     );
-    assert!(serialized_receipt
-        .get("providerOAuthDeleteError")
-        .is_none());
+    assert!(serialized_receipt.get("providerOAuthDeleteError").is_none());
     assert!(serialized_receipt
         .get("providerCredentialsDeleteRequested")
         .is_none());
-    assert!(serialized_receipt.get("providerCredentialsDeleted").is_none());
+    assert!(serialized_receipt
+        .get("providerCredentialsDeleted")
+        .is_none());
     assert!(serialized_receipt
         .get("providerCredentialsDeleteFailed")
         .is_none());
