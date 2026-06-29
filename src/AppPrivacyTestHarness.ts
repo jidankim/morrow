@@ -1,14 +1,32 @@
 import { act } from "@testing-library/react"
 import { vi } from "vitest"
 import { APP_SHELL_STATE_KEY, createDefaultAppShellState } from "./domain/appShell"
+import type { MorrowDataDeleteReceipt, RuntimeIdentity } from "./tauriBridge"
 
 type CrashLogRequestForTest = {
   readonly message: string
 }
 
+export const binaryRuntimeIdentityFixture = {
+  displayName: "Morrow",
+  bundleIdentifier: "dev.morrow.desktop",
+  executablePath: "/Users/example/morrow/target/debug/morrow",
+  settingsTargetPath: "/Users/example/morrow/target/debug/morrow",
+  runtimeKind: "binary"
+} as const satisfies RuntimeIdentity
+
+export const appBundleRuntimeIdentityFixture = {
+  displayName: "Morrow",
+  bundleIdentifier: "dev.morrow.desktop",
+  executablePath: "/Applications/Morrow.app/Contents/MacOS/morrow",
+  settingsTargetPath: "/Applications/Morrow.app",
+  runtimeKind: "appBundle"
+} as const satisfies RuntimeIdentity
+
 const hoistedMocks = vi.hoisted(() => ({
   getState: vi.fn(async () => undefined),
   setShellState: vi.fn(async () => undefined),
+  getRuntimeIdentity: vi.fn(async (): Promise<RuntimeIdentity | undefined> => undefined),
   subscribeAppState: vi.fn(async () => vi.fn()),
   subscribeMenuCommand: vi.fn(async () => vi.fn()),
   reconcileNow: vi.fn(async () => undefined),
@@ -55,7 +73,7 @@ const hoistedMocks = vi.hoisted(() => ({
     ]
   })),
   openPrivacySettings: vi.fn(async () => ({ pane: "fullDiskAccess", opened: true })),
-  deleteMorrowData: vi.fn(async (): Promise<import("./tauriBridge").MorrowDataDeleteReceipt> => ({
+  deleteMorrowData: vi.fn(async (): Promise<MorrowDataDeleteReceipt> => ({
     storageSurface: "morrowStore",
     databaseDeleted: true,
     approvedExternalItemsDeleted: false,

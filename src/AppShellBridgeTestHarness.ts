@@ -57,6 +57,7 @@ const hoistedBridgeMock = vi.hoisted(() => {
   return {
     getState: vi.fn(async () => undefined),
     setShellState: vi.fn(async () => undefined),
+    getRuntimeIdentity: vi.fn(async () => undefined),
     subscribeAppState: vi.fn(async (listener: (state: NativeStateForTest) => void) => {
       nativeStateListener = listener
       return vi.fn()
@@ -118,6 +119,7 @@ vi.mock("./tauriBridge", () => ({
   createNativeShellBridge: () => ({
     getState: bridgeMock.getState,
     setShellState: bridgeMock.setShellState,
+    getRuntimeIdentity: bridgeMock.getRuntimeIdentity,
     subscribeAppState: bridgeMock.subscribeAppState,
     subscribeMenuCommand: bridgeMock.subscribeMenuCommand,
     reconcileNow: bridgeMock.reconcileNow,

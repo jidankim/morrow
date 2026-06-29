@@ -9,10 +9,8 @@ import {
   type MessagesDiscoveryReport,
   type SyncScanRequest
 } from "./messagesDiscoveryBridge"
-import {
-  parseNativePermissionStatuses,
-  type NativePermissionStatus
-} from "./nativePermissionBridge"
+import { parseNativePermissionStatuses, type NativePermissionStatus } from "./nativePermissionBridge"
+import { parseRuntimeIdentity, type RuntimeIdentity } from "./nativeRuntimeBridge"
 import {
   parseCrashLogReceipt,
   parseMorrowDataDeleteReceipt,
@@ -25,12 +23,10 @@ import {
   type PrivacySettingsReceipt,
   type PrivacySettingsRequest
 } from "./nativePrivacyBridge"
-import {
-  parseCodexProviderAuthReadiness,
-  type CodexProviderAuthReadiness
-} from "./providerAuthBridge"
+import { parseCodexProviderAuthReadiness, type CodexProviderAuthReadiness } from "./providerAuthBridge"
 
 export type { NativePermissionStatus } from "./nativePermissionBridge"
+export type { RuntimeIdentity } from "./nativeRuntimeBridge"
 export { parseMessagesDiscoveryReport } from "./messagesDiscoveryBridge"
 export type { MessagesDiscoveryReport, SyncScanRequest } from "./messagesDiscoveryBridge"
 export type {
@@ -91,6 +87,7 @@ export type NativeMenuCommand = "sync-now" | "open-settings" | "open-calendar" |
 export type NativeShellBridge = {
   readonly getState: () => Promise<NativeAppShellState | undefined>
   readonly setShellState: (state: NativeAppShellState) => Promise<MenuModel | undefined>
+  readonly getRuntimeIdentity: () => Promise<RuntimeIdentity | undefined>
   readonly subscribeAppState: (
     onState: (state: NativeAppShellState) => void
   ) => Promise<(() => void) | undefined>
@@ -163,6 +160,8 @@ export function createNativeShellBridge(): NativeShellBridge {
       }
       return invoke<MenuModel>("set_app_shell_state", { shellState: parseNativeAppShellState(state) })
     },
+    getRuntimeIdentity: async () =>
+      isTauriRuntime() ? parseRuntimeIdentity(await invoke<unknown>("get_runtime_identity")) : undefined,
     subscribeAppState: async (onState) => {
       if (!isTauriRuntime()) {
         return undefined
