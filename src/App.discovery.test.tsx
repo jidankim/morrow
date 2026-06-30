@@ -1,281 +1,176 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
-import { beforeEach, describe, expect, it, vi } from "vitest"
-import { App } from "./App"
-import { registerDiscoveryGuideTests } from "./App.discoveryGuideTests"
-import { APP_SHELL_STATE_KEY, createDefaultAppShellState } from "./domain/appShell"
-import type { RuntimeIdentity } from "./tauriBridge"
-
-type NativeDiscoveryReportForTest =
-  | {
-      readonly status: "ready"
-      readonly chats: readonly {
-        readonly chatId: string
-        readonly displayLabel: string
-        readonly participantCount: number
-        readonly participantIds: readonly string[]
-        readonly latestActivityTimestamp: number
-      }[]
-    }
-  | { readonly status: "empty" | "permissionDenied" | "unavailable"; readonly chats: readonly [] }
-
-type NativeReadyChatForTest = Extract<NativeDiscoveryReportForTest, { readonly status: "ready" }>["chats"][number]
-type ChatFixtureForTest = Pick<NativeReadyChatForTest, "participantCount" | "participantIds" | "latestActivityTimestamp"> & {
-  readonly id: string
-  readonly label: string
-}
-
-const discoveredChat = {
-  id: "messages-chat-11111111111111111111111111111111",
-  label: "Chat alpha",
-  participantCount: 2,
-  participantIds: [
-    "messages-participant-11111111111111111111111111111111",
-    "messages-participant-22222222222222222222222222222222"
-  ],
-  latestActivityTimestamp: 1_783_000_000
-} as const
-
-const rediscoveredChat = {
-  id: "messages-chat-11111111111111111111111111111111",
-  label: "Updated alpha",
-  participantCount: 3,
-  participantIds: [
-    "messages-participant-66666666666666666666666666666666",
-    "messages-participant-77777777777777777777777777777777",
-    "messages-participant-88888888888888888888888888888888"
-  ],
-  latestActivityTimestamp: 1_783_001_000
-} as const
-
-const fixtureReferenceTimezone = "Asia/Seoul"
-
-const nativeChatFromFixture = (chat: ChatFixtureForTest): NativeReadyChatForTest => ({
-  chatId: chat.id,
-  displayLabel: chat.label,
-  participantCount: chat.participantCount,
-  participantIds: chat.participantIds,
-  latestActivityTimestamp: chat.latestActivityTimestamp
-})
-
-const nativeReadyReport = { status: "ready", chats: [nativeChatFromFixture(discoveredChat)] } as const
-
-const changedNativeReadyReport = { status: "ready", chats: [nativeChatFromFixture(rediscoveredChat)] } as const
-
-const bridgeMock = vi.hoisted(() => ({
-  getState: vi.fn(async () => undefined),
-  setShellState: vi.fn(async () => undefined),
-  getRuntimeIdentity: vi.fn<() => Promise<RuntimeIdentity | undefined>>(async () => undefined),
-  subscribeAppState: vi.fn(async () => vi.fn()),
-  subscribeMenuCommand: vi.fn(async () => vi.fn()),
-  reconcileNow: vi.fn(async () => undefined),
-  scanSelectedChats: vi.fn(async () => ({
-    pendingProposalCount: 12, feedbackLabelCount: 9, featureSnapshotCount: 4, latestEvalStatus: "passed"
-  })),
-  checkProviderAuth: vi.fn(async () => ({
-    status: "loggedInUsingChatGpt",
-    ready: true,
-    commandSurface: "codex login status",
-    commandOutputRedacted: true,
-    diagnostic: "Codex CLI ChatGPT session is ready."
-  })),
-  storeMorrowToken: vi.fn(async () => ({ storageSurface: "keychainBridge", stored: true, deleted: false })),
-  readMorrowToken: vi.fn(async () => ({ storageSurface: "keychainBridge", present: true })),
-  deleteMorrowToken: vi.fn(async () => ({ storageSurface: "keychainBridge", stored: false, deleted: true })),
-  discoverMessagesChats: vi.fn(async (): Promise<NativeDiscoveryReportForTest> => nativeReadyReport),
-  openPrivacySettings: vi.fn(async () => ({ pane: "fullDiskAccess", opened: true })),
-  deleteMorrowData: vi.fn(async () => undefined),
-  recordCrashLog: vi.fn(async () => ({ stored: true }))
-}))
-
-vi.mock("./tauriBridge", () => ({
-  MORROW_KEYCHAIN_SERVICE: "com.morrow.desktop.token",
-  MORROW_TOKEN_KIND: "morrow-owned-token",
-  MORROW_PROVIDER_TOKEN_KIND: "morrow-openai-provider-api-key",
-  createNativeShellBridge: () => bridgeMock
-}))
-
-const seedSelectedChat = (): void => {
-  const initial = createDefaultAppShellState()
-  const ready = {
-    ...initial,
-    config: {
-      ...initial.config,
-      permissionsGranted: true,
-      referenceTimezone: fixtureReferenceTimezone
-    },
-    discovery: { status: "ready", chats: [discoveredChat] },
-    selectedChats: [{ ...discoveredChat, backfillPromptEnabled: true }]
-  }
-  window.localStorage.setItem(APP_SHELL_STATE_KEY, JSON.stringify(ready))
-}
+import { useState } from "react"
+import { beforeEach, describe, expect, it } from "vitest"
+import {
+  bridgeMock,
+  discoveredChat,
+  nativeChatFromFixture,
+  privatePreviewText,
+  rediscoveredChat,
+  renderDiscoveryApp,
+  resetDiscoveryAppTestState
+} from "./App.discoveryHarness"
+import { APP_SHELL_STATE_KEY, type ChatDiscovery } from "./domain/appShell"
+import { useMessagesPreviewDisclosure } from "./useMessagesPreviewDisclosure"
 
 describe("App Messages chat discovery selection and sync", () => {
   beforeEach(() => {
-    window.localStorage.clear()
-    window.location.hash = ""
-    bridgeMock.setShellState.mockClear()
-    bridgeMock.getRuntimeIdentity.mockClear()
-    bridgeMock.getRuntimeIdentity.mockResolvedValue(undefined)
-    bridgeMock.reconcileNow.mockClear()
-    bridgeMock.scanSelectedChats.mockClear()
-    bridgeMock.readMorrowToken.mockClear()
-    bridgeMock.discoverMessagesChats.mockClear()
-    bridgeMock.discoverMessagesChats.mockResolvedValue(nativeReadyReport)
-    bridgeMock.openPrivacySettings.mockClear()
+    resetDiscoveryAppTestState()
   })
 
-  registerDiscoveryGuideTests({
-    renderApp: () => {
-      render(<App />)
-    },
-    bridgeMock
-  })
-
-  it("blocks Sync Now until required setup and at least one chat are selected", async () => {
-    render(<App />)
-
-    await screen.findByText("Onboarding required")
-    expect(await screen.findByRole("checkbox", { name: /Chat alpha/ })).toBeInTheDocument()
-    expect(screen.queryByLabelText("Required permissions complete")).not.toBeInTheDocument()
-    expect(screen.queryByText("Required permissions complete")).not.toBeInTheDocument()
-    expect(screen.getByText("Messages discovery found 1 eligible chat.")).toBeInTheDocument()
-    expect(screen.getByText("Sync Now disabled: Select at least one chat before scanning.")).toBeInTheDocument()
-    expect(screen.getAllByText("Select at least one chat before scanning.").length).toBeGreaterThan(1)
-    expect(screen.getByText("Select a chat to verify it for scanning.")).toBeInTheDocument()
-    expect(screen.getByTestId("status-label")).toHaveTextContent("Setup needed")
-    expect(screen.getByRole("button", { name: "Sync Now" })).toBeDisabled()
-    expect(bridgeMock.reconcileNow).not.toHaveBeenCalled()
-    expect(bridgeMock.scanSelectedChats).not.toHaveBeenCalled()
-  })
-
-  it("shows Sync Now readiness checklist for a ready selected chat", async () => {
-    seedSelectedChat()
-    render(<App />)
-
-    await waitFor(() => expect(screen.getByRole("button", { name: "Sync Now" })).toBeEnabled())
-    expect(screen.getByText("Sync Now ready: All setup checks are complete.")).toBeInTheDocument()
-    expect(screen.queryByLabelText("Required permissions complete")).not.toBeInTheDocument()
-    expect(screen.queryByText("Required permissions complete")).not.toBeInTheDocument()
-    expect(screen.getByText("Messages discovery found 1 eligible chat.")).toBeInTheDocument()
-    expect(screen.getByText("1 chat selected.")).toBeInTheDocument()
-    expect(screen.getByText("Selected chats are verified for scanning.")).toBeInTheDocument()
-  })
-
-  it("renders Messages source summary with selected count and latest activity", async () => {
-    const initial = createDefaultAppShellState()
-    window.localStorage.setItem(
-      APP_SHELL_STATE_KEY,
-      JSON.stringify({ ...initial, config: { ...initial.config, referenceTimezone: fixtureReferenceTimezone } })
-    )
+  it("loads local previews only after reveal is clicked", async () => {
+    const secondaryChat = {
+      id: "messages-chat-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      label: "Messages chat",
+      participantCount: 1,
+      participantIds: ["messages-participant-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"],
+      latestActivityTimestamp: 1_783_000_100
+    } as const
     bridgeMock.discoverMessagesChats.mockResolvedValueOnce({
       status: "ready",
+      chats: [nativeChatFromFixture(discoveredChat), nativeChatFromFixture(secondaryChat)]
+    })
+    bridgeMock.loadMessagesChatPreviews.mockResolvedValueOnce({
       chats: [
-        nativeChatFromFixture({
-          id: "messages-chat-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-          label: "Messages chat",
-          participantCount: 1,
-          participantIds: ["messages-participant-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],
-          latestActivityTimestamp: 1_783_000_000
-        }),
-        nativeChatFromFixture({
-          id: "messages-chat-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-          label: "Messages chat",
-          participantCount: 2,
-          participantIds: [
-            "messages-participant-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-            "messages-participant-cccccccccccccccccccccccccccccccc"
-          ],
-          latestActivityTimestamp: 1_783_000_000
-        })
+        { chatId: discoveredChat.id, preview: "private clinic visit" },
+        { chatId: secondaryChat.id, preview: "team sync moved to 3" },
+        {
+          chatId: "messages-chat-ffffffffffffffffffffffffffffffff",
+          preview: "stale private preview"
+        }
       ]
     })
+    renderDiscoveryApp()
 
-    render(<App />)
+    expect(await screen.findByRole("checkbox", { name: /Chat alpha/ })).toBeInTheDocument()
+    expect(screen.getByRole("checkbox", { name: /Messages chat/ })).toBeInTheDocument()
+    expect(bridgeMock.loadMessagesChatPreviews).not.toHaveBeenCalled()
+    expect(screen.queryByText("private clinic visit")).not.toBeInTheDocument()
+    expect(screen.getByRole("checkbox", { name: /Chat alpha/ })).not.toHaveAccessibleName(
+      new RegExp(privatePreviewText)
+    )
 
-    const chatCheckboxes = await screen.findAllByRole("checkbox", { name: /Messages chat/ })
-    expect(chatCheckboxes).toHaveLength(2)
-    expect(screen.getByText("Messages source: 2 eligible chats, 0 selected.")).toBeInTheDocument()
-    expect(screen.getByText("1 participant")).toBeInTheDocument()
-    expect(screen.getByText("2 participants")).toBeInTheDocument()
-    expect(screen.getAllByText("Last active Jul 2, 2026, 10:46 PM")).toHaveLength(2)
-    expect(screen.getAllByText("Not selected")).toHaveLength(2)
-    const firstChatCheckbox = chatCheckboxes[0]
-    if (firstChatCheckbox === undefined) {
-      throw new Error("Expected a Messages chat checkbox.")
-    }
-    fireEvent.click(firstChatCheckbox)
+    fireEvent.click(screen.getByRole("button", { name: "Reveal previews locally" }))
 
-    expect(screen.getByText("Messages source: 2 eligible chats, 1 selected.")).toBeInTheDocument()
-    expect(screen.getByText("Selected")).toBeInTheDocument()
-    expect(screen.getByRole("checkbox", { name: "Ask before backfilling older messages" })).toBeChecked()
-    expect(screen.getByText("Morrow asks before using older messages from this chat.")).toBeInTheDocument()
-    const rawPrivateFixtureValues = [
-      "messages-chat-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      "messages-chat-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-      "messages-participant-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      "messages-participant-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-      "messages-participant-cccccccccccccccccccccccccccccccc",
-      "1783000000"
-    ] as const
-    for (const privateFixtureValue of rawPrivateFixtureValues) {
-      expect(document.body).not.toHaveTextContent(privateFixtureValue)
-    }
+    expect(screen.getByRole("button", { name: "Loading previews" })).toBeDisabled()
+    expect(await screen.findByText("private clinic visit")).toHaveAttribute(
+      "data-visual-qa-text",
+      "chat-row-preview"
+    )
+    expect(screen.getByText("team sync moved to 3")).toBeInTheDocument()
+    expect(screen.getByRole("checkbox", { name: new RegExp(privatePreviewText) })).toBeInTheDocument()
+    expect(screen.queryByText("stale private preview")).not.toBeInTheDocument()
+    expect(bridgeMock.loadMessagesChatPreviews).toHaveBeenCalledWith({
+      chatIds: [discoveredChat.id, secondaryChat.id]
+    })
+    expect(window.localStorage.getItem(APP_SHELL_STATE_KEY)).not.toContain("private clinic visit")
+
+    fireEvent.click(screen.getByRole("checkbox", { name: /Chat alpha/ }))
+
+    await waitFor(() =>
+      expect(window.localStorage.getItem(APP_SHELL_STATE_KEY)).not.toContain("private clinic visit")
+    )
+    fireEvent.click(screen.getByRole("button", { name: "Hide previews" }))
+    expect(screen.queryByText("private clinic visit")).not.toBeInTheDocument()
+    expect(screen.queryByText("team sync moved to 3")).not.toBeInTheDocument()
+    expect(screen.getByRole("checkbox", { name: /Chat alpha/ })).not.toHaveAccessibleName(
+      new RegExp(privatePreviewText)
+    )
   })
 
-  it("enables then disables Sync Now as a real discovered chat is selected and deselected", async () => {
-    render(<App />)
+  it("reveals latest local previews in chat rows after explicit opt-in", async () => {
+    bridgeMock.loadMessagesChatPreviews.mockResolvedValueOnce({
+      chats: [{ chatId: discoveredChat.id, preview: privatePreviewText }]
+    })
+    renderDiscoveryApp()
+
+    expect(await screen.findByRole("checkbox", { name: /Chat alpha/ })).toBeInTheDocument()
+    expect(bridgeMock.loadMessagesChatPreviews).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByRole("button", { name: "Reveal previews locally" }))
+
+    expect(await screen.findByText(privatePreviewText)).toHaveAttribute("data-visual-qa-text", "chat-row-preview")
+    expect(screen.getByRole("checkbox", { name: new RegExp(privatePreviewText) })).toBeInTheDocument()
+  })
+
+  it("keeps empty local previews hidden without failing reveal", async () => {
+    bridgeMock.loadMessagesChatPreviews.mockResolvedValueOnce({
+      chats: [{ chatId: discoveredChat.id, preview: "" }]
+    })
+    renderDiscoveryApp()
 
     const chatCheckbox = await screen.findByRole("checkbox", { name: /Chat alpha/ })
-    expect(screen.queryByLabelText("Required permissions complete")).not.toBeInTheDocument()
-    fireEvent.click(chatCheckbox)
-    await waitFor(() => expect(screen.getByRole("button", { name: "Sync Now" })).toBeEnabled())
+    fireEvent.click(screen.getByRole("button", { name: "Reveal previews locally" }))
 
-    fireEvent.click(chatCheckbox)
-
-    await waitFor(() => expect(screen.getByRole("button", { name: "Sync Now" })).toBeDisabled())
+    await waitFor(() => expect(screen.getByRole("button", { name: "Hide previews" })).toBeEnabled())
+    expect(screen.queryByText("Previews unavailable. Try again.")).not.toBeInTheDocument()
+    expect(screen.queryByText("No preview available")).not.toBeInTheDocument()
+    expect(document.querySelector("[data-visual-qa-text='chat-row-preview']")).not.toBeInTheDocument()
+    expect(chatCheckbox).not.toHaveAccessibleName(/Latest preview:/)
   })
 
-  it("uses rediscovered same-id chat metadata in scan requests", async () => {
-    seedSelectedChat()
-    bridgeMock.discoverMessagesChats.mockResolvedValueOnce(changedNativeReadyReport)
-    render(<App />)
+  it("hides and clears previews when chat discovery is retried", async () => {
+    function PreviewRetryHarness(): JSX.Element {
+      const [discovery, setDiscovery] = useState<ChatDiscovery>({
+        status: "ready",
+        chats: [discoveredChat]
+      })
+      const { previewDisclosure, revealPreviews } = useMessagesPreviewDisclosure({
+        discovery,
+        nativeBridge: bridgeMock
+      })
+      return (
+        <div>
+          <button onClick={revealPreviews} type="button">Reveal previews locally</button>
+          <button onClick={() => setDiscovery({ status: "loading", chats: [] })} type="button">
+            Retry chat discovery
+          </button>
+          <button onClick={() => setDiscovery({ status: "ready", chats: [rediscoveredChat] })} type="button">
+            Finish discovery
+          </button>
+          {[...previewDisclosure.previews.values()].map((preview) => (
+            <p key={preview}>{preview}</p>
+          ))}
+        </div>
+      )
+    }
+    render(<PreviewRetryHarness />)
 
-    expect(await screen.findByRole("checkbox", { name: /Updated alpha/ })).toBeChecked()
-    const syncButton = screen.getByRole("button", { name: "Sync Now" })
-    await waitFor(() => expect(syncButton).toBeEnabled())
-    fireEvent.click(syncButton)
+    fireEvent.click(screen.getByRole("button", { name: "Reveal previews locally" }))
+    expect(await screen.findByText("private clinic visit")).toBeInTheDocument()
 
-    await waitFor(() => expect(bridgeMock.scanSelectedChats).toHaveBeenCalledOnce())
-    expect(screen.getByTestId("feedback-label-count")).toHaveTextContent("9")
-    expect(screen.getByTestId("feature-snapshot-count")).toHaveTextContent("4")
-    expect(screen.getByTestId("latest-eval-status")).toHaveTextContent("Passed")
-    expect(document.body).not.toHaveTextContent("private clinic visit")
-    expect(bridgeMock.scanSelectedChats).toHaveBeenCalledWith({
-      selectedChatIds: ["messages-chat-11111111111111111111111111111111"],
-      selectedChats: [rediscoveredChat],
-      referenceTimezone: fixtureReferenceTimezone,
-      referenceUnixSeconds: expect.any(Number),
-      backfillPromptChatIds: ["messages-chat-11111111111111111111111111111111"],
-      sourceExcerptsEnabled: true,
-      feedbackTextSnapshotsEnabled: false,
-      capPolicy: { mode: "refillForPending", maxVisible: 10, pendingCount: 0 }
-    })
-  })
-
-  it("keeps a stale persisted selected chat disabled until rediscovered", async () => {
-    seedSelectedChat()
-    bridgeMock.discoverMessagesChats
-      .mockResolvedValueOnce({ status: "empty", chats: [] })
-      .mockResolvedValueOnce(nativeReadyReport)
-    render(<App />)
-
-    expect(await screen.findByText("Messages discovery finished, but found no eligible chats.")).toBeInTheDocument()
-    expect(screen.getAllByText("Refresh chat discovery before scanning selected chats.").length).toBeGreaterThan(1)
-    expect(screen.queryByRole("checkbox", { name: /Chat alpha/ })).not.toBeInTheDocument()
-    expect(screen.getByRole("button", { name: "Sync Now" })).toBeDisabled()
     fireEvent.click(screen.getByRole("button", { name: "Retry chat discovery" }))
 
-    expect(await screen.findByRole("checkbox", { name: /Chat alpha/ })).toBeChecked()
-    await waitFor(() => expect(screen.getByRole("button", { name: "Sync Now" })).toBeEnabled())
+    expect(screen.queryByText("private clinic visit")).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole("button", { name: "Finish discovery" }))
+    expect(screen.queryByText("private clinic visit")).not.toBeInTheDocument()
+    expect(bridgeMock.loadMessagesChatPreviews).toHaveBeenCalledOnce()
+  })
+
+  it("keeps chat selection usable when preview loading fails", async () => {
+    bridgeMock.loadMessagesChatPreviews
+      .mockRejectedValueOnce(new Error("preview load failed"))
+      .mockResolvedValueOnce({
+        chats: [{ chatId: discoveredChat.id, preview: "private clinic visit" }]
+      })
+    renderDiscoveryApp()
+
+    expect(await screen.findByRole("checkbox", { name: /Chat alpha/ })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole("button", { name: "Reveal previews locally" }))
+
+    expect(await screen.findByText("Previews unavailable. Try again.")).toBeInTheDocument()
+    expect(screen.queryByText("private clinic visit")).not.toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Reveal previews locally" })).toBeEnabled()
+
+    fireEvent.click(screen.getByRole("checkbox", { name: /Chat alpha/ }))
+
+    expect(screen.getByRole("checkbox", { name: /Chat alpha/ })).toBeChecked()
+    expect(screen.getByRole("checkbox", { name: "Ask before backfilling older messages" })).toBeChecked()
+    expect(screen.getByText("Morrow asks before using older messages from this chat.")).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole("button", { name: "Reveal previews locally" }))
+
+    expect(await screen.findByText("private clinic visit")).toBeInTheDocument()
+    expect(bridgeMock.loadMessagesChatPreviews).toHaveBeenCalledTimes(2)
   })
 })

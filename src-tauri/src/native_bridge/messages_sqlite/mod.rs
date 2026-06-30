@@ -1,5 +1,6 @@
 mod attributed_body;
 mod hex;
+mod preview;
 mod queries;
 mod sqlite_cli;
 mod timestamp;

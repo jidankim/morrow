@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { App } from "./App"
 import { ChatDiscoveryControls } from "./ChatDiscoveryControls"
+import type { ChatPreviewDisclosure } from "./ChatPreviewControls"
 import { APP_SHELL_STATE_KEY, createDefaultAppShellState } from "./domain/appShell"
 
 type NativeDiscoveryReportForTest =
@@ -90,6 +91,11 @@ const idleDiscoveryControlProps = {
   onToggleChat: () => undefined
 }
 
+const hiddenPreviewDisclosure: ChatPreviewDisclosure = {
+  status: "hidden",
+  previews: new Map()
+}
+
 describe("App Messages chat discovery status and recovery", () => {
   beforeEach(() => {
     window.localStorage.clear()
@@ -168,5 +174,31 @@ describe("App Messages chat discovery status and recovery", () => {
 
     expect(screen.getByText("Messages discovery has not completed yet.")).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Retry chat discovery" })).toBeInTheDocument()
+  })
+
+  it("shows preview reveal controls only for ready discovery", () => {
+    const { rerender } = render(
+      <ChatDiscoveryControls
+        {...idleDiscoveryControlProps}
+        discovery={{ status: "unverified", chats: [] }}
+        previewDisclosure={hiddenPreviewDisclosure}
+        onHidePreviews={() => undefined}
+        onRevealPreviews={() => undefined}
+      />
+    )
+
+    expect(screen.queryByRole("button", { name: "Reveal previews locally" })).not.toBeInTheDocument()
+
+    rerender(
+      <ChatDiscoveryControls
+        {...idleDiscoveryControlProps}
+        discovery={{ status: "ready", chats: [discoveredChat] }}
+        previewDisclosure={hiddenPreviewDisclosure}
+        onHidePreviews={() => undefined}
+        onRevealPreviews={() => undefined}
+      />
+    )
+
+    expect(screen.getByRole("button", { name: "Reveal previews locally" })).toBeInTheDocument()
   })
 })

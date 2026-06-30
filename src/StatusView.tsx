@@ -6,7 +6,9 @@ import {
   Play,
   RefreshCw
 } from "lucide-react"
-import { ChatDiscoveryControls } from "./ChatDiscoveryControls"
+import type { ChatPreviewDisclosure } from "./ChatPreviewControls"
+import { ChatDiscoverySetupControls } from "./ChatDiscoverySetupControls"
+import { StatusOnboardingWarnings } from "./StatusOnboardingWarnings"
 import {
   type AppShellState,
   type ChatId,
@@ -25,7 +27,10 @@ type StatusViewProps = {
   readonly warnings: readonly string[]
   readonly syncing: boolean
   readonly syncEnabled: boolean
+  readonly previewDisclosure?: ChatPreviewDisclosure | undefined
   readonly runtimeIdentity?: RuntimeIdentity | undefined
+  readonly onRevealPreviews?: () => void
+  readonly onHidePreviews?: () => void
   readonly onPause: () => void
   readonly onResume: () => void
   readonly onSyncNow: () => void
@@ -42,7 +47,10 @@ export function StatusView({
   warnings,
   syncing,
   syncEnabled,
+  previewDisclosure,
   runtimeIdentity,
+  onRevealPreviews,
+  onHidePreviews,
   onPause,
   onResume,
   onSyncNow,
@@ -67,7 +75,7 @@ export function StatusView({
         <StatusPill statusKind={menu.statusKind} label={menu.statusLabel} />
       </div>
       <p className="lede">{menu.detail}</p>
-      <OnboardingWarnings warnings={warnings} />
+      <StatusOnboardingWarnings warnings={warnings} />
       <div className="command-row">
         <button className="button primary" onClick={isPaused ? onResume : onPause} type="button">
           {isPaused ? <Play aria-hidden="true" size={16} /> : <Pause aria-hidden="true" size={16} />}
@@ -114,13 +122,14 @@ export function StatusView({
             Configure provider
           </button>
         ) : null}
-        <ChatDiscoveryControls
-          discovery={state.discovery}
-          referenceTimezone={state.config.referenceTimezone}
-          selectedChats={state.selectedChats}
+        <ChatDiscoverySetupControls
+          state={state}
+          previewDisclosure={previewDisclosure}
           runtimeIdentity={runtimeIdentity}
+          onHidePreviews={onHidePreviews}
           onOpenFullDiskAccess={onOpenFullDiskAccess}
-          onRetry={onRetryChatDiscovery}
+          onRevealPreviews={onRevealPreviews}
+          onRetryChatDiscovery={onRetryChatDiscovery}
           onToggleBackfillPrompt={onToggleBackfillPrompt}
           onToggleChat={onToggleChat}
         />
@@ -165,28 +174,6 @@ function Metric({ label, testId, value }: MetricProps): JSX.Element {
     <div>
       <dt>{label}</dt>
       <dd data-testid={testId}>{value}</dd>
-    </div>
-  )
-}
-
-type OnboardingWarningsProps = {
-  readonly warnings: readonly string[]
-}
-
-function OnboardingWarnings({ warnings }: OnboardingWarningsProps): JSX.Element | null {
-  if (warnings.length === 0) {
-    return null
-  }
-
-  return (
-    <div className="warning-surface" role="alert">
-      <AlertTriangle aria-hidden="true" size={17} />
-      <div>
-        <h3>Onboarding required</h3>
-        {warnings.map((warning) => (
-          <p key={warning}>{warning}</p>
-        ))}
-      </div>
     </div>
   )
 }

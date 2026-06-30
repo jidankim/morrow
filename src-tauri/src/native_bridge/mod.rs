@@ -12,6 +12,7 @@ pub mod messages_sqlite;
 mod openai_provider;
 mod paths;
 mod permissions;
+mod preview;
 mod provider_contract;
 mod public_chat_id;
 mod runtime_identity;
@@ -55,6 +56,9 @@ pub use permissions::{
     OpenPrivacySettingsRequest, PermissionKind, PermissionOutcome, PermissionState,
     PermissionStatus, PrivacySettingsPane,
 };
+pub use preview::{
+    MessagesPreviewCommandChat, MessagesPreviewCommandReport, MessagesPreviewRequest,
+};
 pub use runtime_identity::{
     __cmd__get_runtime_identity, __tauri_command_name_get_runtime_identity, get_runtime_identity,
     runtime_identity_from_executable_path, RuntimeIdentity, RuntimeKind,
@@ -65,6 +69,9 @@ pub use scan::{
     ScanSelectedChatsRequest, ScanSelectedChatsResult,
 };
 pub use state::{NativeBridgeState, ProductionScanCodexDependencies};
+
+const MESSAGES_PREVIEW_UNAVAILABLE_ERROR: &str =
+    "Messages previews are unavailable. Grant Full Disk Access or try again.";
 
 #[tauri::command]
 pub fn get_native_permission_statuses(
@@ -146,6 +153,18 @@ pub fn discover_messages_chats(
             "Messages discovery is unavailable. Grant Full Disk Access or try again.".to_owned()
         })?;
     Ok(MessagesDiscoveryCommandReport::from_report(&report))
+}
+
+#[tauri::command]
+pub fn load_messages_chat_previews(
+    state: State<'_, NativeBridgeState>,
+    request: MessagesPreviewRequest,
+) -> Result<MessagesPreviewCommandReport, String> {
+    let db_path =
+        messages_database_path().map_err(|_error| MESSAGES_PREVIEW_UNAVAILABLE_ERROR.to_owned())?;
+    state
+        .load_messages_chat_previews_at(&db_path, &request)
+        .map_err(|_error| MESSAGES_PREVIEW_UNAVAILABLE_ERROR.to_owned())
 }
 
 #[tauri::command]

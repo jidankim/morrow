@@ -1,8 +1,16 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, it } from "vitest"
-import { bridgeMock, openAppRoute, seedReadyState } from "./AppPrivacyTestHarness"
+import {
+  bridgeMock,
+  emptyPreviewChatId,
+  openAppRoute,
+  previewPrivacySentinel,
+  seedPreviewPrivacyReadyState,
+  seedReadyState
+} from "./AppPrivacyTestHarness"
 import { registerSettingsFullDiskAccessGuideTests } from "./AppPrivacySettingsGuideTestCases"
 import { App } from "./App"
+import { APP_SHELL_STATE_KEY } from "./domain/appShell"
 import { parseSyncScanRequest } from "./messagesDiscoveryBridge"
 
 describe("App privacy controls", () => {
@@ -12,12 +20,48 @@ describe("App privacy controls", () => {
     bridgeMock.scanSelectedChats.mockClear()
     bridgeMock.readMorrowToken.mockClear()
     bridgeMock.discoverMessagesChats.mockClear()
+    bridgeMock.loadMessagesChatPreviews.mockClear()
     bridgeMock.openPrivacySettings.mockClear()
     bridgeMock.deleteMorrowData.mockClear()
     bridgeMock.recordCrashLog.mockClear()
   })
 
   registerSettingsFullDiskAccessGuideTests()
+
+  it("keeps revealed preview text out of persisted app state and scan requests", async () => {
+    seedPreviewPrivacyReadyState()
+    render(<App />)
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Sync Now" })).toBeEnabled())
+    expect(document.body).not.toHaveTextContent(previewPrivacySentinel)
+    fireEvent.click(screen.getByRole("button", { name: "Reveal previews locally" }))
+
+    expect(await screen.findByText(previewPrivacySentinel)).toHaveAttribute(
+      "data-visual-qa-text",
+      "chat-row-preview"
+    )
+    expect(screen.queryByText("No preview available")).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole("checkbox", { name: /Messages chat/ }))
+    fireEvent.click(screen.getByRole("button", { name: "Sync Now" }))
+
+    await waitFor(() => expect(bridgeMock.scanSelectedChats).toHaveBeenCalledOnce())
+    const scanRequest = bridgeMock.scanSelectedChats.mock.calls[0]?.[0]
+    const serializedPrivacySurfaces = JSON.stringify({
+      persistedState: window.localStorage.getItem(APP_SHELL_STATE_KEY),
+      scanRequest,
+      setShellStateCalls: bridgeMock.setShellState.mock.calls,
+      crashLogRequests: bridgeMock.recordCrashLog.mock.calls,
+      providerReadinessRequests: bridgeMock.checkProviderAuth.mock.calls,
+      tokenReadRequests: bridgeMock.readMorrowToken.mock.calls,
+      previewRequests: bridgeMock.loadMessagesChatPreviews.mock.calls
+    })
+
+    expect(serializedPrivacySurfaces).not.toContain(previewPrivacySentinel)
+    expect(serializedPrivacySurfaces).not.toContain("latestMessageBody")
+    expect(serializedPrivacySurfaces).not.toContain("latestMessagePreview")
+    expect(JSON.stringify(scanRequest?.selectedChats)).not.toContain("preview")
+    expect(scanRequest?.selectedChatIds).toEqual(["messages-chat-11111111111111111111111111111111", emptyPreviewChatId])
+  })
 
   it("passes hidden source-excerpt setting through the scan request", async () => {
     seedReadyState()

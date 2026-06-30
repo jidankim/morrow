@@ -31,6 +31,7 @@ import { assertNeverNativeMenuCommand, loadInitialState, routeFromHash } from ".
 import { syncScanRequestFromState } from "./messagesDiscoveryBridge"
 import { nativeErrorMessage } from "./nativeErrors"
 import { useMessagesDiscoveryActions } from "./useMessagesDiscovery"
+import { useMessagesPreviewDisclosure } from "./useMessagesPreviewDisclosure"
 import { useNativeShellState } from "./useNativeShellState"
 import { useProviderCredentialActions } from "./useProviderCredentialActions"
 
@@ -49,6 +50,7 @@ export function useAppShellController() {
   const menu = getMenuModel(state)
   const warnings = getOnboardingWarnings(state)
   const syncEnabled = isSyncNowEnabled(state)
+  const previewDisclosureActions = useMessagesPreviewDisclosure({ discovery: state.discovery, nativeBridge })
 
   const openSettingsRoute = useCallback((): void => {
     window.location.hash = "#settings"
@@ -248,7 +250,10 @@ export function useAppShellController() {
     openPrivacySettings,
     openSettingsRoute,
     providerCredentialState,
+    previewDisclosure: previewDisclosureActions.previewDisclosure,
     route,
+    hidePreviews: previewDisclosureActions.hidePreviews,
+    revealPreviews: previewDisclosureActions.revealPreviews,
     runSyncNow,
     setMode,
     state,

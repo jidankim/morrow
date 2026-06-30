@@ -58,10 +58,13 @@ export function App(): JSX.Element {
             syncing={shell.syncing}
             syncEnabled={shell.syncEnabled}
             runtimeIdentity={runtimeIdentity}
+            previewDisclosure={shell.previewDisclosure}
             onPause={() => shell.setMode("paused")}
             onResume={() => shell.setMode("scanning")}
             onSyncNow={shell.runSyncNow}
+            onHidePreviews={shell.hidePreviews}
             onRetryChatDiscovery={shell.loadMessagesDiscovery}
+            onRevealPreviews={shell.revealPreviews}
             onOpenFullDiskAccess={shell.openFullDiskAccess}
             onOpenSettings={shell.openSettingsRoute}
             onToggleChat={shell.toggleChat}

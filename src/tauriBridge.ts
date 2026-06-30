@@ -2,13 +2,18 @@ import { invoke } from "@tauri-apps/api/core"
 import { listen } from "@tauri-apps/api/event"
 import { z } from "zod"
 import type { MenuModel, NativeAppShellState } from "./domain/appShell"
-import { syncResultCountsSchema, type SyncResultCounts } from "./domain/syncResultCounts"
 import {
-  parseMessagesDiscoveryReport,
-  parseSyncScanRequest,
+  type MessagesChatPreviewReport,
+  type MessagesChatPreviewRequest,
   type MessagesDiscoveryReport,
   type SyncScanRequest
 } from "./messagesDiscoveryBridge"
+import {
+  discoverMessagesChatsInTauri,
+  loadMessagesChatPreviewsInTauri,
+  scanSelectedChatsInTauri,
+  type SyncScanResult
+} from "./messagesTauriCommands"
 import { parseNativePermissionStatuses, type NativePermissionStatus } from "./nativePermissionBridge"
 import { parseRuntimeIdentity, type RuntimeIdentity } from "./nativeRuntimeBridge"
 import {
@@ -19,7 +24,6 @@ import {
   type CrashLogRequest,
   type MorrowDataDeleteReceipt,
   type MorrowDataDeleteRequest,
-  type PrivacySettingsPane,
   type PrivacySettingsReceipt,
   type PrivacySettingsRequest
 } from "./nativePrivacyBridge"
@@ -28,7 +32,13 @@ import { parseCodexProviderAuthReadiness, type CodexProviderAuthReadiness } from
 export type { NativePermissionStatus } from "./nativePermissionBridge"
 export type { RuntimeIdentity } from "./nativeRuntimeBridge"
 export { parseMessagesDiscoveryReport } from "./messagesDiscoveryBridge"
-export type { MessagesDiscoveryReport, SyncScanRequest } from "./messagesDiscoveryBridge"
+export type {
+  MessagesChatPreviewReport,
+  MessagesChatPreviewRequest,
+  MessagesDiscoveryReport,
+  SyncScanRequest
+} from "./messagesDiscoveryBridge"
+export type { SyncScanResult } from "./messagesTauriCommands"
 export type {
   CrashLogReceipt,
   CrashLogRequest,
@@ -49,8 +59,6 @@ const nativeAppShellStateSchema = z.object({
   onboardingComplete: z.boolean(),
   pendingProposalCount: z.number().int().min(0)
 })
-
-const syncScanResultSchema = syncResultCountsSchema
 
 const tokenStorageSurfaceSchema = z.literal("keychainBridge")
 
@@ -81,7 +89,6 @@ export type MorrowTokenWriteRequest = MorrowTokenLookupRequest & {
 }
 export type MorrowTokenCommandReceipt = z.infer<typeof tokenCommandReceiptSchema>
 export type MorrowTokenReadResponse = z.infer<typeof tokenReadResponseSchema>
-export type SyncScanResult = SyncResultCounts
 export type NativeMenuCommand = "sync-now" | "open-settings" | "open-calendar" | "open-reminders"
 
 export type NativeShellBridge = {
@@ -97,6 +104,9 @@ export type NativeShellBridge = {
   readonly reconcileNow: () => Promise<void>
   readonly scanSelectedChats: (request: SyncScanRequest) => Promise<SyncScanResult | undefined>
   readonly discoverMessagesChats: () => Promise<MessagesDiscoveryReport | undefined>
+  readonly loadMessagesChatPreviews: (
+    request: MessagesChatPreviewRequest
+  ) => Promise<MessagesChatPreviewReport | undefined>
   readonly getPermissionStatuses: () => Promise<readonly NativePermissionStatus[] | undefined>
   readonly storeMorrowToken: (
     request: MorrowTokenWriteRequest
@@ -131,10 +141,6 @@ const nativeMenuCommandEvents: readonly {
 
 function parseNativeAppShellState(value: unknown): NativeAppShellState {
   return nativeAppShellStateSchema.parse(value)
-}
-
-function parseSyncScanResult(value: unknown): SyncScanResult {
-  return syncScanResultSchema.parse(value)
 }
 
 function parseTokenCommandReceipt(value: unknown): MorrowTokenCommandReceipt {
@@ -191,20 +197,12 @@ export function createNativeShellBridge(): NativeShellBridge {
       }
       await invoke("reconcile_now")
     },
-    scanSelectedChats: async (request) => {
-      if (!isTauriRuntime()) {
-        return undefined
-      }
-      const result = await invoke<unknown>("scan_selected_chats", { request: parseSyncScanRequest(request) })
-      return parseSyncScanResult(result)
-    },
-    discoverMessagesChats: async () => {
-      if (!isTauriRuntime()) {
-        return undefined
-      }
-      const report = await invoke<unknown>("discover_messages_chats")
-      return parseMessagesDiscoveryReport(report)
-    },
+    scanSelectedChats: (request) =>
+      isTauriRuntime() ? scanSelectedChatsInTauri(request) : Promise.resolve(undefined),
+    discoverMessagesChats: () =>
+      isTauriRuntime() ? discoverMessagesChatsInTauri() : Promise.resolve(undefined),
+    loadMessagesChatPreviews: (request) =>
+      isTauriRuntime() ? loadMessagesChatPreviewsInTauri(request) : Promise.resolve(undefined),
     getPermissionStatuses: async () => {
       if (!isTauriRuntime()) {
         return undefined

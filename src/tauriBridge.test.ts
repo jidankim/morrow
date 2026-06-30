@@ -61,7 +61,10 @@ describe("createNativeShellBridge scan command", () => {
       createdCandidateCount: 0,
       quietLogCount: 0,
       createdExternalProposalCount: 0,
-      failedExternalProposalCount: 0
+      failedExternalProposalCount: 0,
+      feedbackLabelCount: 0,
+      featureSnapshotCount: 0,
+      latestEvalStatus: "never_run"
     })
     expect(tauriMock.invoke).toHaveBeenCalledWith("scan_selected_chats", { request })
   })
@@ -130,6 +133,62 @@ describe("createNativeShellBridge scan command", () => {
 
     // Then
     expect(tauriMock.invoke).toHaveBeenCalledWith("reconcile_now")
+  })
+
+  it("invokes native load_messages_chat_previews with opaque chat ids", async () => {
+    // Given
+    const report = {
+      chats: [
+        {
+          chatId: "messages-chat-11111111111111111111111111111111",
+          preview: ""
+        }
+      ]
+    } as const
+    tauriMock.invoke.mockResolvedValueOnce(report)
+    const { createNativeShellBridge } = await import("./tauriBridge")
+    const bridge = createNativeShellBridge()
+    const request = {
+      chatIds: ["messages-chat-11111111111111111111111111111111"]
+    } as const
+
+    // When
+    const result = await bridge.loadMessagesChatPreviews(request)
+
+    // Then
+    expect(result).toEqual(report)
+    expect(tauriMock.invoke).toHaveBeenCalledWith("load_messages_chat_previews", { request })
+  })
+
+  it("rejects malformed preview requests before invoking native previews", async () => {
+    // Given
+    const { createNativeShellBridge } = await import("./tauriBridge")
+    const bridge = createNativeShellBridge()
+    const request = {
+      chatIds: ["+15555550103"]
+    } as const
+
+    // When / Then
+    await expect(bridge.loadMessagesChatPreviews(request)).rejects.toThrow()
+    expect(tauriMock.invoke).not.toHaveBeenCalled()
+  })
+
+  it("surfaces rejected native preview promises without partial preview data", async () => {
+    // Given
+    const previewError = new Error("preview load failed")
+    tauriMock.invoke.mockRejectedValueOnce(previewError)
+    const { createNativeShellBridge } = await import("./tauriBridge")
+    const bridge = createNativeShellBridge()
+    const request = {
+      chatIds: ["messages-chat-11111111111111111111111111111111"]
+    } as const
+    let previewReport: Awaited<ReturnType<typeof bridge.loadMessagesChatPreviews>> | undefined
+
+    // When / Then
+    await expect(async () => {
+      previewReport = await bridge.loadMessagesChatPreviews(request)
+    }).rejects.toThrow(previewError)
+    expect(previewReport).toBeUndefined()
   })
 
   it("invokes native open_privacy_settings with a typed pane request", async () => {

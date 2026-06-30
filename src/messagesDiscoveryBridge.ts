@@ -14,6 +14,25 @@ import type { AppShellState } from "./domain/appShell"
 const chatIdSchema = z
   .string()
   .regex(opaqueChatIdPattern, "Chat IDs must be opaque Messages chat identifiers.")
+const messagePreviewVisibleCharLimit = 120
+const messagePreviewEllipsis = "..."
+const messagePreviewMaxCharLimit = messagePreviewVisibleCharLimit + messagePreviewEllipsis.length
+const previewTextSchema = z
+  .string()
+  .refine((value) => value.length === 0 || value.trim().length > 0, {
+    message: "Preview text must be empty or include visible content."
+  })
+  .refine((value) => Array.from(value).length <= messagePreviewMaxCharLimit, {
+    message: "Preview text must not exceed the native capped preview length."
+  })
+  .refine(
+    (value) =>
+      Array.from(value).length <= messagePreviewVisibleCharLimit ||
+      value.endsWith(messagePreviewEllipsis),
+    {
+      message: "Preview text over the visible limit must be native-capped with an ellipsis."
+    }
+  )
 const participantIdSchema = z
   .string()
   .regex(
@@ -51,6 +70,19 @@ const messagesDiscoveryReportSchema = z.discriminatedUnion("status", [
   z.object({ status: z.literal("unavailable"), chats: emptyDiscoveryChatsSchema }).strict()
 ])
 
+const messagesChatPreviewRequestSchema = z.object({
+  chatIds: z.array(chatIdSchema).min(1)
+}).strict()
+
+const messagesChatPreviewRowSchema = z.object({
+  chatId: chatIdSchema,
+  preview: previewTextSchema
+}).strict()
+
+const messagesChatPreviewReportSchema = z.object({
+  chats: z.array(messagesChatPreviewRowSchema)
+}).strict()
+
 const syncScanRequestSchema = z.object({
   selectedChatIds: z.array(chatIdSchema).min(1),
   selectedChats: z.array(discoveredChatSchema).min(1),
@@ -82,6 +114,15 @@ export type SyncScanRequest = {
 }
 
 export type MessagesDiscoveryReport = z.infer<typeof messagesDiscoveryReportSchema>
+export type MessagesChatPreviewRequest = {
+  readonly chatIds: readonly ChatId[]
+}
+export type MessagesChatPreviewReport = {
+  readonly chats: readonly {
+    readonly chatId: ChatId
+    readonly preview: string
+  }[]
+}
 export type SyncScanRequestState = Pick<
   AppShellState,
   "config" | "pendingProposalCount" | "selectedChats"
@@ -135,4 +176,12 @@ export function parseSyncScanRequest(value: unknown): SyncScanRequest {
 
 export function parseMessagesDiscoveryReport(value: unknown): MessagesDiscoveryReport {
   return messagesDiscoveryReportSchema.parse(value)
+}
+
+export function parseMessagesChatPreviewRequest(value: unknown): MessagesChatPreviewRequest {
+  return messagesChatPreviewRequestSchema.parse(value)
+}
+
+export function parseMessagesChatPreviewReport(value: unknown): MessagesChatPreviewReport {
+  return messagesChatPreviewReportSchema.parse(value)
 }

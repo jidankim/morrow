@@ -1,7 +1,13 @@
 import { act } from "@testing-library/react"
 import { vi } from "vitest"
 import { APP_SHELL_STATE_KEY, createDefaultAppShellState } from "./domain/appShell"
-import type { MorrowDataDeleteReceipt, RuntimeIdentity } from "./tauriBridge"
+import type {
+  MessagesChatPreviewReport,
+  MessagesChatPreviewRequest,
+  MorrowDataDeleteReceipt,
+  RuntimeIdentity,
+  SyncScanRequest
+} from "./tauriBridge"
 
 type CrashLogRequestForTest = {
   readonly message: string
@@ -23,6 +29,9 @@ export const appBundleRuntimeIdentityFixture = {
   runtimeKind: "appBundle"
 } as const satisfies RuntimeIdentity
 
+export const previewPrivacySentinel = "private clinic visit"
+export const emptyPreviewChatId = "messages-chat-33333333333333333333333333333333"
+
 const hoistedMocks = vi.hoisted(() => ({
   getState: vi.fn(async () => undefined),
   setShellState: vi.fn(async () => undefined),
@@ -30,7 +39,7 @@ const hoistedMocks = vi.hoisted(() => ({
   subscribeAppState: vi.fn(async () => vi.fn()),
   subscribeMenuCommand: vi.fn(async () => vi.fn()),
   reconcileNow: vi.fn(async () => undefined),
-  scanSelectedChats: vi.fn(async () => ({ pendingProposalCount: 12 })),
+  scanSelectedChats: vi.fn(async (_request: SyncScanRequest) => ({ pendingProposalCount: 12 })),
   checkProviderAuth: vi.fn(async () => ({
     status: "loggedInUsingChatGpt",
     ready: true,
@@ -72,6 +81,11 @@ const hoistedMocks = vi.hoisted(() => ({
       }
     ]
   })),
+  loadMessagesChatPreviews: vi.fn(
+    async (_request: MessagesChatPreviewRequest): Promise<MessagesChatPreviewReport> => ({
+      chats: []
+    })
+  ),
   openPrivacySettings: vi.fn(async () => ({ pane: "fullDiskAccess", opened: true })),
   deleteMorrowData: vi.fn(async (): Promise<MorrowDataDeleteReceipt> => ({
     storageSurface: "morrowStore",
@@ -135,6 +149,38 @@ export const seedReadyState = (): void => {
       selectedChats: [{ ...chat, backfillPromptEnabled: true }]
     })
   )
+}
+
+export const seedPreviewPrivacyReadyState = (): void => {
+  seedReadyState()
+  bridgeMock.discoverMessagesChats.mockResolvedValueOnce({
+    status: "ready",
+    chats: [
+      {
+        chatId: "messages-chat-11111111111111111111111111111111",
+        displayLabel: "Chat alpha",
+        participantCount: 2,
+        participantIds: [
+          "messages-participant-11111111111111111111111111111111",
+          "messages-participant-22222222222222222222222222222222"
+        ],
+        latestActivityTimestamp: 1_783_000_000
+      },
+      {
+        chatId: emptyPreviewChatId,
+        displayLabel: "Messages chat",
+        participantCount: 1,
+        participantIds: ["messages-participant-33333333333333333333333333333333"],
+        latestActivityTimestamp: 1_783_000_100
+      }
+    ]
+  })
+  bridgeMock.loadMessagesChatPreviews.mockResolvedValueOnce({
+    chats: [
+      { chatId: "messages-chat-11111111111111111111111111111111", preview: previewPrivacySentinel },
+      { chatId: emptyPreviewChatId, preview: "" }
+    ]
+  })
 }
 
 export const openAppRoute = (hash: "#settings" | "#status"): void => {

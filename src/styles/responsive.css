@@ -58,13 +58,15 @@
   }
 
   .command-row,
-  .discovery-actions {
+  .discovery-actions,
+  .chat-preview-toolbar {
     display: grid;
   }
 
   .command-row .button,
   .credential-action-row .button,
   .discovery-actions .button,
+  .chat-preview-toolbar .button,
   .permission-action-row .button {
     width: 100%;
     justify-content: center;

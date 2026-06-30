@@ -6,10 +6,11 @@ use super::{
     codex_auth, delete_all, eventkit_cleanup, eventkit_proposal, map_permission_status,
     messages_sqlite, scan, CodexExecRunner, CodexProvider, CodexProviderAuthReadiness,
     DeleteMorrowDataError, DeleteMorrowDataRequest, FakeNativeBridge, KeychainBridgeError,
-    MorrowDataDeleteReceipt, MorrowTokenVault, PermissionKind, PermissionState, PermissionStatus,
-    ProcessCodexExecRunner, ProposalReplayAdapter, ScanSelectedChatsError,
-    ScanSelectedChatsRequest, ScanSelectedChatsResult, TokenCommandReceipt, TokenLookupRequest,
-    TokenReadResponse, TokenWriteRequest,
+    MessagesPreviewCommandReport, MessagesPreviewRequest, MorrowDataDeleteReceipt,
+    MorrowTokenVault, PermissionKind, PermissionState, PermissionStatus, ProcessCodexExecRunner,
+    ProposalReplayAdapter, ScanSelectedChatsError, ScanSelectedChatsRequest,
+    ScanSelectedChatsResult, TokenCommandReceipt, TokenLookupRequest, TokenReadResponse,
+    TokenWriteRequest,
 };
 
 #[derive(Debug)]
@@ -194,6 +195,20 @@ impl NativeBridgeState {
                 messages_sqlite::MessagesSqliteAdapter::new(db_path.to_path_buf()).discover_chats()
             }
             NativeBridgeBackend::Fake(bridge) => bridge.discover_chats(),
+        }
+    }
+
+    pub fn load_messages_chat_previews_at(
+        &self,
+        db_path: &Path,
+        request: &MessagesPreviewRequest,
+    ) -> Result<MessagesPreviewCommandReport, MessagesError> {
+        match &self.bridge {
+            NativeBridgeBackend::Production(_) => {
+                messages_sqlite::MessagesSqliteAdapter::new(db_path.to_path_buf())
+                    .load_messages_chat_previews(request)
+            }
+            NativeBridgeBackend::Fake(bridge) => bridge.load_messages_chat_previews(request),
         }
     }
 }

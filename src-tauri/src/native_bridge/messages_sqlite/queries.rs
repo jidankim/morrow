@@ -80,6 +80,34 @@ ORDER BY chat_guid ASC, message_date ASC, message_guid ASC;
     ))
 }
 
+pub fn latest_previews_sql(chat_guids: &[ChatGuid]) -> Result<String, MessagesError> {
+    let selected_values = chat_guids
+        .iter()
+        .map(|guid| Ok(format!("({})", sql_text(guid.as_str())?)))
+        .collect::<Result<Vec<_>, MessagesError>>()?
+        .join(",");
+    Ok(format!(
+        r#"
+WITH selected(guid) AS (VALUES {selected_values}),
+selected_messages AS (
+  SELECT
+    c.guid AS chat_guid,
+    hex(COALESCE(m.text, '')) AS text_hex,
+    hex(COALESCE(m.attributedBody, X'')) AS attributed_body_hex,
+    ROW_NUMBER() OVER (PARTITION BY c.ROWID ORDER BY m.date DESC, m.ROWID DESC) AS row_number
+  FROM selected s
+  JOIN chat c ON c.guid = s.guid
+  JOIN chat_message_join cmj ON cmj.chat_id = c.ROWID
+  JOIN message m ON m.ROWID = cmj.message_id
+)
+SELECT chat_guid, text_hex, attributed_body_hex
+FROM selected_messages
+WHERE row_number = 1
+ORDER BY chat_guid ASC;
+"#
+    ))
+}
+
 pub const fn all_chat_guids_sql() -> &'static str {
     "SELECT guid FROM chat ORDER BY guid ASC;"
 }

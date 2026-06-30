@@ -39,6 +39,7 @@ pub fn run() -> tauri::Result<()> {
             native_bridge::delete_morrow_data,
             native_bridge::check_provider_auth,
             native_bridge::discover_messages_chats,
+            native_bridge::load_messages_chat_previews,
             native_bridge::get_runtime_identity,
             native_bridge::reconcile_now,
             native_bridge::scan_selected_chats,

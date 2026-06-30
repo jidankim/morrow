@@ -1,19 +1,18 @@
 import { DatabaseZap, MessageSquare, RefreshCw } from "lucide-react"
-import {
-  type ChatDiscovery,
-  type ChatId,
-  type DiscoveredChat,
-  type SelectedChat
-} from "./domain/appShell"
+import type { ChatDiscovery, ChatId, DiscoveredChat, SelectedChat } from "./domain/appShell"
 import { chatDisplayMetadata } from "./chatDisplay"
+import { ChatPreviewControls, type ChatPreviewDisclosure } from "./ChatPreviewControls"
 import { FullDiskAccessRecoveryGuide } from "./FullDiskAccessRecoveryGuide"
 import type { RuntimeIdentity } from "./tauriBridge"
 
 type ChatDiscoveryControlsProps = {
   readonly discovery: ChatDiscovery
+  readonly previewDisclosure?: ChatPreviewDisclosure | undefined
   readonly referenceTimezone: string
   readonly selectedChats: readonly SelectedChat[]
   readonly runtimeIdentity?: RuntimeIdentity | undefined
+  readonly onRevealPreviews?: (() => void) | undefined
+  readonly onHidePreviews?: (() => void) | undefined
   readonly onRetry: () => void
   readonly onOpenFullDiskAccess: () => void
   readonly onToggleChat: (chatId: ChatId) => void
@@ -22,9 +21,12 @@ type ChatDiscoveryControlsProps = {
 
 export function ChatDiscoveryControls({
   discovery,
+  previewDisclosure,
   referenceTimezone,
   selectedChats,
   runtimeIdentity,
+  onRevealPreviews,
+  onHidePreviews,
   onRetry,
   onOpenFullDiskAccess,
   onToggleChat,
@@ -74,6 +76,8 @@ export function ChatDiscoveryControls({
         />
       )
     case "ready":
+      const previewControlsAvailable =
+        previewDisclosure !== undefined && onRevealPreviews !== undefined && onHidePreviews !== undefined
       return (
         <div
           className="chat-list"
@@ -84,12 +88,25 @@ export function ChatDiscoveryControls({
             Messages source: {formatEligibleChatCount(discovery.chats.length)},{" "}
             {formatSelectedDiscoveredChatCount(discovery, selectedChats)}.
           </p>
+          {previewControlsAvailable ? (
+            <ChatPreviewControls
+              previewDisclosure={previewDisclosure}
+              onHidePreviews={onHidePreviews}
+              onRevealPreviews={onRevealPreviews}
+              onRetry={onRetry}
+            />
+          ) : null}
           {discovery.chats.map((chat) => {
             const selectedChat = selectedChats.find((selected) => selected.id === chat.id)
             return (
               <ChatChoice
                 chat={chat}
                 key={chat.id}
+                previewText={
+                  previewDisclosure?.status === "ready"
+                    ? previewDisclosure.previews.get(chat.id) || undefined
+                    : undefined
+                }
                 selected={selectedChat !== undefined}
                 referenceTimezone={referenceTimezone}
                 backfillEnabled={selectedChat?.backfillPromptEnabled ?? false}
@@ -150,6 +167,7 @@ function DiscoveryState({
 
 type ChatChoiceProps = {
   readonly chat: DiscoveredChat
+  readonly previewText?: string | undefined
   readonly referenceTimezone: string
   readonly selected: boolean
   readonly backfillEnabled: boolean
@@ -159,6 +177,7 @@ type ChatChoiceProps = {
 
 function ChatChoice({
   chat,
+  previewText,
   referenceTimezone,
   selected,
   backfillEnabled,
@@ -166,6 +185,8 @@ function ChatChoice({
   onToggleBackfillPrompt
 }: ChatChoiceProps): JSX.Element {
   const display = chatDisplayMetadata(chat, referenceTimezone)
+  const previewAccessibleText =
+    previewText === undefined ? "" : `, Latest preview: ${previewText}`
 
   return (
     <div
@@ -174,7 +195,7 @@ function ChatChoice({
     >
       <label className="check-row chat-choice-main">
         <input
-          aria-label={`${display.label}, ${display.participantCountText}, ${display.latestActivityText}, ${
+          aria-label={`${display.label}${previewAccessibleText}, ${display.participantCountText}, ${display.latestActivityText}, ${
             selected ? "selected" : "not selected"
           }`}
           checked={selected}
@@ -190,6 +211,11 @@ function ChatChoice({
           </small>
           <small data-visual-qa-text="chat-row-recency">{display.latestActivityText}</small>
           <small className="chat-selection-state">{selected ? "Selected" : "Not selected"}</small>
+          {previewText !== undefined ? (
+            <span className="chat-row-preview" data-visual-qa-text="chat-row-preview">
+              {previewText}
+            </span>
+          ) : null}
         </span>
       </label>
       {selected ? (

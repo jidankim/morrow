@@ -6,8 +6,9 @@ use std::{
 use morrow_detection::AiProvider;
 use morrow_diagnostics::TraceRecorder;
 use morrow_messages::{
-    DiscoveredChat, MessagesDataSource, MessagesDiscoveryDataSource, MessagesDiscoveryReport,
-    MessagesDiscoveryStatus, MessagesError, NativeBatch, NativeReadRequest,
+    ChatGuid, DiscoveredChat, MessagesDataSource, MessagesDiscoveryDataSource,
+    MessagesDiscoveryReport, MessagesDiscoveryStatus, MessagesError, NativeBatch,
+    NativeReadRequest,
 };
 use serde::Serialize;
 
@@ -17,6 +18,10 @@ use super::{
         TokenReadResponse, TokenWriteRequest,
     },
     permissions::{map_permission_status, PermissionKind, PermissionState, PermissionStatus},
+    preview::{
+        normalize_message_preview, MessagesPreviewCommandChat, MessagesPreviewCommandReport,
+        MessagesPreviewRequest,
+    },
     public_chat_id::public_chat_id,
     scan::{
         scan_selected_chats_with_dependencies, LocalProposalAdapter, ScanSelectedChatsDependencies,
@@ -146,6 +151,53 @@ impl FakeNativeBridge {
     pub fn with_discovery_report(mut self, report: MessagesDiscoveryReport) -> Self {
         self.discovery_report = report;
         self
+    }
+
+    pub fn load_messages_chat_previews(
+        &self,
+        request: &MessagesPreviewRequest,
+    ) -> Result<MessagesPreviewCommandReport, MessagesError> {
+        let messages = self
+            .messages
+            .as_ref()
+            .ok_or(MessagesError::PermissionDenied)?;
+        let raw_chat_guids = self.resolve_preview_chat_guids(&request.chat_ids)?;
+        let mut chats = Vec::new();
+        for chat_guid in raw_chat_guids {
+            let message = messages
+                .chats
+                .iter()
+                .find(|chat| chat.guid == chat_guid)
+                .and_then(|chat| chat.messages.iter().max_by_key(|message| message.timestamp));
+            if let Some(message) = message {
+                chats.push(MessagesPreviewCommandChat::new(
+                    public_chat_id(&chat_guid),
+                    normalize_message_preview(&message.text),
+                ));
+            }
+        }
+        Ok(MessagesPreviewCommandReport { chats })
+    }
+
+    fn resolve_preview_chat_guids(
+        &self,
+        public_ids: &[String],
+    ) -> Result<Vec<ChatGuid>, MessagesError> {
+        let mut guid_by_public_id = BTreeMap::new();
+        for chat in self.discovery_report.chats() {
+            guid_by_public_id.insert(public_chat_id(chat.chat_guid()), chat.chat_guid().clone());
+        }
+        public_ids
+            .iter()
+            .map(|public_id| {
+                guid_by_public_id.get(public_id).cloned().ok_or_else(|| {
+                    MessagesError::InvalidInput {
+                        field: "chat_ids",
+                        reason: "contains an unknown Messages chat id".to_owned(),
+                    }
+                })
+            })
+            .collect()
     }
 
     pub fn query_permission_statuses(&self) -> Vec<PermissionStatus> {

@@ -11,6 +11,8 @@ use morrow_messages::{
 
 #[path = "native_messages_discovery/attributed_body.rs"]
 mod attributed_body;
+#[path = "native_messages_discovery/previews.rs"]
+mod previews;
 #[path = "native_messages_discovery/support.rs"]
 mod support;
 
