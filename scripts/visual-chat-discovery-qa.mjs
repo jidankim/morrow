@@ -16,6 +16,9 @@ const requiredStates = [
   "empty",
   "ready-multiple",
   "ready-selected",
+  "ready-previews-hidden",
+  "ready-previews-revealed",
+  "provider-missing",
   "stale-selection"
 ]
 const viewportWidths = [375, 768, 1280]
@@ -78,8 +81,8 @@ async function main() {
     await cleanupServer(server)
   }
 
-  await writeReport(evidenceDir, {
-    command: "node scripts/visual-chat-discovery-qa.mjs .omo/evidence",
+  const reportPath = await writeReport(evidenceDir, {
+    command: `node scripts/visual-chat-discovery-qa.mjs ${evidenceArg}`,
     baseUrl,
     requiredStates,
     viewportWidths,
@@ -90,7 +93,7 @@ async function main() {
     results
   })
   console.log(
-    `visual chat discovery QA passed: ${results.length} screenshots, ${requiredStates.length} states, ${viewportWidths.length} widths`
+    `visual chat discovery QA passed: ${results.length} screenshots, ${requiredStates.length} states, ${viewportWidths.length} widths, report ${reportPath}`
   )
 }
 
@@ -171,10 +174,9 @@ async function verifyFreshScreenshot(screenshotPath, startedAtMs) {
 
 async function writeReport(evidenceDir, report) {
   await mkdir(evidenceDir, { recursive: true })
-  await writeFile(
-    path.join(evidenceDir, `${screenshotPrefix}-report.json`),
-    `${JSON.stringify(report, null, 2)}\n`
-  )
+  const reportPath = path.join(evidenceDir, `${screenshotPrefix}-report.json`)
+  await writeFile(reportPath, `${JSON.stringify(report, null, 2)}\n`)
+  return reportPath
 }
 
 main().catch((error) => {

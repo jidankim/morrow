@@ -4,7 +4,8 @@ export async function verifyVisualState(page, state, width) {
   const textLayout = await assertTextLayout(page, state, width)
   const focusChecks = await assertFocusChecks(page, state, width)
   const hoverChecks = await assertHoverChecks(page, state, width)
-  return { markerCounts, textLayout, focusChecks, hoverChecks }
+  const previewVisibility = await assertPreviewVisibility(page, state, width)
+  return { markerCounts, textLayout, focusChecks, hoverChecks, previewVisibility }
 }
 
 async function assertNoHorizontalOverflow(page, state, width) {
@@ -172,6 +173,28 @@ async function assertHoverChecks(page, state, width) {
     )
   }
   return { syncHover, selectedRowHover }
+}
+
+async function assertPreviewVisibility(page, state, width) {
+  const previews = page.locator('[data-visual-qa-text="chat-row-preview"]')
+  const count = await previews.count()
+  const sampleText = count > 0 ? normalizeText(await previews.first().innerText()) : ""
+
+  if (state === "ready-previews-revealed") {
+    if (count === 0 || sampleText.length === 0) {
+      throw new Error(`${state}@${width}: expected revealed preview text`)
+    }
+    return { expected: "present", count, sampleText }
+  }
+
+  if (count > 0) {
+    throw new Error(`${state}@${width}: preview text must be hidden, found ${count} row previews`)
+  }
+  return { expected: "absent", count, sampleText }
+}
+
+function normalizeText(value) {
+  return value.replace(/\s+/g, " ").trim()
 }
 
 function expectedSyncNowState(state) {

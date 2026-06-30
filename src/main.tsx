@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client"
 import { App } from "./App"
 import { SettingsView } from "./SettingsView"
 import { StatusView } from "./StatusView"
+import type { ChatPreviewDisclosure } from "./ChatPreviewControls"
 import { createDefaultAppShellState, getMenuModel, getOnboardingWarnings, isSyncNowEnabled, type AppShellState, type ChatId, type DiscoveredChat, type SelectedChat } from "./domain/appShell"
 import type { RuntimeIdentity } from "./tauriBridge"
 import "./styles.css"
@@ -20,7 +21,8 @@ if (rootElement === null) {
 
 const visualChatDiscoveryStates = {
   loading: true, unverified: true, permissionDenied: true, unavailable: true, empty: true,
-  "ready-multiple": true, "ready-selected": true, "provider-missing": true, "stale-selection": true
+  "ready-multiple": true, "ready-selected": true, "ready-previews-hidden": true,
+  "ready-previews-revealed": true, "provider-missing": true, "stale-selection": true
 } as const
 
 type VisualChatDiscoveryState = keyof typeof visualChatDiscoveryStates
@@ -38,22 +40,22 @@ type VisualQaState = { readonly kind: "chatDiscovery"; readonly stateName: Visua
 
 const visualQaState = import.meta.env.DEV ? getVisualQaState(window.location.search) : undefined
 
-createRoot(rootElement).render(
-  <StrictMode>{visualQaState === undefined ? <App /> : <VisualQaHarness state={visualQaState} />}</StrictMode>
-)
+createRoot(rootElement).render(<StrictMode>{visualQaState === undefined ? <App /> : <VisualQaHarness state={visualQaState} />}</StrictMode>)
 
 function VisualQaHarness({ state }: { readonly state: VisualQaState }): JSX.Element {
-  if (state.kind === "chatDiscovery") {
-    return <VisualChatDiscoveryHarness stateName={state.stateName} />
-  }
-  return <VisualFullDiskAccessRecoveryHarness stateName={state.stateName} />
+  return state.kind === "chatDiscovery"
+    ? <VisualChatDiscoveryHarness stateName={state.stateName} />
+    : <VisualFullDiskAccessRecoveryHarness stateName={state.stateName} />
 }
 
 function VisualChatDiscoveryHarness({ stateName }: { readonly stateName: VisualChatDiscoveryState }): JSX.Element {
   const state = visualChatDiscoveryAppState(stateName)
+  const previewDisclosure: ChatPreviewDisclosure | undefined =
+    stateName === "ready-previews-hidden" ? { status: "hidden", previews: visualChatPreviews } :
+    stateName === "ready-previews-revealed" ? { status: "ready", previews: visualChatPreviews } : undefined
   return (
     <VisualQaShell stateName={stateName} lede="Messages setup visual QA">
-      <VisualStatusFixture state={state} runtimeIdentity={undefined} />
+      <VisualStatusFixture state={state} previewDisclosure={previewDisclosure} runtimeIdentity={undefined} />
     </VisualQaShell>
   )
 }
@@ -75,12 +77,9 @@ function VisualFullDiskAccessRecoveryHarness({ stateName }: { readonly stateName
     case "settings-privacy-appBundle":
       return (
         <VisualQaShell stateName={stateName}>
-          <SettingsView
-            config={createVisualBaseState().config} deleteAllState={{ status: "idle" }}
-            providerCredentialState={{ status: "ready" }} runtimeIdentity={runtimeIdentity}
-            onChange={noop} onCheckProviderCredential={noopAsync} onDeleteAll={noop}
-            onOpenPrivacySettings={noopAsync}
-          />
+          <SettingsView config={createVisualBaseState().config} deleteAllState={{ status: "idle" }}
+            providerCredentialState={{ status: "ready" }} runtimeIdentity={runtimeIdentity} onChange={noop}
+            onCheckProviderCredential={noopAsync} onDeleteAll={noop} onOpenPrivacySettings={noopAsync} />
         </VisualQaShell>
       )
     default:
@@ -93,22 +92,25 @@ function VisualQaShell({ stateName, lede = "Full Disk Access recovery visual QA"
 }): JSX.Element {
   return (
     <main className="app-shell visual-qa-shell" data-visual-qa-state={stateName}>
-      <aside className="sidebar" aria-label="Visual QA fixture"><h1>Morrow</h1><p className="lede">{lede}</p></aside>
-      <section className="content" aria-live="polite">{children}</section>
+      <aside className="sidebar" aria-label="Visual QA fixture">
+        <h1>Morrow</h1><p className="lede">{lede}</p>
+      </aside><section className="content" aria-live="polite">{children}</section>
     </main>
   )
 }
 
-function VisualStatusFixture({ state, runtimeIdentity }: {
-  readonly state: AppShellState; readonly runtimeIdentity?: RuntimeIdentity | undefined
+function VisualStatusFixture({ state, previewDisclosure, runtimeIdentity }: {
+  readonly state: AppShellState
+  readonly previewDisclosure?: ChatPreviewDisclosure | undefined
+  readonly runtimeIdentity?: RuntimeIdentity | undefined
 }): JSX.Element {
   return (
     <StatusView
-      menu={getMenuModel(state)} state={state} warnings={getOnboardingWarnings(state)}
-      syncing={false} syncEnabled={isSyncNowEnabled(state)} runtimeIdentity={runtimeIdentity}
-      onPause={noop} onResume={noop} onSyncNow={noop} onOpenSettings={noop}
-      onRetryChatDiscovery={noop} onOpenFullDiskAccess={noop} onToggleChat={noopChatToggle}
-      onToggleBackfillPrompt={noopBackfillToggle}
+      menu={getMenuModel(state)} state={state} warnings={getOnboardingWarnings(state)} syncing={false}
+      syncEnabled={isSyncNowEnabled(state)} previewDisclosure={previewDisclosure} runtimeIdentity={runtimeIdentity}
+      onPause={noop} onResume={noop} onSyncNow={noop} onOpenSettings={noop} onRetryChatDiscovery={noop}
+      onOpenFullDiskAccess={noop} onRevealPreviews={noop} onHidePreviews={noop}
+      onToggleChat={noopChatToggle} onToggleBackfillPrompt={noopBackfillToggle}
     />
   )
 }
@@ -139,13 +141,9 @@ function getVisualQaState(search: string): VisualQaState | undefined {
   }
 }
 
-function isVisualChatDiscoveryState(value: string): value is VisualChatDiscoveryState {
-  return value in visualChatDiscoveryStates
-}
+function isVisualChatDiscoveryState(value: string): value is VisualChatDiscoveryState { return value in visualChatDiscoveryStates }
 
-function isVisualFullDiskAccessRecoveryState(value: string): value is VisualFullDiskAccessRecoveryState {
-  return value in visualFullDiskAccessRecoveryStates
-}
+function isVisualFullDiskAccessRecoveryState(value: string): value is VisualFullDiskAccessRecoveryState { return value in visualFullDiskAccessRecoveryStates }
 
 function visualChatDiscoveryAppState(stateName: VisualChatDiscoveryState): AppShellState {
   const baseState = createVisualBaseState()
@@ -155,10 +153,7 @@ function visualChatDiscoveryAppState(stateName: VisualChatDiscoveryState): AppSh
     case "unverified":
       return { ...baseState, discovery: { status: "unverified", chats: [] } }
     case "permissionDenied":
-      return {
-        ...baseState, config: { ...baseState.config, permissionsGranted: false },
-        discovery: { status: "permissionDenied", chats: [] }
-      }
+      return { ...baseState, config: { ...baseState.config, permissionsGranted: false }, discovery: { status: "permissionDenied", chats: [] } }
     case "unavailable":
       return { ...baseState, discovery: { status: "unavailable", chats: [] } }
     case "empty":
@@ -166,21 +161,14 @@ function visualChatDiscoveryAppState(stateName: VisualChatDiscoveryState): AppSh
     case "ready-multiple":
       return { ...baseState, discovery: { status: "ready", chats: visualDiscoveredChats } }
     case "ready-selected":
-      return {
-        ...baseState, discovery: { status: "ready", chats: visualDiscoveredChats },
-        selectedChats: [selectedVisualChat]
-      }
+      return { ...baseState, discovery: { status: "ready", chats: visualDiscoveredChats }, selectedChats: [selectedVisualChat] }
+    case "ready-previews-hidden":
+    case "ready-previews-revealed":
+      return { ...baseState, discovery: { status: "ready", chats: visualDiscoveredChats } }
     case "provider-missing":
-      return {
-        ...baseState, providerCredentialStatus: "missing",
-        discovery: { status: "ready", chats: visualDiscoveredChats },
-        selectedChats: [selectedVisualChat]
-      }
+      return { ...baseState, providerCredentialStatus: "missing", discovery: { status: "ready", chats: visualDiscoveredChats }, selectedChats: [selectedVisualChat] }
     case "stale-selection":
-      return {
-        ...baseState, discovery: { status: "ready", chats: visualDiscoveredChats.slice(1) },
-        selectedChats: [staleSelectedVisualChat]
-      }
+      return { ...baseState, discovery: { status: "ready", chats: visualDiscoveredChats.slice(1) }, selectedChats: [staleSelectedVisualChat] }
     default:
       return assertNever(stateName)
   }
@@ -191,10 +179,7 @@ function visualFullDiskAccessDiscoveryAppState(stateName: VisualFullDiskAccessRe
   switch (stateName) {
     case "discovery-permission-denied-binary":
     case "discovery-permission-denied-appBundle":
-      return {
-        ...baseState, config: { ...baseState.config, permissionsGranted: false },
-        discovery: { status: "permissionDenied", chats: [] }
-      }
+      return { ...baseState, config: { ...baseState.config, permissionsGranted: false }, discovery: { status: "permissionDenied", chats: [] } }
     case "discovery-unavailable-binary":
       return { ...baseState, discovery: { status: "unavailable", chats: [] } }
     case "settings-privacy-binary":
@@ -235,6 +220,12 @@ const visualChatGamma: DiscoveredChat = {
 
 const visualDiscoveredChats = [visualChatAlpha, visualChatBeta, visualChatGamma] as const
 
+const visualChatPreviews = new Map<ChatId, string>([
+  [visualChatAlpha.id, "Agenda moved to Thursday afternoon; bring the launch notes and confirm room setup before review."],
+  [visualChatBeta.id, "Design notes are ready with the calmer status copy and the final checklist grouped by topic."],
+  [visualChatGamma.id, "Quick reminder to compare the short list before choosing which thread stays selected."]
+])
+
 const visualBinaryRuntimeIdentity: RuntimeIdentity = {
   displayName: "morrow", bundleIdentifier: "dev.morrow.local",
   executablePath: "/Users/example/workspace/morrow/src-tauri/target/debug/morrow",
@@ -262,9 +253,7 @@ function visualRecoveryRuntimeIdentity(stateName: VisualFullDiskAccessRecoverySt
   }
 }
 
-const selectedVisualChat: SelectedChat = {
-  ...visualChatAlpha, backfillPromptEnabled: true
-}
+const selectedVisualChat: SelectedChat = { ...visualChatAlpha, backfillPromptEnabled: true }
 
 const staleSelectedVisualChat: SelectedChat = {
   id: "messages-chat-dddddddddddddddddddddddddddddddd", label: "Previous planning circle",
