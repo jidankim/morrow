@@ -6,7 +6,7 @@ use morrow_lib::native_bridge::{
 };
 use morrow_messages::{
     ChatGuid, MessageTimestamp, MessagesDataSource, MessagesDiscoveryDataSource,
-    MessagesDiscoveryReport, MessagesDiscoveryStatus, NativeReadRequest,
+    MessagesDiscoveryReport, MessagesDiscoveryStatus, MessagesError, NativeReadRequest,
 };
 
 #[path = "native_messages_discovery/attributed_body.rs"]
@@ -167,19 +167,77 @@ fn degrades_cleanly_when_messages_database_is_unavailable() -> Result<(), String
 }
 
 #[test]
-fn maps_permission_denied_sqlite_failure_to_discovery_status() -> Result<(), String> {
+fn messages_sqlite_boundary_rejects_malformed_discovery_rows_as_unavailable() -> Result<(), String>
+{
+    // Given
+    let dir = tempfile::tempdir().map_err(|error| error.to_string())?;
+    let db_path = dir.path().join("malformed-chat.db");
+    run_sqlite(
+        &db_path,
+        "
+        CREATE TABLE chat (ROWID INTEGER PRIMARY KEY, guid TEXT NOT NULL, display_name TEXT);
+        CREATE TABLE handle (ROWID INTEGER PRIMARY KEY, id TEXT NOT NULL);
+        CREATE TABLE message (
+            ROWID INTEGER PRIMARY KEY,
+            guid TEXT NOT NULL,
+            date INTEGER NOT NULL,
+            text TEXT,
+            attributedBody BLOB,
+            handle_id INTEGER
+        );
+        CREATE TABLE chat_message_join (chat_id INTEGER NOT NULL, message_id INTEGER NOT NULL);
+        CREATE TABLE chat_handle_join (chat_id INTEGER NOT NULL, handle_id INTEGER NOT NULL);
+        INSERT INTO chat (ROWID, guid, display_name) VALUES (1, 'iMessage;-;chat-alpha', 'Clinic Ops');
+        INSERT INTO handle (ROWID, id) VALUES (1, '+15555550101');
+        INSERT INTO chat_handle_join (chat_id, handle_id) VALUES (1, 1);
+        INSERT INTO message (ROWID, guid, date, text, attributedBody, handle_id)
+            VALUES (1, 'malformed-date-message', 'not-a-date', 'body', NULL, 1);
+        INSERT INTO chat_message_join (chat_id, message_id) VALUES (1, 1);
+        ",
+    )?;
+    let adapter = MessagesSqliteAdapter::new(db_path);
+
+    // When
+    let result = adapter.discover_chats();
+
+    // Then
+    match result {
+        Err(MessagesError::NativeUnavailable { reason }) => {
+            assert!(reason.contains("sqlite row has invalid latest_date"));
+        }
+        other => {
+            return Err(format!(
+                "expected malformed sqlite row to map to NativeUnavailable, got {other:?}"
+            ));
+        }
+    }
+    Ok(())
+}
+
+#[test]
+fn messages_sqlite_boundary_maps_permission_denied_to_report() -> Result<(), String> {
     // Given
     let dir = tempfile::tempdir().map_err(|error| error.to_string())?;
     let adapter = MessagesSqliteAdapter::permission_denied_for_test(dir.path().join("chat.db"));
+    let missing_path = dir.path().join("missing").join("chat.db");
+    let unavailable_adapter = MessagesSqliteAdapter::new(missing_path);
 
     // When
     let report = adapter
+        .discover_chats()
+        .map_err(|error| error.to_string())?;
+    let unavailable_report = unavailable_adapter
         .discover_chats()
         .map_err(|error| error.to_string())?;
 
     // Then
     assert_eq!(report.status(), MessagesDiscoveryStatus::PermissionDenied);
     assert!(report.chats().is_empty());
+    assert_eq!(
+        unavailable_report.status(),
+        MessagesDiscoveryStatus::Unavailable
+    );
+    assert!(unavailable_report.chats().is_empty());
     Ok(())
 }
 
