@@ -11,6 +11,11 @@ use super::{ScanSelectedChatsError, ScanSelectedChatsRequest};
 const SUPPORTED_REFERENCE_TIMEZONES: &[&str] =
     &["Asia/Seoul", "America/New_York", "Europe/London", "UTC"];
 
+pub(super) struct ScanConfig {
+    pub detection: DetectionConfig,
+    pub feedback_text_snapshots_enabled: bool,
+}
+
 pub(super) fn reference_unix_seconds(
     request: &ScanSelectedChatsRequest,
 ) -> Result<i64, ScanSelectedChatsError> {
@@ -20,10 +25,10 @@ pub(super) fn reference_unix_seconds(
     }
 }
 
-pub(super) fn detection_config(
+pub(super) fn scan_config(
     request: &ScanSelectedChatsRequest,
     reference_unix_seconds: i64,
-) -> Result<DetectionConfig, ScanSelectedChatsError> {
+) -> Result<ScanConfig, ScanSelectedChatsError> {
     if !SUPPORTED_REFERENCE_TIMEZONES
         .iter()
         .any(|timezone| *timezone == request.reference_timezone)
@@ -34,14 +39,27 @@ pub(super) fn detection_config(
     }
     let reference_time =
         reference_time_string(reference_unix_seconds, &request.reference_timezone)?;
-    Ok(DetectionConfig {
-        reference: ReferenceTime::parse(&reference_time, &request.reference_timezone)
-            .map_err(detection_error)?,
-        threshold: ConfidenceThreshold::new(550).map_err(detection_error)?,
-        provider: ProviderIdentity::new("native-bridge", "deterministic", "scan-v1")
-            .map_err(detection_error)?,
-        source_excerpts: SourceExcerptPolicy::Hide,
+    let source_excerpts = source_excerpt_policy(request.source_excerpts_enabled);
+    Ok(ScanConfig {
+        detection: DetectionConfig {
+            reference: ReferenceTime::parse(&reference_time, &request.reference_timezone)
+                .map_err(detection_error)?,
+            threshold: ConfidenceThreshold::new(550).map_err(detection_error)?,
+            provider: ProviderIdentity::new("native-bridge", "deterministic", "scan-v1")
+                .map_err(detection_error)?,
+            source_excerpts,
+        },
+        feedback_text_snapshots_enabled: request.source_excerpts_enabled
+            && request.feedback_text_snapshots_enabled,
     })
+}
+
+const fn source_excerpt_policy(enabled: bool) -> SourceExcerptPolicy {
+    if enabled {
+        SourceExcerptPolicy::Include
+    } else {
+        SourceExcerptPolicy::Hide
+    }
 }
 
 fn current_unix_seconds() -> Result<i64, ScanSelectedChatsError> {

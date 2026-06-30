@@ -121,6 +121,53 @@ fn impossible_provider_date_is_rejected() -> Result<(), Box<dyn Error>> {
 }
 
 #[test]
+fn provider_normalized_time_rejects_raw_suffix() -> Result<(), Box<dyn Error>> {
+    // Given
+    let provider =
+        FakeProvider::from_owned(Some(provider_payload_at("2026-06-26T15:00:00raw-suffix")));
+    let pipeline = DetectionPipeline::new(&provider);
+    let messages = vec![message(
+        "chat-1",
+        "msg-ambiguous-1",
+        "Can we meet Friday afternoon?",
+        true,
+    )?];
+    let config = config(550)?;
+
+    // When
+    let report = pipeline.detect(&messages, &config);
+
+    // Then
+    let quiet = only_quiet(&report.outcomes)?;
+    assert_eq!(quiet.reason, "provider_schema_rejected");
+    Ok(())
+}
+
+#[test]
+fn provider_normalized_time_rejects_private_bracketed_zone() -> Result<(), Box<dyn Error>> {
+    // Given
+    let provider = FakeProvider::from_owned(Some(provider_payload_at(
+        "2026-06-26T15:00:00[private_clinic_visit]",
+    )));
+    let pipeline = DetectionPipeline::new(&provider);
+    let messages = vec![message(
+        "chat-1",
+        "msg-ambiguous-1",
+        "Can we meet Friday afternoon?",
+        true,
+    )?];
+    let config = config(550)?;
+
+    // When
+    let report = pipeline.detect(&messages, &config);
+
+    // Then
+    let quiet = only_quiet(&report.outcomes)?;
+    assert_eq!(quiet.reason, "provider_schema_rejected");
+    Ok(())
+}
+
+#[test]
 fn provider_failure_is_quiet_logged_without_successful_candidate() -> Result<(), Box<dyn Error>> {
     // Given
     let provider = UnavailableProvider;
@@ -141,4 +188,14 @@ fn provider_failure_is_quiet_logged_without_successful_candidate() -> Result<(),
     assert_eq!(quiet.reason, "provider_unavailable");
     assert_eq!(report.candidates().count(), 0);
     Ok(())
+}
+
+fn provider_payload_at(normalized_time: &str) -> String {
+    format!(
+        "{{\"kind\":\"calendar_event\",\"title\":\"Bad normalized time\",\
+         \"confidence_millis\":800,\
+         \"normalized_time\":\"{normalized_time}\",\
+         \"anchor_message_guid\":\"msg-ambiguous-1\",\
+         \"evidence_message_guids\":[\"msg-ambiguous-1\"]}}"
+    )
 }

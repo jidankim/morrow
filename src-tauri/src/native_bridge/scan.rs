@@ -1,17 +1,20 @@
 mod config;
 mod dependencies;
+mod feedback;
 mod messages;
 mod production;
 mod proposal_replay;
+mod result;
 
-use std::{fmt::Display, path::Path};
+use std::path::Path;
 
 use super::scan_privacy::{
     candidate_ids_for_response, privacy_safe_candidate, privacy_safe_quiet_log,
 };
-use config::{detection_config, reference_unix_seconds};
+use config::{reference_unix_seconds, scan_config};
 pub use dependencies::ScanSelectedChatsDependencies;
 use dependencies::{empty_scan_result, UnavailableProvider};
+use feedback::FeedbackTraceRecorder;
 use messages::ingestion_request;
 use morrow_detection::{AiProvider, DetectionOutcome, DetectionPipeline};
 use morrow_diagnostics::{NoopTraceRecorder, TraceRecorder};
@@ -23,7 +26,9 @@ pub use production::{
 use proposal_replay::replay_external_proposals;
 pub(in crate::native_bridge) use proposal_replay::LocalProposalAdapter;
 pub use proposal_replay::{CalendarProposalReceipt, ProposalReplayAdapter};
-use serde::{Deserialize, Serialize};
+use result::count_to_usize;
+pub use result::{LatestEvalStatus, ScanSelectedChatsError, ScanSelectedChatsResult};
+use serde::Deserialize;
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -35,6 +40,7 @@ pub struct ScanSelectedChatsRequest {
     pub reference_unix_seconds: Option<i64>,
     pub backfill_prompt_chat_ids: Vec<String>,
     pub source_excerpts_enabled: bool,
+    pub feedback_text_snapshots_enabled: bool,
     pub cap_policy: CapPolicyRequest,
 }
 
@@ -55,40 +61,6 @@ pub enum CapPolicyRequest {
         #[serde(rename = "pendingCount")]
         pending_count: usize,
     },
-}
-
-#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-pub struct ScanSelectedChatsResult {
-    pub pending_proposal_count: usize,
-    pub created_candidate_count: usize,
-    pub quiet_log_count: usize,
-    pub cap_visible_count: usize,
-    pub cap_deferred_count: usize,
-    pub created_external_proposal_count: usize,
-    pub failed_external_proposal_count: usize,
-    pub created_candidate_ids: Vec<String>,
-}
-
-#[derive(Debug)]
-pub enum ScanSelectedChatsError {
-    Detection(String),
-    Messages(String),
-    Storage(String),
-    ExternalProposal(String),
-}
-
-impl Display for ScanSelectedChatsError {
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Detection(message) => write!(formatter, "scan detection failed: {message}"),
-            Self::Messages(message) => write!(formatter, "scan messages failed: {message}"),
-            Self::Storage(message) => write!(formatter, "scan storage failed: {message}"),
-            Self::ExternalProposal(message) => {
-                write!(formatter, "scan external proposal failed: {message}")
-            }
-        }
-    }
 }
 
 pub fn scan_selected_chats_with_source(
@@ -131,24 +103,57 @@ where
     )
     .map_err(messages_error)?;
     if ingestion.status == IngestionStatus::Unavailable {
-        return Ok(empty_scan_result());
+        return empty_scan_result(&store.feedback_eval_counts().map_err(storage_error)?);
     }
-    let config = detection_config(&request, reference_unix_seconds)?;
+    let config = scan_config(&request, reference_unix_seconds)?;
+    debug_assert!(
+        !config.feedback_text_snapshots_enabled || request.source_excerpts_enabled,
+        "feedback text snapshots require source excerpt consent"
+    );
+    let feedback_recorder = FeedbackTraceRecorder::new(dependencies.trace_recorder);
     let report =
-        pipeline.detect_with_trace(&ingestion.messages, &config, dependencies.trace_recorder);
+        pipeline.detect_with_trace(&ingestion.messages, &config.detection, &feedback_recorder);
+    let trace_groups = feedback_recorder.trace_groups()?;
     let mut created_candidate_ids = Vec::new();
     let mut quiet_log_count = 0;
 
-    for outcome in report.outcomes {
+    for (index, outcome) in report.outcomes.into_iter().enumerate() {
+        let Some(message) = ingestion.messages.get(index) else {
+            return Err(ScanSelectedChatsError::Detection(
+                "detection outcome missing message evidence".to_owned(),
+            ));
+        };
+        let trace_group = trace_groups.get(index);
         match outcome {
             DetectionOutcome::Candidate(candidate) => {
-                let candidate = privacy_safe_candidate(candidate)?;
-                let candidate_id = store.create_candidate(candidate).map_err(storage_error)?;
+                let candidate =
+                    privacy_safe_candidate(candidate, config.detection.source_excerpts)?;
+                let candidate_id = store
+                    .create_candidate(candidate.clone())
+                    .map_err(storage_error)?;
+                feedback::record_candidate_feedback(feedback::CandidateFeedback {
+                    store: &store,
+                    candidate_id: &candidate_id,
+                    candidate: &candidate,
+                    message,
+                    trace_group,
+                    config: &config,
+                })?;
                 created_candidate_ids.push(candidate_id);
             }
             DetectionOutcome::QuietLog(quiet_log) => {
-                let quiet_log = privacy_safe_quiet_log(quiet_log)?;
-                store.record_quiet_log(quiet_log).map_err(storage_error)?;
+                let quiet_log =
+                    privacy_safe_quiet_log(quiet_log, config.detection.source_excerpts)?;
+                store
+                    .record_quiet_log(quiet_log.clone())
+                    .map_err(storage_error)?;
+                feedback::record_quiet_feedback(feedback::QuietFeedback {
+                    store: &store,
+                    quiet_log: &quiet_log,
+                    message,
+                    trace_group,
+                    config: &config,
+                })?;
                 quiet_log_count += 1;
             }
         }
@@ -171,6 +176,7 @@ where
     let replay =
         replay_external_proposals(&store, &replay_candidates, dependencies.proposal_adapter)?;
     let pending_proposal_count = replay_candidates.len() + cap_plan.deferred.len();
+    let feedback_eval_counts = store.feedback_eval_counts().map_err(storage_error)?;
     Ok(ScanSelectedChatsResult {
         pending_proposal_count,
         created_candidate_count: created_candidate_ids.len(),
@@ -179,6 +185,12 @@ where
         cap_deferred_count: cap_plan.deferred.len(),
         created_external_proposal_count: replay.created,
         failed_external_proposal_count: replay.failed,
+        feedback_label_count: count_to_usize(feedback_eval_counts.label_count, "label_count")?,
+        feature_snapshot_count: count_to_usize(
+            feedback_eval_counts.feature_snapshot_count,
+            "feature_snapshot_count",
+        )?,
+        latest_eval_status: LatestEvalStatus::from(feedback_eval_counts.latest_eval_status),
         created_candidate_ids: candidate_ids_for_response(&created_candidate_ids),
     })
 }

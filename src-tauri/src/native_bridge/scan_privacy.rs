@@ -1,5 +1,6 @@
 use super::public_chat_id::{public_chat_id, public_message_id};
 use super::scan::ScanSelectedChatsError;
+use morrow_detection::SourceExcerptPolicy;
 use morrow_messages::ChatGuid;
 use morrow_storage::{CandidateDraft, CandidateId, QuietLogDraft};
 
@@ -8,22 +9,28 @@ const HIDDEN_SOURCE_EXCERPT: &str = "Source excerpt hidden by settings.";
 
 pub(super) fn privacy_safe_candidate(
     mut candidate: CandidateDraft,
+    source_excerpts: SourceExcerptPolicy,
 ) -> Result<CandidateDraft, ScanSelectedChatsError> {
     candidate.chat_guid =
         public_chat_id(&ChatGuid::parse(&candidate.chat_guid).map_err(messages_error)?);
     candidate.anchor_message_guid = public_message_id(&candidate.anchor_message_guid);
     candidate.title = NATIVE_CANDIDATE_TITLE.to_owned();
-    candidate.evidence_excerpt = HIDDEN_SOURCE_EXCERPT.to_owned();
+    if source_excerpts == SourceExcerptPolicy::Hide {
+        candidate.evidence_excerpt = HIDDEN_SOURCE_EXCERPT.to_owned();
+    }
     Ok(candidate)
 }
 
 pub(super) fn privacy_safe_quiet_log(
     mut quiet_log: QuietLogDraft,
+    source_excerpts: SourceExcerptPolicy,
 ) -> Result<QuietLogDraft, ScanSelectedChatsError> {
     quiet_log.chat_guid =
         public_chat_id(&ChatGuid::parse(&quiet_log.chat_guid).map_err(messages_error)?);
     quiet_log.anchor_message_guid = public_message_id(&quiet_log.anchor_message_guid);
-    quiet_log.excerpt = HIDDEN_SOURCE_EXCERPT.to_owned();
+    if source_excerpts == SourceExcerptPolicy::Hide {
+        quiet_log.excerpt = HIDDEN_SOURCE_EXCERPT.to_owned();
+    }
     Ok(quiet_log)
 }
 

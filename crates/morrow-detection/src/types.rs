@@ -1,5 +1,7 @@
 use std::fmt::{Display, Formatter};
 
+use morrow_storage::validate_normalized_time as storage_validate_normalized_time;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DetectionConfig {
     pub reference: ReferenceTime,
@@ -94,7 +96,8 @@ impl CivilDateTime {
             field: "normalized_time",
             reason: "must use YYYY-MM-DDTHH:MM:SS[Timezone]",
         })?;
-        let time = rest.split_once('[').map_or(rest, |parts| parts.0);
+        validate_normalized_date(date)?;
+        let time = normalized_time_component(raw, rest)?;
         let (hour, minute) = parse_time(time)?;
         parse_date_time(date, hour, minute, "normalized_time")
     }
@@ -171,34 +174,81 @@ fn parse_date_time(
 }
 
 fn parse_time(time: &str) -> Result<(u8, u8), DetectionError> {
-    let without_seconds = time.split_once(':').ok_or(DetectionError::InvalidInput {
+    let (hour_text, rest) = time.split_once(':').ok_or(DetectionError::InvalidInput {
         field: "time",
         reason: "must include hour and minute",
     })?;
-    let hour = without_seconds
-        .0
+    let (minute_text, second_text) = rest.split_once(':').ok_or(DetectionError::InvalidInput {
+        field: "time",
+        reason: "must include seconds",
+    })?;
+    if second_text.len() != 2
+        || second_text.contains(':')
+        || hour_text.len() != 2
+        || minute_text.len() != 2
+    {
+        return Err(DetectionError::InvalidInput {
+            field: "time",
+            reason: "must use fixed-width time",
+        });
+    }
+    let hour = hour_text
         .parse::<u8>()
         .map_err(|_| DetectionError::InvalidInput {
             field: "time",
             reason: "contains an invalid hour",
         })?;
-    let minute_text = without_seconds
-        .1
-        .split_once(':')
-        .map_or(without_seconds.1, |parts| parts.0);
     let minute = minute_text
         .parse::<u8>()
         .map_err(|_| DetectionError::InvalidInput {
             field: "time",
             reason: "contains an invalid minute",
         })?;
-    if hour > 23 || minute > 59 {
+    let second = second_text
+        .parse::<u8>()
+        .map_err(|_| DetectionError::InvalidInput {
+            field: "time",
+            reason: "contains an invalid second",
+        })?;
+    if hour > 23 || minute > 59 || second > 59 {
         return Err(DetectionError::InvalidInput {
             field: "time",
             reason: "contains an invalid clock value",
         });
     }
     Ok((hour, minute))
+}
+
+fn normalized_time_component<'a>(raw: &str, rest: &'a str) -> Result<&'a str, DetectionError> {
+    if storage_validate_normalized_time(raw).is_ok() {
+        if let Some(time) = rest.strip_suffix('Z') {
+            return Ok(time);
+        }
+        let (time, _) = rest.split_once('[').ok_or(DetectionError::InvalidInput {
+            field: "normalized_time",
+            reason: "must end with Z or [Timezone]",
+        })?;
+        return Ok(time);
+    }
+    if rest.contains('[') || rest.ends_with('Z') {
+        return Err(DetectionError::InvalidInput {
+            field: "normalized_time",
+            reason: "must use a safe normalized calendar time",
+        });
+    }
+    Ok(rest)
+}
+
+fn validate_normalized_date(date: &str) -> Result<(), DetectionError> {
+    let parts = date.split('-').collect::<Vec<_>>();
+    if parts.len() == 3 && parts[0].len() == 4 && parts[1].len() == 2 && parts[2].len() == 2 {
+        Ok(())
+    } else {
+        Err(DetectionError::InvalidInput {
+            field: "normalized_time",
+            reason: "must use fixed-width date",
+        })
+    }
 }
 
 fn parse_part<T: std::str::FromStr>(

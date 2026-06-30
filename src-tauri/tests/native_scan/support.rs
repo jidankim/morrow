@@ -136,6 +136,24 @@ pub(super) fn scan_request(
     max_visible: usize,
     pending_count: usize,
 ) -> Result<ScanSelectedChatsRequest, String> {
+    scan_request_with_feedback_text(
+        selected_chats,
+        backfill_prompt_chat_ids,
+        source_excerpts_enabled,
+        false,
+        max_visible,
+        pending_count,
+    )
+}
+
+pub(super) fn scan_request_with_feedback_text(
+    selected_chats: &[ChatFixture<'_>],
+    backfill_prompt_chat_ids: &[&str],
+    source_excerpts_enabled: bool,
+    feedback_text_snapshots_enabled: bool,
+    max_visible: usize,
+    pending_count: usize,
+) -> Result<ScanSelectedChatsRequest, String> {
     request_value(
         json!(selected_chats
             .iter()
@@ -150,6 +168,7 @@ pub(super) fn scan_request(
             .map(|chat_id| (*chat_id).to_owned())
             .collect(),
         source_excerpts_enabled,
+        feedback_text_snapshots_enabled,
         max_visible,
         pending_count,
     )
@@ -159,7 +178,15 @@ pub(super) fn malformed_request(
     selected_chat_ids: Value,
     selected_chats: Value,
 ) -> Result<ScanSelectedChatsRequest, String> {
-    request_value(selected_chat_ids, selected_chats, Vec::new(), true, 1, 0)
+    request_value(
+        selected_chat_ids,
+        selected_chats,
+        Vec::new(),
+        true,
+        false,
+        1,
+        0,
+    )
 }
 
 fn request_value(
@@ -167,6 +194,7 @@ fn request_value(
     selected_chats: Value,
     backfill_prompt_chat_ids: Vec<String>,
     source_excerpts_enabled: bool,
+    feedback_text_snapshots_enabled: bool,
     max_visible: usize,
     pending_count: usize,
 ) -> Result<ScanSelectedChatsRequest, String> {
@@ -177,6 +205,7 @@ fn request_value(
         "referenceUnixSeconds": 1_782_352_400,
         "backfillPromptChatIds": backfill_prompt_chat_ids,
         "sourceExcerptsEnabled": source_excerpts_enabled,
+        "feedbackTextSnapshotsEnabled": feedback_text_snapshots_enabled,
         "capPolicy": {
             "mode": "refillForPending",
             "maxVisible": max_visible,
@@ -219,7 +248,7 @@ pub(super) struct ChatFixture<'a> {
     participant_ids: &'a [&'a str],
 }
 
-fn query_sqlite(db_path: &Path, sql: &str) -> Result<String, String> {
+pub(super) fn query_sqlite(db_path: &Path, sql: &str) -> Result<String, String> {
     let output = Command::new("sqlite3")
         .arg("-batch")
         .arg("-noheader")

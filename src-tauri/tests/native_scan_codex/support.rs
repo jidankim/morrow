@@ -176,6 +176,7 @@ pub fn scan_request_at(reference_unix_seconds: i64) -> Result<ScanSelectedChatsR
         "referenceUnixSeconds": reference_unix_seconds,
         "backfillPromptChatIds": [],
         "sourceExcerptsEnabled": true,
+        "feedbackTextSnapshotsEnabled": false,
         "capPolicy": {
             "mode": "refillForPending",
             "maxVisible": 0,

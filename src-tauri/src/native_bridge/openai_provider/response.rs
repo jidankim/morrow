@@ -1,6 +1,6 @@
 use morrow_detection::ProviderResponse;
 use morrow_messages::MessageEvidence;
-use morrow_storage::CandidateKind;
+use morrow_storage::{validate_normalized_time as storage_validate_normalized_time, CandidateKind};
 use serde::Deserialize;
 use serde_json::Value;
 
@@ -136,70 +136,8 @@ fn local_candidate_text(
 }
 
 fn validate_normalized_time(raw: &str) -> Result<(), OpenAiProviderError> {
-    let (date, rest) = raw
-        .split_once('T')
-        .ok_or_else(|| invalid_response("candidate normalized_time was invalid"))?;
-    let time = rest.split_once('[').map_or(rest, |parts| parts.0);
-    parse_time(time)?;
-    parse_date(date)?;
-    Ok(())
-}
-
-fn parse_time(raw: &str) -> Result<(u8, u8), OpenAiProviderError> {
-    let (hour_text, minute_and_seconds) = raw
-        .split_once(':')
-        .ok_or_else(|| invalid_response("candidate normalized_time was invalid"))?;
-    let hour = hour_text
-        .parse::<u8>()
-        .map_err(|_| invalid_response("candidate normalized_time was invalid"))?;
-    let minute_text = minute_and_seconds
-        .split_once(':')
-        .map_or(minute_and_seconds, |parts| parts.0);
-    let minute = minute_text
-        .parse::<u8>()
-        .map_err(|_| invalid_response("candidate normalized_time was invalid"))?;
-    if hour > 23 || minute > 59 {
-        return Err(invalid_response("candidate normalized_time was invalid"));
-    }
-    Ok((hour, minute))
-}
-
-fn parse_date(date: &str) -> Result<(), OpenAiProviderError> {
-    let mut parts = date.split('-');
-    let year = parse_date_part::<u16>(&mut parts)?;
-    let month = parse_date_part::<u8>(&mut parts)?;
-    let day = parse_date_part::<u8>(&mut parts)?;
-    let Some(max_day) = days_in_month(year, month) else {
-        return Err(invalid_response("candidate normalized_time was invalid"));
-    };
-    if parts.next().is_some() || day == 0 || day > max_day {
-        return Err(invalid_response("candidate normalized_time was invalid"));
-    }
-    Ok(())
-}
-
-fn parse_date_part<T: std::str::FromStr>(
-    parts: &mut std::str::Split<'_, char>,
-) -> Result<T, OpenAiProviderError> {
-    parts
-        .next()
-        .ok_or_else(|| invalid_response("candidate normalized_time was invalid"))?
-        .parse::<T>()
+    storage_validate_normalized_time(raw)
         .map_err(|_| invalid_response("candidate normalized_time was invalid"))
-}
-
-const fn days_in_month(year: u16, month: u8) -> Option<u8> {
-    match month {
-        1 | 3 | 5 | 7 | 8 | 10 | 12 => Some(31),
-        4 | 6 | 9 | 11 => Some(30),
-        2 if is_leap_year(year) => Some(29),
-        2 => Some(28),
-        _ => None,
-    }
-}
-
-const fn is_leap_year(year: u16) -> bool {
-    year % 4 == 0 && (year % 100 != 0 || year % 400 == 0)
 }
 
 fn evidence_guid_for_id(

@@ -157,6 +157,18 @@ fn codex_provider_rejects_non_json_refusal_timeout_and_unknown_fields() -> Resul
                 &candidate_json()[1..candidate_json().len() - 1]
             )),
         ),
+        (
+            "raw_suffix_normalized_time",
+            FakeOutcome::WriteOutput(candidate_json_with_normalized_time(
+                "2026-06-26T15:00:00raw-suffix",
+            )),
+        ),
+        (
+            "private_zone_normalized_time",
+            FakeOutcome::WriteOutput(candidate_json_with_normalized_time(
+                "2026-06-26T15:00:00[private_clinic_visit]",
+            )),
+        ),
         ("missing_cli", FakeOutcome::MissingCli),
         ("timeout", FakeOutcome::Timeout),
     ];
@@ -180,6 +192,38 @@ fn codex_provider_rejects_non_json_refusal_timeout_and_unknown_fields() -> Resul
             display.contains("provider"),
             "{name}: expected sanitized provider error, got {display}"
         );
+    }
+    Ok(())
+}
+
+fn candidate_json_with_normalized_time(normalized_time: &str) -> String {
+    candidate_json().replace("2026-06-26T15:00:00[Asia/Seoul]", normalized_time)
+}
+
+#[test]
+fn codex_provider_rejects_malformed_normalized_time() -> Result<(), String> {
+    for normalized_time in [
+        "2026-06-26T15:00:00raw-suffix",
+        "2026-06-26T15:00:00[private_clinic_visit]",
+    ] {
+        // Given
+        let runner = FakeCodexRunner::new(vec![FakeOutcome::WriteOutput(
+            candidate_json_with_normalized_time(normalized_time),
+        )]);
+        let provider = CodexProvider::new(&runner);
+
+        // When
+        let error = provider
+            .extract_response(&[message(
+                "chat-a",
+                "msg-ambiguous-1",
+                "Maybe meet tomorrow?",
+            )?])
+            .err()
+            .ok_or_else(|| format!("{normalized_time}: extraction unexpectedly succeeded"))?;
+
+        // Then
+        assert!(error.to_string().contains("provider"));
     }
     Ok(())
 }

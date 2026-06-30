@@ -2,12 +2,10 @@ use morrow_diagnostics::{TraceComponent, TraceDecision, TraceOperation, TraceOut
 use morrow_lib::native_bridge::FakeNativeBridge;
 
 use super::support::{assert_counts, batch, chat, raw_chat, scan_request, temp_db};
-use trace_support::{
+use super::trace_support::{
     assert_trace_records_hide_raw_native_content, scan_result_counts, ProviderCandidateStub,
     ProviderUnavailableStub, RecordingTraceRecorder, UnavailableTraceRecorder,
 };
-
-mod trace_support;
 
 #[test]
 fn scan_selected_chats_records_provider_trace_with_fake_provider() -> Result<(), String> {

@@ -1,8 +1,8 @@
-use morrow_lib::native_bridge::{OpenAiHttpResponse, OpenAiProviderError};
+use morrow_lib::native_bridge::{OpenAiHttpResponse, OpenAiProvider, OpenAiProviderError};
 use serde_json::json;
 
-use crate::support::openai_provider::completed_response;
-use crate::support::provider::candidate_json;
+use crate::support::openai_provider::{completed_response, MockTransport};
+use crate::support::provider::{candidate_json, message};
 
 pub fn rejection_cases() -> Vec<(
     &'static str,
@@ -60,6 +60,26 @@ pub fn rejection_cases() -> Vec<(
                  \"confidence_millis\":800,\
                  \"normalized_time\":\"2026-06-26T15:00:00[Asia/Seoul]\",\
                  \"anchor_evidence_id\":\"evidence://selected/0\",\
+                \"evidence_ids\":[\"evidence://selected/0\"]}",
+            )),
+        ),
+        (
+            "raw_suffix_normalized_time",
+            Ok(completed_response(
+                "{\"kind\":\"calendar_event\",\"title\":\"Provider meeting\",\
+                 \"confidence_millis\":800,\
+                 \"normalized_time\":\"2026-06-26T15:00:00raw-suffix\",\
+                 \"anchor_evidence_id\":\"evidence://selected/0\",\
+                 \"evidence_ids\":[\"evidence://selected/0\"]}",
+            )),
+        ),
+        (
+            "private_zone_normalized_time",
+            Ok(completed_response(
+                "{\"kind\":\"calendar_event\",\"title\":\"Provider meeting\",\
+                 \"confidence_millis\":800,\
+                 \"normalized_time\":\"2026-06-26T15:00:00[private_clinic_visit]\",\
+                 \"anchor_evidence_id\":\"evidence://selected/0\",\
                  \"evidence_ids\":[\"evidence://selected/0\"]}",
             )),
         ),
@@ -106,4 +126,32 @@ fn unknown_field_case() -> (
             &candidate_json()[1..candidate_json().len() - 1]
         ))),
     )
+}
+
+#[test]
+fn openai_provider_rejects_malformed_normalized_time() -> Result<(), String> {
+    for normalized_time in [
+        "2026-06-26T15:00:00raw-suffix",
+        "2026-06-26T15:00:00[private_clinic_visit]",
+    ] {
+        // Given
+        let candidate =
+            candidate_json().replace("2026-06-26T15:00:00[Asia/Seoul]", normalized_time);
+        let transport = MockTransport::with_responses(vec![Ok(completed_response(&candidate))]);
+        let provider = OpenAiProvider::new("sk-secret-never-in-error", &transport);
+
+        // When
+        let error = provider
+            .extract_response(&[message(
+                "chat-a",
+                "msg-ambiguous-1",
+                "Maybe meet tomorrow?",
+            )?])
+            .err()
+            .ok_or_else(|| format!("{normalized_time}: extraction unexpectedly succeeded"))?;
+
+        // Then
+        assert!(!error.to_string().contains("sk-secret-never-in-error"));
+    }
+    Ok(())
 }

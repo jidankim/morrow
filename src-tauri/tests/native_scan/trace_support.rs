@@ -68,6 +68,39 @@ impl AiProvider for ProviderUnavailableStub {
     }
 }
 
+pub(super) struct ProviderLowConfidenceStub;
+
+impl AiProvider for ProviderLowConfidenceStub {
+    fn extract(&self, request: ProviderRequest<'_>) -> Result<ProviderResponse, ProviderError> {
+        let Some(anchor) = request.evidence().first() else {
+            return Err(ProviderError::Unavailable {
+                reason: "test provider requires one evidence message".to_owned(),
+            });
+        };
+        Ok(ProviderResponse::new(
+            &json!({
+                "kind": "calendar_event",
+                "title": "Low confidence provider title",
+                "confidence_millis": 320,
+                "normalized_time": "2026-06-27T09:00:00[Asia/Seoul]",
+                "anchor_message_guid": anchor.message_guid.as_str(),
+                "evidence_message_guids": [anchor.message_guid.as_str()],
+            })
+            .to_string(),
+        ))
+    }
+}
+
+pub(super) struct ProviderInvalidJsonStub;
+
+impl AiProvider for ProviderInvalidJsonStub {
+    fn extract(&self, _request: ProviderRequest<'_>) -> Result<ProviderResponse, ProviderError> {
+        Ok(ProviderResponse::new(
+            "not valid json RAW_PROVIDER_RESPONSE_SECRET",
+        ))
+    }
+}
+
 pub(super) fn scan_result_counts(
     result: &ScanSelectedChatsResult,
 ) -> (usize, usize, usize, usize, usize, usize, usize) {
