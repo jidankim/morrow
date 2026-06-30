@@ -8,8 +8,12 @@ pub(crate) fn summarize_privacy(
 ) -> Result<PrivacySummary, StorageError> {
     let columns = sqlite.query_first_column(
         "SELECT name FROM pragma_table_info('evidence')
-         UNION ALL
-         SELECT name FROM pragma_table_info('quiet_logs');",
+         UNION ALL SELECT name FROM pragma_table_info('quiet_logs')
+         UNION ALL SELECT name FROM pragma_table_info('feedback_events')
+         UNION ALL SELECT name FROM pragma_table_info('labels')
+         UNION ALL SELECT name FROM pragma_table_info('feature_snapshots')
+         UNION ALL SELECT name FROM pragma_table_info('eval_runs')
+         UNION ALL SELECT name FROM pragma_table_info('eval_results');",
     )?;
     let full_message_body_columns = columns
         .iter()
@@ -17,8 +21,12 @@ pub(crate) fn summarize_privacy(
             let lowered = name.to_ascii_lowercase();
             lowered.contains("full_message")
                 || lowered == "body"
-                || lowered.contains("prompt")
-                || lowered.contains("response")
+                || lowered == "prompt"
+                || lowered == "response"
+                || lowered.ends_with("_prompt")
+                || lowered.ends_with("_response")
+                || lowered.contains("prompt_text")
+                || lowered.contains("response_text")
         })
         .count();
     let max_excerpt_len = usize::try_from(sqlite.query_scalar_i64(
@@ -26,6 +34,8 @@ pub(crate) fn summarize_privacy(
            SELECT excerpt FROM evidence
            UNION ALL
            SELECT excerpt FROM quiet_logs
+           UNION ALL
+           SELECT excerpt FROM feature_snapshots WHERE excerpt IS NOT NULL
          );",
     )?)
     .map_err(|err| StorageError::InvalidInput {

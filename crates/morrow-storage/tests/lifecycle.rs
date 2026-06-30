@@ -46,6 +46,63 @@ fn event_draft(anchor: &str) -> CandidateDraft {
 }
 
 #[test]
+fn malformed_candidate_normalized_time_is_rejected() {
+    // Given: a candidate draft with an impossible calendar date.
+    let (_dir, _db_path, store) = fresh_store("bad-normalized-time.sqlite");
+    let mut draft = event_draft("msg-bad-time");
+    draft.normalized_time = "2026-02-31T10:00:00Z".to_owned();
+
+    // When: the candidate crosses the storage boundary.
+    let err = store
+        .create_candidate(draft)
+        .expect_err("candidate normalized_time should be parsed");
+
+    // Then: storage rejects it as an invalid normalized_time value.
+    match err {
+        StorageError::InvalidInput { field, .. } => {
+            assert_eq!(field, "normalized_time");
+        }
+        other => panic!("expected invalid normalized_time, got {other}"),
+    }
+}
+
+#[test]
+fn normalized_time_rejects_suffix_seconds_timezone_and_overlong_text() {
+    for normalized_time in [
+        "2026-07-01T10:00:00 private prompt text",
+        "2026-07-01T10:00:abZ",
+        "2026-07-01T10:00:00[Not A Zone]",
+        "2026-07-01T10:00:00[America/Prompt]",
+        "2026-07-01T10:00:00[America/Response]",
+        "2026-07-01T10:00:00[America/Full_message]",
+        "2026-07-01T10:00:00[America/Private_clinic_visit]",
+        "2026-07-01T10:00:00[America/PromptText]",
+        "2026-07-01T10:00:00[America/ResponseText]",
+        "2026-07-01T10:00:00[America/FullMessage]",
+        "2026-07-01T10:00:00[America/RawMessage]",
+        "2026-07-01T10:00:00[America/MessageBody]",
+        "2026-07-01T10:00:00[America/PrivateClinicVisit]",
+        "2026-07-01T10:00:00Z trailing",
+        "2026-07-01T10:00:00Zabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz",
+    ] {
+        let (_dir, _db_path, store) = fresh_store("bad-normalized-time-suffix.sqlite");
+        let mut draft = event_draft("msg-bad-time-suffix");
+        draft.normalized_time = normalized_time.to_owned();
+
+        let err = store
+            .create_candidate(draft)
+            .expect_err("normalized_time suffix must be rejected");
+
+        match err {
+            StorageError::InvalidInput { field, .. } => {
+                assert_eq!(field, "normalized_time");
+            }
+            other => panic!("expected invalid normalized_time, got {other}"),
+        }
+    }
+}
+
+#[test]
 fn audited_candidate_transition_when_candidate_becomes_visible() {
     // Given: a queued candidate in a migrated database.
     let (_dir, _db_path, store) = fresh_store("audit.sqlite");

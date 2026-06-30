@@ -1,3 +1,4 @@
+use crate::normalized_time::validate_normalized_time;
 use crate::types::{CandidateDraft, CandidateState, ExternalObjectMapping, QuietLogDraft};
 use crate::StorageError;
 
@@ -40,7 +41,7 @@ pub(crate) fn validate_candidate_draft(draft: &CandidateDraft) -> Result<(), Sto
     validate_text("chat_guid", &draft.chat_guid, 240)?;
     validate_text("anchor_message_guid", &draft.anchor_message_guid, 240)?;
     validate_text("title", &draft.title, 160)?;
-    validate_text("normalized_time", &draft.normalized_time, 64)?;
+    validate_normalized_time(&draft.normalized_time)?;
     validate_excerpt(&draft.evidence_excerpt)?;
     if (0..=1000).contains(&draft.confidence_millis) {
         Ok(())
@@ -81,7 +82,10 @@ pub(crate) fn validate_text(
             reason: format!("must be at most {max_len} bytes"),
         });
     }
-    if value.chars().any(|ch| ch == '\0' || ch == '\u{1f}') {
+    if value
+        .chars()
+        .any(|ch| matches!(ch, '\0' | '\u{1e}' | '\u{1f}'))
+    {
         return Err(StorageError::InvalidInput {
             field,
             reason: "contains a reserved control character".to_owned(),

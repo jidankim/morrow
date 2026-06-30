@@ -1,6 +1,7 @@
 use std::{fs, path::Path};
 
 use crate::ids::CandidateId;
+use crate::migrations::{record_migration_sql, MIGRATIONS};
 use crate::privacy::summarize_privacy;
 use crate::sqlite_cli::{row_value, sql_text, Sqlite};
 use crate::types::{
@@ -14,8 +15,12 @@ use crate::validation::{
 use crate::StorageError;
 
 mod candidates;
+mod feedback_eval_cases;
+mod feedback_eval_records;
+mod feedback_eval_sql;
+mod feedback_eval_validation;
+mod feedback_privacy_metadata;
 
-const INIT_SQL: &str = include_str!("../migrations/0001_init.sql");
 const QUIET_LOG_RETENTION_SECONDS: i64 = 30 * 24 * 60 * 60;
 
 #[derive(Debug, Clone)]
@@ -33,7 +38,10 @@ impl Store {
             sqlite: Sqlite::new(db_path),
             db_path: db_path.to_path_buf(),
         };
-        store.sqlite.execute(INIT_SQL)?;
+        for migration in MIGRATIONS {
+            store.sqlite.execute(migration.sql)?;
+            store.sqlite.execute(&record_migration_sql(migration)?)?;
+        }
         Ok(store)
     }
 

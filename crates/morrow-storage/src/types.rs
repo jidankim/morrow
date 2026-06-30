@@ -134,6 +134,13 @@ pub struct CandidateDraft {
     pub observed_at: i64,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CandidateFeedbackContext {
+    pub candidate_id: CandidateId,
+    pub chat_guid: String,
+    pub anchor_message_guid: String,
+}
+
 #[derive(Debug, Clone)]
 pub struct QuietLogDraft {
     pub chat_guid: String,
