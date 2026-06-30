@@ -114,6 +114,8 @@ dependencies = [
  "morrow-messages",
  "morrow-reminders",
  "morrow-storage",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

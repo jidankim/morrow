@@ -1,5 +1,6 @@
 use morrow_storage::{ExternalObjectMapping, Store};
 
+use crate::feedback::record_lifecycle_feedback;
 use crate::{LifecycleAction, ReconcileError, ReconciliationPlan};
 
 /// Applies storage-backed reconciliation actions and lets storage audit transitions.
@@ -16,12 +17,14 @@ pub fn apply_reconciliation(
                 reason,
                 observed_at,
             } => {
-                store.transition_candidate(
-                    &plan.candidate_id,
-                    *to,
-                    reason.as_str(),
-                    *observed_at,
-                )?;
+                if store.candidate_state(&plan.candidate_id)? != *to {
+                    store.transition_candidate(
+                        &plan.candidate_id,
+                        *to,
+                        reason.as_str(),
+                        *observed_at,
+                    )?;
+                }
             }
             LifecycleAction::UpsertExternalMapping(mapping) => {
                 store.upsert_external_mapping(ExternalObjectMapping {
@@ -34,5 +37,6 @@ pub fn apply_reconciliation(
             }
         }
     }
+    record_lifecycle_feedback(store, plan)?;
     Ok(())
 }

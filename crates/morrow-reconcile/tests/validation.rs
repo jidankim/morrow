@@ -34,9 +34,24 @@ fn rejects_malformed_external_observations_when_boundary_fields_are_blank(
         ),
         (
             ExternalItemObservation::PendingEdited {
-                observed_title: "  ".to_owned(),
+                observed_title: Some("  ".to_owned()),
+                observed_normalized_time: None,
             },
             "observed_title",
+        ),
+        (
+            ExternalItemObservation::PendingEdited {
+                observed_title: None,
+                observed_normalized_time: None,
+            },
+            "pending_edit",
+        ),
+        (
+            ExternalItemObservation::PendingEdited {
+                observed_title: None,
+                observed_normalized_time: Some("2026-02-30T10:00:00Z".to_owned()),
+            },
+            "observed_normalized_time",
         ),
     ] {
         let err = reconcile_candidate(
@@ -46,7 +61,7 @@ fn rejects_malformed_external_observations_when_boundary_fields_are_blank(
         .err()
         .ok_or_else(|| Error::other("missing expected error"))?;
 
-        assert_invalid_observation(&err, expected_field);
+        assert_invalid_observation(&err, expected_field)?;
     }
     Ok(())
 }
@@ -98,14 +113,16 @@ fn rejects_zero_readback_counts_before_smoke_pass() -> Result<(), Box<dyn std::e
     Ok(())
 }
 
-fn assert_invalid_observation(err: &ReconcileError, expected_field: &str) {
-    assert!(matches!(
-        err,
-        ReconcileError::InvalidObservation {
-            field,
-            ref reason,
-        } if *field == expected_field && reason == "must not be empty"
-    ));
+fn assert_invalid_observation(
+    err: &ReconcileError,
+    expected_field: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    match err {
+        ReconcileError::InvalidObservation { field, .. } if *field == expected_field => Ok(()),
+        other => Err(Box::new(Error::other(format!(
+            "expected invalid observation field {expected_field}, got {other}"
+        )))),
+    }
 }
 
 fn visible_lifecycle(kind: CandidateKind, state: CandidateState) -> CandidateLifecycle {

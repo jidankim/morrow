@@ -47,6 +47,7 @@ fn reconciles_visible_candidate_lifecycle_when_external_item_changes() -> Result
         &ExternalItemObservation::approved_by_move("real-calendar", "source-main"),
     )?;
     apply_reconciliation(&store, &moved_plan)?;
+    apply_reconciliation(&store, &moved_plan)?;
     assert_audit_reason(&store, &moved, LifecycleReason::ApprovedByMove)?;
 
     let copied = visible_candidate(&store, CandidateKind::CalendarEvent, "copy")?;
@@ -109,7 +110,8 @@ fn suppresses_edited_pending_and_manual_change_proposals_without_overwriting(
     let edited_plan = reconcile_candidate(
         &edited,
         &ExternalItemObservation::PendingEdited {
-            observed_title: "user edited title".to_owned(),
+            observed_title: Some("user edited title".to_owned()),
+            observed_normalized_time: None,
         },
     )?;
 

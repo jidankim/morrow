@@ -17,7 +17,9 @@ pub enum ExternalItemObservation {
     /// The object is still proposed, but the user edited it.
     PendingEdited {
         /// The externally observed title after user edits.
-        observed_title: String,
+        observed_title: Option<String>,
+        /// The externally observed normalized time after user edits.
+        observed_normalized_time: Option<String>,
     },
     /// The proposed object was moved out of the proposed surface.
     ApprovedByMove {

@@ -112,6 +112,8 @@ pub enum TestError {
     Reconcile(morrow_reconcile::ReconcileError),
     /// Storage error.
     Storage(morrow_storage::StorageError),
+    /// SQLite assertion command failure.
+    Command(String),
     /// Expected error was not produced.
     MissingExpectedError,
 }
@@ -133,6 +135,7 @@ impl std::fmt::Display for TestError {
         match self {
             Self::Reconcile(err) => write!(f, "{err}"),
             Self::Storage(err) => write!(f, "{err}"),
+            Self::Command(err) => f.write_str(err),
             Self::MissingExpectedError => f.write_str("missing expected error"),
         }
     }

@@ -3,7 +3,7 @@ use morrow_storage::{CandidateKind, CandidateState};
 use super::kind::source_for_kind;
 use crate::{
     CandidateLifecycle, DisappearanceEvidence, ExternalItemObservation, ExternalMappingUpdate,
-    LifecycleAction, LifecycleReason, ReconciliationPlan, Suppression,
+    LifecycleAction, LifecycleReason, PendingEditFeedback, ReconciliationPlan, Suppression,
 };
 
 pub(super) fn reconcile_queued(
@@ -81,9 +81,17 @@ pub(super) fn reconcile_visible(
 ) {
     match observation {
         ExternalItemObservation::Pending => {}
-        ExternalItemObservation::PendingEdited { .. } => {
+        ExternalItemObservation::PendingEdited {
+            observed_title,
+            observed_normalized_time,
+        } => {
             plan.suppressions
                 .push(Suppression::EditedPendingNoOverwrite);
+            plan.set_pending_edit_feedback(PendingEditFeedback {
+                title_edited: observed_title.is_some(),
+                time_edited: observed_normalized_time.is_some(),
+                observed_at: candidate.observed_at,
+            });
         }
         ExternalItemObservation::ApprovedByMove {
             external_object_id,

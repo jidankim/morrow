@@ -56,6 +56,17 @@ pub enum Suppression {
     ClosedCandidate,
 }
 
+/// Field-level edit evidence for a pending proposal.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PendingEditFeedback {
+    /// The pending title was edited.
+    pub title_edited: bool,
+    /// The pending normalized time was edited.
+    pub time_edited: bool,
+    /// The observation timestamp used for feedback rows.
+    pub observed_at: i64,
+}
+
 /// A mapping update to the observed approved external object.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ExternalMappingUpdate {
@@ -105,6 +116,8 @@ pub struct ReconciliationPlan {
     pub actions: Vec<LifecycleAction>,
     /// Typed suppressions explaining intentionally skipped mutations.
     pub suppressions: Vec<Suppression>,
+    /// Field-level feedback for a pending edit suppression.
+    pub pending_edit_feedback: Option<PendingEditFeedback>,
 }
 
 impl ReconciliationPlan {
@@ -114,6 +127,7 @@ impl ReconciliationPlan {
             candidate_id,
             actions: Vec::new(),
             suppressions: Vec::new(),
+            pending_edit_feedback: None,
         }
     }
 
@@ -128,5 +142,9 @@ impl ReconciliationPlan {
             reason,
             observed_at,
         });
+    }
+
+    pub(crate) fn set_pending_edit_feedback(&mut self, feedback: PendingEditFeedback) {
+        self.pending_edit_feedback = Some(feedback);
     }
 }

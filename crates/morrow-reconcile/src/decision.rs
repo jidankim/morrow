@@ -1,4 +1,7 @@
-use morrow_storage::{CandidateId, CandidateKind, CandidateState, ExternalObjectMapping};
+use morrow_storage::{
+    validate_normalized_time, CandidateId, CandidateKind, CandidateState, ExternalObjectMapping,
+    StorageError,
+};
 
 #[path = "kind.rs"]
 mod kind;
@@ -86,8 +89,18 @@ fn validate_observation(observation: &ExternalItemObservation) -> Result<(), Rec
             validate_non_empty("external_object_id", external_object_id)?;
             validate_non_empty("external_source_id", external_source_id)
         }
-        ExternalItemObservation::PendingEdited { observed_title } => {
-            validate_non_empty("observed_title", observed_title)
+        ExternalItemObservation::PendingEdited {
+            observed_title,
+            observed_normalized_time,
+        } => {
+            validate_pending_edit_present(observed_title, observed_normalized_time)?;
+            if let Some(title) = observed_title {
+                validate_non_empty("observed_title", title)?;
+            }
+            if let Some(normalized_time) = observed_normalized_time {
+                validate_pending_normalized_time(normalized_time)?;
+            }
+            Ok(())
         }
         ExternalItemObservation::Pending
         | ExternalItemObservation::DeletedFromProposed
@@ -95,6 +108,30 @@ fn validate_observation(observation: &ExternalItemObservation) -> Result<(), Rec
         | ExternalItemObservation::Completed
         | ExternalItemObservation::CreationFailed => Ok(()),
     }
+}
+
+fn validate_pending_edit_present(
+    observed_title: &Option<String>,
+    observed_normalized_time: &Option<String>,
+) -> Result<(), ReconcileError> {
+    if observed_title.is_none() && observed_normalized_time.is_none() {
+        Err(ReconcileError::InvalidObservation {
+            field: "pending_edit",
+            reason: "must include an observed title or normalized time".to_owned(),
+        })
+    } else {
+        Ok(())
+    }
+}
+
+fn validate_pending_normalized_time(value: &str) -> Result<(), ReconcileError> {
+    validate_normalized_time(value).map_err(|err| match err {
+        StorageError::InvalidInput { reason, .. } => ReconcileError::InvalidObservation {
+            field: "observed_normalized_time",
+            reason,
+        },
+        other => ReconcileError::Storage(other),
+    })
 }
 
 fn validate_non_empty(field: &'static str, value: &str) -> Result<(), ReconcileError> {
