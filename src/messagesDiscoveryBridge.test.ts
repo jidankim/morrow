@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 import {
+  chatDiscoveryFromReport,
   parseMessagesChatPreviewReport,
   parseMessagesChatPreviewRequest,
   parseMessagesDiscoveryReport,
@@ -118,6 +119,25 @@ describe("syncScanRequestFromState", () => {
 })
 
 describe("opt-in chat preview bridge parsing", () => {
+  it("parses discovery command reports and rejects malformed command shapes", () => {
+    // Given
+    const report = {
+      status: "ready",
+      chats: [{ chatId: selectedChat.id, displayLabel: selectedChat.label, participantCount: 1, participantIds: selectedChat.participantIds, latestActivityTimestamp: selectedChat.latestActivityTimestamp }]
+    } as const
+
+    // When
+    const parsed = parseMessagesDiscoveryReport(report)
+
+    // Then
+    expect(chatDiscoveryFromReport(parsed)).toEqual({
+      status: "ready",
+      chats: [{ id: selectedChat.id, label: selectedChat.label, participantCount: 1, participantIds: selectedChat.participantIds, latestActivityTimestamp: selectedChat.latestActivityTimestamp }]
+    })
+    expect(() => parseMessagesDiscoveryReport({ status: "permission_denied", chats: [] })).toThrow()
+    expect(() => parseMessagesDiscoveryReport({ status: "ready", chats: [] })).toThrow()
+  })
+
   it("parses opt-in chat preview reports separately from discovery", () => {
     // Given
     const request = {
