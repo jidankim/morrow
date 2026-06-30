@@ -38,7 +38,8 @@ describe("App native shell bridge", () => {
       })
     })
 
-    await expect(screen.findByTestId("status-label")).resolves.toHaveTextContent("Paused")
+    await expect(screen.findByTestId("status-label")).resolves.toHaveTextContent("Sync Now disabled")
+    expect(screen.getByRole("button", { name: "Enable Sync Now" })).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Sync Now" })).toBeDisabled()
 
     const stored = window.localStorage.getItem(APP_SHELL_STATE_KEY)
@@ -52,7 +53,7 @@ describe("App native shell bridge", () => {
     await screen.findByText("Onboarding required")
 
     expect(screen.getByRole("link", { name: "Settings" })).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: "Pause" })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Disable Sync Now" })).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Sync Now" })).toBeDisabled()
     expect(screen.getByTestId("pending-count")).toHaveTextContent("0")
     expect(screen.queryByRole("button", { name: "Simulate Error" })).not.toBeInTheDocument()
@@ -64,6 +65,9 @@ describe("App native shell bridge", () => {
 
     const syncButton = screen.getByRole("button", { name: "Sync Now" })
     await waitFor(() => expect(syncButton).toBeEnabled())
+    expect(screen.getByTestId("status-label")).toHaveTextContent("Ready")
+    expect(screen.getByText("Ready. Use Sync Now to reconcile calendars and scan selected chats.")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Disable Sync Now" })).toBeInTheDocument()
 
     fireEvent.click(syncButton)
     fireEvent.click(syncButton)

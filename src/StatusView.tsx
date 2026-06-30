@@ -101,7 +101,7 @@ export function StatusView({
         {syncReadinessMessage}
       </p>
       <dl className="state-grid">
-        <Metric label="Scanning state" testId="status-label" value={menu.statusLabel} />
+        <Metric label="Sync Now state" testId="status-label" value={menu.statusLabel} />
         <Metric label="Sync Now" testId="sync-state" value={syncEnabled ? "Enabled" : "Disabled"} />
         <Metric label="Pending proposals" testId="pending-count" value={menu.pendingProposalLabel} />
         <Metric label="Sync results" testId="sync-result-counts" value={menu.syncResultLabel} />

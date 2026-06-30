@@ -8,6 +8,7 @@ fn menu_model_reports_setup_needed_by_default() {
 
     assert_eq!(menu.status_kind, "setup-needed");
     assert_eq!(menu.status_label, "Setup needed");
+    assert_eq!(menu.pause_resume_label, "Disable Sync Now");
     assert!(!menu.sync_now_enabled);
     assert!(!sync_now_event_allowed(&state));
     assert_eq!(menu.settings_label, "Settings");
@@ -35,9 +36,14 @@ fn menu_model_reports_scanning_after_setup_complete() {
     let menu = menu_model(&state);
 
     assert_eq!(menu.status_kind, "scanning");
-    assert_eq!(menu.status_label, "Scanning");
+    assert_eq!(menu.status_label, "Ready");
+    assert_eq!(
+        menu.detail,
+        "Ready. Use Sync Now to reconcile calendars and scan selected chats."
+    );
     assert!(menu.sync_now_enabled);
     assert!(sync_now_event_allowed(&state));
+    assert_eq!(menu.pause_resume_label, "Disable Sync Now");
     assert_eq!(menu.pending_proposal_label, "9+");
 }
 
@@ -52,11 +58,12 @@ fn menu_model_disables_sync_when_paused() {
 
     let menu = menu_model(&state);
 
-    assert_eq!(menu.status_label, "Paused");
+    assert_eq!(menu.status_label, "Sync Now disabled");
     assert_eq!(menu.status_kind, "paused");
+    assert_eq!(menu.detail, "Sync Now is disabled on this Mac.");
     assert!(!menu.sync_now_enabled);
     assert!(!sync_now_event_allowed(&state));
-    assert_eq!(menu.pause_resume_label, "Resume");
+    assert_eq!(menu.pause_resume_label, "Enable Sync Now");
     assert_eq!(menu.pending_proposal_label, "8");
 }
 
@@ -74,6 +81,7 @@ fn menu_model_reports_error_detail_after_setup_complete() {
     assert_eq!(menu.status_label, "Error");
     assert_eq!(menu.status_kind, "error");
     assert_eq!(menu.detail, "Full Disk Access is unavailable");
+    assert_eq!(menu.pause_resume_label, "Disable Sync Now");
     assert!(menu.sync_now_enabled);
     assert!(sync_now_event_allowed(&state));
 }
@@ -89,6 +97,7 @@ fn menu_model_gates_error_sync_until_setup_complete() {
     let menu = menu_model(&state);
 
     assert_eq!(menu.status_label, "Error");
+    assert_eq!(menu.pause_resume_label, "Disable Sync Now");
     assert!(!menu.sync_now_enabled);
     assert!(!sync_now_event_allowed(&state));
 }

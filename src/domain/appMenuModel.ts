@@ -9,9 +9,9 @@ export type MenuStatusKind = "setup-needed" | AppMode
 
 export type MenuModel = {
   readonly statusKind: MenuStatusKind
-  readonly statusLabel: "Setup needed" | "Scanning" | "Paused" | "Error"
+  readonly statusLabel: "Setup needed" | "Ready" | "Sync Now disabled" | "Error"
   readonly detail: string
-  readonly pauseResumeLabel: "Pause" | "Resume"
+  readonly pauseResumeLabel: "Disable Sync Now" | "Enable Sync Now"
   readonly syncNowEnabled: boolean
   readonly pendingProposalLabel: string
   readonly syncResultLabel: string
@@ -28,7 +28,7 @@ export function getMenuModel(state: AppShellState): MenuModel {
           statusKind: "setup-needed",
           statusLabel: "Setup needed",
           detail: "Complete setup and choose chats before Sync Now can scan.",
-          pauseResumeLabel: "Pause",
+          pauseResumeLabel: "Disable Sync Now",
           syncNowEnabled: false,
           pendingProposalLabel,
           syncResultLabel
@@ -36,9 +36,9 @@ export function getMenuModel(state: AppShellState): MenuModel {
       }
       return {
         statusKind: "scanning",
-        statusLabel: "Scanning",
-        detail: "Ready to reconcile calendars, then scan selected chats.",
-        pauseResumeLabel: "Pause",
+        statusLabel: "Ready",
+        detail: "Ready. Use Sync Now to reconcile calendars and scan selected chats.",
+        pauseResumeLabel: "Disable Sync Now",
         syncNowEnabled: true,
         pendingProposalLabel,
         syncResultLabel
@@ -46,9 +46,9 @@ export function getMenuModel(state: AppShellState): MenuModel {
     case "paused":
       return {
         statusKind: "paused",
-        statusLabel: "Paused",
-        detail: "Scanning is paused on this Mac.",
-        pauseResumeLabel: "Resume",
+        statusLabel: "Sync Now disabled",
+        detail: "Sync Now is disabled on this Mac.",
+        pauseResumeLabel: "Enable Sync Now",
         syncNowEnabled: false,
         pendingProposalLabel,
         syncResultLabel
@@ -58,7 +58,7 @@ export function getMenuModel(state: AppShellState): MenuModel {
         statusKind: "error",
         statusLabel: "Error",
         detail: state.errorMessage ?? "Morrow needs attention.",
-        pauseResumeLabel: "Resume",
+        pauseResumeLabel: "Disable Sync Now",
         syncNowEnabled: onboardingComplete,
         pendingProposalLabel,
         syncResultLabel

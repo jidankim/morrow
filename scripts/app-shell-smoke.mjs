@@ -12,7 +12,7 @@ const browser = await chromium.launch({ channel: "chrome", headless: true })
 const page = await browser.newPage({ viewport: { width: 1280, height: 800 } })
 
 await page.goto(baseUrl, { waitUntil: "networkidle" })
-await page.getByRole("button", { name: "Pause" }).click()
+await page.getByRole("button", { name: "Disable Sync Now" }).click()
 await page.reload({ waitUntil: "networkidle" })
 
 const syncButton = page.getByRole("button", { name: "Sync Now" })
@@ -33,6 +33,6 @@ const smokeResult = {
 
 console.log(JSON.stringify(smokeResult, null, 2))
 
-if (statusLabel !== "Paused" || syncState !== "Disabled" || !syncDisabled) {
-  throw new Error("paused state did not persist with Sync Now disabled")
+if (statusLabel !== "Sync Now disabled" || syncState !== "Disabled" || !syncDisabled) {
+  throw new Error("disabled Sync Now state did not persist with Sync Now disabled")
 }

@@ -120,9 +120,9 @@ pub fn menu_model(state: &AppShellState) -> MenuModel {
         AppMode::Scanning => scanning_menu_model(state),
         AppMode::Paused => MenuModel {
             status_kind: "paused".to_owned(),
-            status_label: "Paused".to_owned(),
-            detail: "Scanning is paused on this Mac.".to_owned(),
-            pause_resume_label: "Resume".to_owned(),
+            status_label: "Sync Now disabled".to_owned(),
+            detail: "Sync Now is disabled on this Mac.".to_owned(),
+            pause_resume_label: "Enable Sync Now".to_owned(),
             sync_now_enabled: false,
             pending_proposal_label: format_pending_proposal_count(state.pending_proposal_count),
             settings_label: "Settings".to_owned(),
@@ -137,7 +137,7 @@ pub fn menu_model(state: &AppShellState) -> MenuModel {
                 .error_message
                 .clone()
                 .unwrap_or_else(|| "Morrow needs attention.".to_owned()),
-            pause_resume_label: "Resume".to_owned(),
+            pause_resume_label: "Disable Sync Now".to_owned(),
             sync_now_enabled: state.onboarding_complete,
             pending_proposal_label: format_pending_proposal_count(state.pending_proposal_count),
             settings_label: "Settings".to_owned(),
@@ -156,9 +156,9 @@ fn scanning_menu_model(state: &AppShellState) -> MenuModel {
     if state.onboarding_complete {
         return MenuModel {
             status_kind: "scanning".to_owned(),
-            status_label: "Scanning".to_owned(),
-            detail: "Ready to reconcile calendars, then scan selected chats.".to_owned(),
-            pause_resume_label: "Pause".to_owned(),
+            status_label: "Ready".to_owned(),
+            detail: "Ready. Use Sync Now to reconcile calendars and scan selected chats.".to_owned(),
+            pause_resume_label: "Disable Sync Now".to_owned(),
             sync_now_enabled: true,
             pending_proposal_label: format_pending_proposal_count(state.pending_proposal_count),
             settings_label: "Settings".to_owned(),
@@ -172,7 +172,7 @@ fn scanning_menu_model(state: &AppShellState) -> MenuModel {
         status_kind: "setup-needed".to_owned(),
         status_label: "Setup needed".to_owned(),
         detail: "Complete setup and choose chats before Sync Now can scan.".to_owned(),
-        pause_resume_label: "Pause".to_owned(),
+        pause_resume_label: "Disable Sync Now".to_owned(),
         sync_now_enabled: false,
         pending_proposal_label: format_pending_proposal_count(state.pending_proposal_count),
         settings_label: "Settings".to_owned(),

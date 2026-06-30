@@ -56,9 +56,9 @@ describe("sync readiness", () => {
       },
       {
         id: "pause-state",
-        label: "Scanning state",
+        label: "Sync Now state",
         status: "complete",
-        detail: "Scanning is active."
+        detail: "Sync Now is enabled."
       },
       {
         id: "sync-activity",
@@ -169,7 +169,7 @@ describe("sync readiness", () => {
       {
         state: reduceAppShellState(ready, { type: "pause" }),
         item: "pause-state",
-        detail: "Resume scanning to enable Sync Now."
+        detail: "Enable Sync Now before scanning selected chats."
       },
       {
         state: ready,

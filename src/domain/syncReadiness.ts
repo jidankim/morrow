@@ -27,7 +27,7 @@ const syncReadinessItemLabels = {
   "chat-selection": "Chat selection",
   "selected-chat-verification": "Selected chat verification",
   "provider-credential": "Codex provider",
-  "pause-state": "Scanning state",
+  "pause-state": "Sync Now state",
   "sync-activity": "Sync Now activity"
 } as const satisfies Record<SyncReadinessItemId, string>
 
@@ -125,9 +125,9 @@ function getSelectedChatVerificationDetail(selectedChatCount: number, selectedCh
 function getPauseReadinessItem(mode: AppMode): SyncReadinessItem {
   switch (mode) {
     case "scanning":
-      return syncReadinessItem("pause-state", "complete", "Scanning is active.")
+      return syncReadinessItem("pause-state", "complete", "Sync Now is enabled.")
     case "paused":
-      return syncReadinessItem("pause-state", "blocking", "Resume scanning to enable Sync Now.")
+      return syncReadinessItem("pause-state", "blocking", "Enable Sync Now before scanning selected chats.")
     case "error":
       return syncReadinessItem("pause-state", "complete", "Sync Now can retry after the current error.")
     default:

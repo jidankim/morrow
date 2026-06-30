@@ -47,7 +47,7 @@ describe("app shell state", () => {
     expect(reloadedResumed.mode).toBe("scanning")
   })
 
-  it("renders setup-needed before scanning when onboarding is incomplete", () => {
+  it("renders setup-needed before ready when onboarding is incomplete", () => {
     const setupNeeded = createDefaultAppShellState()
     const scanning = {
       ...setupNeeded,
@@ -62,10 +62,17 @@ describe("app shell state", () => {
     })
 
     expect(getMenuModel(setupNeeded).statusLabel).toBe("Setup needed")
-    expect(getMenuModel(scanning).statusLabel).toBe("Scanning")
-    expect(getMenuModel(paused).statusLabel).toBe("Paused")
+    expect(getMenuModel(scanning).statusLabel).toBe("Ready")
+    expect(getMenuModel(scanning).detail).toBe(
+      "Ready. Use Sync Now to reconcile calendars and scan selected chats."
+    )
+    expect(getMenuModel(scanning).pauseResumeLabel).toBe("Disable Sync Now")
+    expect(getMenuModel(paused).statusLabel).toBe("Sync Now disabled")
+    expect(getMenuModel(paused).detail).toBe("Sync Now is disabled on this Mac.")
+    expect(getMenuModel(paused).pauseResumeLabel).toBe("Enable Sync Now")
     expect(getMenuModel(error).statusLabel).toBe("Error")
     expect(getMenuModel(error).detail).toBe("Full Disk Access is unavailable")
+    expect(getMenuModel(error).pauseResumeLabel).toBe("Disable Sync Now")
   })
 
   it("disables Sync Now while paused", () => {

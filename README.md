@@ -76,7 +76,7 @@ Use this flow when validating the native Messages setup surface:
 3. If discovery is denied or unavailable, use `Open Full Disk Access`, manually enable or add the shown Morrow target, restart Morrow, then use `Retry chat discovery`. The recovery copy should point to Full Disk Access when permission is denied.
 4. When eligible chats appear, use the chat checkboxes to `Select at least one chat`. Newly selected chats keep `Ask before backfilling older messages` enabled by default.
 5. Confirm the setup checklist shows Messages discovery ready, chat selection complete, and selected-chat verification complete after native chat discovery is ready and at least one selected chat is verified.
-6. Confirm `Sync Now` is enabled by checking the `Sync Now` metric for `Enabled` and by checking that the `Sync Now` button is no longer disabled. If `Sync Now` is blocked, confirm the status explains the active discovery, selection, stale discovery, paused, or syncing blocker.
+6. Confirm `Sync Now` is enabled by checking the `Sync Now` metric for `Enabled` and by checking that the `Sync Now` button is no longer disabled. If `Sync Now` is blocked, confirm the status explains the active discovery, selection, stale discovery, `Sync Now disabled`, or syncing blocker.
 7. Treat any real event creation from Messages as out of scope unless the production provider/LLM path and Calendar/EventKit proposal adapter have also been verified in the same QA pass.
 
 ## QA Commands

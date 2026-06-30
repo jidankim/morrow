@@ -20,8 +20,8 @@ Morrow is a quiet Mac utility for private scheduling review: compact, readable, 
 | Border/subtle | --border-subtle | #ECF0EA | #222923 | Dividers |
 | Accent/primary | --accent-primary | #166B4F | #4CC38A | Primary commands |
 | Accent/hover | --accent-hover | #10583F | #6DD3A0 | Hover state |
-| Status/success | --status-success | #1F7A52 | #4CC38A | Scanning or healthy |
-| Status/warning | --status-warning | #A16207 | #F2B84B | Paused |
+| Status/success | --status-success | #1F7A52 | #4CC38A | Ready or healthy |
+| Status/warning | --status-warning | #A16207 | #F2B84B | Sync Now disabled |
 | Status/error | --status-error | #B42318 | #FF7A6D | Error |
 | Status/info | --status-info | #2D5B8A | #79B7F2 | Informational |
 
@@ -86,7 +86,7 @@ All spacing derives from 4px.
 ### Status Pill
 
 - **Structure**: inline status dot plus label.
-- **Variants**: scanning, paused, error.
+- **Variants**: ready, sync-now-disabled, error.
 - **Spacing**: --space-2 gap, --space-3 horizontal padding.
 - **States**: text changes by app mode.
 - **Accessibility**: exposed as status text.

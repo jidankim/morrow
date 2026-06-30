@@ -1,10 +1,10 @@
-import { StrictMode } from "react"
+import { StrictMode, useState } from "react"
 import { createRoot } from "react-dom/client"
 import { App } from "./App"
 import { SettingsView } from "./SettingsView"
 import { StatusView } from "./StatusView"
 import type { ChatPreviewDisclosure } from "./ChatPreviewControls"
-import { createDefaultAppShellState, getMenuModel, getOnboardingWarnings, isSyncNowEnabled, type AppShellState, type ChatId, type DiscoveredChat, type SelectedChat } from "./domain/appShell"
+import { createDefaultAppShellState, getMenuModel, getOnboardingWarnings, isSyncNowEnabled, reduceAppShellState, type AppShellState, type ChatId, type DiscoveredChat, type SelectedChat } from "./domain/appShell"
 import type { RuntimeIdentity } from "./tauriBridge"
 import "./styles.css"
 
@@ -104,11 +104,14 @@ function VisualStatusFixture({ state, previewDisclosure, runtimeIdentity }: {
   readonly previewDisclosure?: ChatPreviewDisclosure | undefined
   readonly runtimeIdentity?: RuntimeIdentity | undefined
 }): JSX.Element {
+  const [fixtureState, setFixtureState] = useState(state)
   return (
     <StatusView
-      menu={getMenuModel(state)} state={state} warnings={getOnboardingWarnings(state)} syncing={false}
-      syncEnabled={isSyncNowEnabled(state)} previewDisclosure={previewDisclosure} runtimeIdentity={runtimeIdentity}
-      onPause={noop} onResume={noop} onSyncNow={noop} onOpenSettings={noop} onRetryChatDiscovery={noop}
+      menu={getMenuModel(fixtureState)} state={fixtureState} warnings={getOnboardingWarnings(fixtureState)} syncing={false}
+      syncEnabled={isSyncNowEnabled(fixtureState)} previewDisclosure={previewDisclosure} runtimeIdentity={runtimeIdentity}
+      onPause={() => setFixtureState((current) => reduceAppShellState(current, { type: "pause" }))}
+      onResume={() => setFixtureState((current) => reduceAppShellState(current, { type: "resume" }))}
+      onSyncNow={noop} onOpenSettings={noop} onRetryChatDiscovery={noop}
       onOpenFullDiskAccess={noop} onRevealPreviews={noop} onHidePreviews={noop}
       onToggleChat={noopChatToggle} onToggleBackfillPrompt={noopBackfillToggle}
     />
