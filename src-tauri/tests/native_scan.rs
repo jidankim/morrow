@@ -5,16 +5,26 @@ use serde_json::json;
 
 #[path = "native_scan/consent.rs"]
 mod consent;
+#[path = "native_scan/contract.rs"]
+mod contract;
 #[path = "native_scan/dependencies.rs"]
 mod dependencies;
 #[path = "native_scan/feedback.rs"]
 mod feedback;
 #[path = "native_scan/message_sqlite.rs"]
 mod message_sqlite;
+#[path = "native_scan/outcome_plan.rs"]
+mod outcome_plan;
+#[path = "native_scan/persistence.rs"]
+mod persistence;
+#[path = "native_scan/proposal_replay_decision.rs"]
+mod proposal_replay_decision;
 #[path = "native_scan/provider_eventkit.rs"]
 mod provider_eventkit;
 #[path = "native_scan/provider_feedback.rs"]
 mod provider_feedback;
+#[path = "native_scan/replay_selection.rs"]
+mod replay_selection;
 #[path = "native_scan/support.rs"]
 mod support;
 #[path = "native_scan/trace.rs"]
@@ -26,6 +36,36 @@ use support::{
     assert_counts, batch, candidate_state, chat, fake_state, malformed_request, native_batch,
     raw_chat_with_participants, scan_request, scan_storage_dump, selected_chat_json, temp_db,
 };
+
+#[test]
+fn scan_contract_preserves_counts_before_boundary_refactor() -> Result<(), String> {
+    // Given
+    let (_dir, db_path) = temp_db("native-scan-count-contract.sqlite")?;
+    let request = scan_request(
+        &[
+            chat("design-partners", 3, &["p1", "p2", "p3"]),
+            chat("ops-triage", 3, &["p1", "p2", "p3"]),
+        ],
+        &["design-partners"],
+        false,
+        1,
+        0,
+    )?;
+
+    // When
+    let result = fake_state(&db_path, native_batch()?)
+        .scan_selected_chats_at(request, &db_path, &db_path)
+        .map_err(|error| error.to_string())?;
+
+    // Then
+    assert_counts(&result, (1, 1, 1, 1, 0));
+    assert_eq!(result.created_external_proposal_count, 1);
+    assert_eq!(result.failed_external_proposal_count, 0);
+    assert_eq!(result.feedback_label_count, 2);
+    assert_eq!(result.feature_snapshot_count, 2);
+    assert_eq!(result.created_candidate_ids.len(), 1);
+    Ok(())
+}
 
 #[test]
 fn scan_selected_chats_redacts_native_anchors_and_excerpts_in_storage() -> Result<(), String> {
