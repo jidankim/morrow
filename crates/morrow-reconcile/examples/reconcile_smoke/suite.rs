@@ -91,7 +91,8 @@ fn run_suppression_case(store: &Store) -> Result<usize, Box<dyn std::error::Erro
             30,
         ),
         &ExternalItemObservation::PendingEdited {
-            observed_title: "user edited".to_owned(),
+            observed_title: Some("user edited".to_owned()),
+            observed_normalized_time: None,
         },
     )?;
     if plan

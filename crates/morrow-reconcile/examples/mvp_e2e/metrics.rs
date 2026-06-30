@@ -36,6 +36,14 @@ pub struct MetricsReport {
     pub quiet_log_candidates: usize,
 }
 
+#[derive(Debug)]
+pub(crate) struct FeedbackEvalMetrics {
+    pub(crate) labels_recorded: i64,
+    pub(crate) snapshots_recorded: i64,
+    pub(crate) eval_results_recorded: i64,
+    pub(crate) eval_report: String,
+}
+
 /// Calculates the MVP E2E metrics report.
 pub fn calculate(input: &MetricsInput) -> Result<MetricsReport, Box<dyn std::error::Error>> {
     if input.visible_proposals == 0 || input.user_days == 0 {
@@ -53,19 +61,28 @@ pub fn calculate(input: &MetricsInput) -> Result<MetricsReport, Box<dyn std::err
 
 impl MetricsReport {
     /// Writes the metrics report as key-value lines.
-    pub fn write_report(&self, path: &Path) -> Result<(), Box<dyn std::error::Error>> {
+    pub(crate) fn write_report(
+        &self,
+        path: &Path,
+        feedback: &FeedbackEvalMetrics,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         std::fs::write(
             path,
             format!(
                 "approval_rate_millis={}\ndeletion_rate_millis={}\nfalse_positives={}\n\
                  average_latency_seconds={}\nproposals_per_user_day={}\n\
-                 quiet_log_candidates={}\n",
+                 quiet_log_candidates={}\nlabels_recorded={}\nsnapshots_recorded={}\n\
+                 eval_results_recorded={}\neval_report={}\n",
                 self.approval_rate_millis,
                 self.deletion_rate_millis,
                 self.false_positives,
                 self.average_latency_seconds,
                 self.proposals_per_user_day,
-                self.quiet_log_candidates
+                self.quiet_log_candidates,
+                feedback.labels_recorded,
+                feedback.snapshots_recorded,
+                feedback.eval_results_recorded,
+                feedback.eval_report
             ),
         )?;
         Ok(())

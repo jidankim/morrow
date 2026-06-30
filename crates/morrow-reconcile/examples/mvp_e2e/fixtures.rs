@@ -10,6 +10,8 @@ use morrow_messages::{
 };
 use morrow_storage::{CandidateDraft, Store};
 
+use crate::feedback::{record_candidate_feedback, record_quiet_feedback};
+
 const NON_WHITELISTED_SECRET: &str = "NON_WHITELISTED_NEVER_STORE_TASK12";
 
 /// Candidate set detected from whitelisted message fixtures.
@@ -49,6 +51,7 @@ pub fn detect_from_whitelisted_messages(
         match outcome {
             DetectionOutcome::Candidate(candidate) => {
                 store.create_candidate(candidate.clone())?;
+                record_candidate_feedback(store, &candidate)?;
                 match candidate.kind {
                     morrow_storage::CandidateKind::CalendarEvent => calendar = Some(candidate),
                     morrow_storage::CandidateKind::TaskReminder => reminder = Some(candidate),
@@ -61,7 +64,8 @@ pub fn detect_from_whitelisted_messages(
                 }
             }
             DetectionOutcome::QuietLog(quiet) => {
-                store.record_quiet_log(quiet)?;
+                store.record_quiet_log(quiet.clone())?;
+                record_quiet_feedback(store, &quiet)?;
                 quiet_logs += 1;
             }
         }

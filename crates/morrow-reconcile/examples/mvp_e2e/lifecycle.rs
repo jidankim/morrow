@@ -9,6 +9,8 @@ use morrow_storage::{
     ExternalObjectMapping, ExternalSource, Store,
 };
 
+use crate::feedback::record_candidate_feedback;
+
 /// Lifecycle scenario aggregate counts.
 #[derive(Debug)]
 pub struct LifecycleSummary {
@@ -36,6 +38,8 @@ pub struct DeleteSummary {
 pub struct DeleteReadbacks {
     /// Approved candidate was readable before deletion.
     pub approved_candidate_read_before_delete: bool,
+    /// Feedback/eval rows were readable before deletion.
+    pub feedback_eval_case_read_before_delete: bool,
     /// Non-Morrow external sidecar was preserved.
     pub fake_approved_external_item_preserved: bool,
     /// Apple Messages sidecar was preserved.
@@ -121,7 +125,9 @@ pub fn run_lifecycle_cases(store: &Store) -> Result<LifecycleSummary, Box<dyn st
 /// Runs the Delete All storage boundary case.
 pub fn run_delete_all_case(delete_db: &Path) -> Result<DeleteSummary, Box<dyn std::error::Error>> {
     let store = Store::open(delete_db)?;
-    let candidate_id = store.create_candidate(draft(CandidateKind::CalendarEvent, "delete-all"))?;
+    let delete_draft = draft(CandidateKind::CalendarEvent, "delete-all");
+    let candidate_id = store.create_candidate(delete_draft.clone())?;
+    record_candidate_feedback(&store, &delete_draft)?;
     store.transition_candidate(
         &candidate_id,
         CandidateState::CreatingExternal,
@@ -146,6 +152,7 @@ pub fn run_delete_all_case(delete_db: &Path) -> Result<DeleteSummary, Box<dyn st
     std::fs::write(&apple_message_source, "apple-message-source:keep")?;
     let approved_candidate_read_before_delete =
         store.candidate_state(&candidate_id)? == CandidateState::Approved;
+    let feedback_eval_case_read_before_delete = store.eval_cases()?.len() == 1;
     let receipt = store.delete_all(DeleteAllConfirmation::parse("DELETE MORROW DATA")?)?;
     let fake_approved_external_item_preserved =
         std::fs::read_to_string(&approved_external_item)? == "approved-calendar-item:keep";
@@ -155,6 +162,7 @@ pub fn run_delete_all_case(delete_db: &Path) -> Result<DeleteSummary, Box<dyn st
         database_deleted: receipt.database_deleted && !delete_db.exists(),
         readbacks: DeleteReadbacks {
             approved_candidate_read_before_delete,
+            feedback_eval_case_read_before_delete,
             fake_approved_external_item_preserved: !receipt.approved_external_items_deleted
                 && fake_approved_external_item_preserved,
             fake_apple_message_source_preserved,
