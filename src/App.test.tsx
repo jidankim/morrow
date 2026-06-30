@@ -78,6 +78,7 @@ describe("App native shell bridge", () => {
       referenceUnixSeconds: expect.any(Number),
       backfillPromptChatIds: ["messages-chat-11111111111111111111111111111111"],
       sourceExcerptsEnabled: true,
+      feedbackTextSnapshotsEnabled: false,
       capPolicy: {
         mode: "refillForPending",
         maxVisible: 10,

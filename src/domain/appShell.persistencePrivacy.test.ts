@@ -8,6 +8,7 @@ describe("app shell persisted privacy boundary", () => {
     expect(initial.config.telemetryEnabled).toBe(false)
     expect(initial.config.crashLogExcerptsEnabled).toBe(false)
     expect(initial.config.sourceExcerptsEnabled).toBe(true)
+    expect(initial.config.feedbackTextSnapshotsEnabled).toBe(false)
   })
 
   it("keeps old persisted settings on no-telemetry defaults", () => {
@@ -34,6 +35,31 @@ describe("app shell persisted privacy boundary", () => {
 
     expect(reloaded.config.telemetryEnabled).toBe(false)
     expect(reloaded.config.crashLogExcerptsEnabled).toBe(false)
+    expect(reloaded.config.feedbackTextSnapshotsEnabled).toBe(false)
+  })
+
+  it("rejects malformed feedback text snapshot consent in persisted settings", () => {
+    const storage = new Map<string, string>([
+      [
+        APP_SHELL_STATE_KEY,
+        JSON.stringify({
+          mode: "scanning",
+          config: {
+            referenceTimezone: "Asia/Seoul",
+            calendarSource: "apple-calendar",
+            permissionsGranted: true,
+            launchAtLogin: false,
+            sourceExcerptsEnabled: true,
+            feedbackTextSnapshotsEnabled: -1,
+            firstProposalGuidanceEnabled: true
+          },
+          selectedChats: [],
+          pendingProposalCount: 0
+        })
+      ]
+    ])
+
+    expect(() => loadAppShellState(storage)).toThrow()
   })
 
   it("rejects persisted ICS feed calendar source at the local configuration boundary", () => {

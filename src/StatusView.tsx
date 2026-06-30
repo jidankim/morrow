@@ -16,6 +16,7 @@ import {
   type SyncReadinessItemStatus,
   getSyncReadinessItems
 } from "./domain/appShell"
+import { formatLatestEvalStatus } from "./domain/syncResultCounts"
 import type { RuntimeIdentity } from "./tauriBridge"
 
 type StatusViewProps = {
@@ -96,6 +97,9 @@ export function StatusView({
         <Metric label="Sync Now" testId="sync-state" value={syncEnabled ? "Enabled" : "Disabled"} />
         <Metric label="Pending proposals" testId="pending-count" value={menu.pendingProposalLabel} />
         <Metric label="Sync results" testId="sync-result-counts" value={menu.syncResultLabel} />
+        <Metric label="Feedback labels" testId="feedback-label-count" value={String(state.feedbackLabelCount)} />
+        <Metric label="Eval snapshots" testId="feature-snapshot-count" value={String(state.featureSnapshotCount)} />
+        <Metric label="Latest eval" testId="latest-eval-status" value={formatLatestEvalStatus(state.latestEvalStatus)} />
       </dl>
       <section className="setup-section" aria-labelledby="setup-heading">
         <h3 id="setup-heading">Setup readiness</h3>

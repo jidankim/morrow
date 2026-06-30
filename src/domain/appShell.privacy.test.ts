@@ -11,6 +11,7 @@ describe("app shell privacy boundaries", () => {
     const initial = createDefaultAppShellState()
 
     expect(initial.config.telemetryEnabled).toBe(false)
+    expect(initial.config.feedbackTextSnapshotsEnabled).toBe(false)
     expect(initial.config.localDiagnosticsEnabled).toBe(false)
     expect(initial.config.localDiagnosticsRetentionDays).toBe(30)
   })
@@ -127,8 +128,10 @@ describe("app shell privacy boundaries", () => {
         }
       ],
       referenceTimezone: "Asia/Seoul",
+      referenceUnixSeconds: 1_783_000_200,
       backfillPromptChatIds: [nativeChat.chatId],
       sourceExcerptsEnabled: false,
+      feedbackTextSnapshotsEnabled: false,
       capPolicy: { mode: "refillForPending", maxVisible: 10, pendingCount: 0 }
     } as const
 

@@ -68,7 +68,9 @@ const bridgeMock = vi.hoisted(() => ({
   subscribeAppState: vi.fn(async () => vi.fn()),
   subscribeMenuCommand: vi.fn(async () => vi.fn()),
   reconcileNow: vi.fn(async () => undefined),
-  scanSelectedChats: vi.fn(async () => ({ pendingProposalCount: 12 })),
+  scanSelectedChats: vi.fn(async () => ({
+    pendingProposalCount: 12, feedbackLabelCount: 9, featureSnapshotCount: 4, latestEvalStatus: "passed"
+  })),
   checkProviderAuth: vi.fn(async () => ({
     status: "loggedInUsingChatGpt",
     ready: true,
@@ -244,6 +246,10 @@ describe("App Messages chat discovery selection and sync", () => {
     fireEvent.click(syncButton)
 
     await waitFor(() => expect(bridgeMock.scanSelectedChats).toHaveBeenCalledOnce())
+    expect(screen.getByTestId("feedback-label-count")).toHaveTextContent("9")
+    expect(screen.getByTestId("feature-snapshot-count")).toHaveTextContent("4")
+    expect(screen.getByTestId("latest-eval-status")).toHaveTextContent("Passed")
+    expect(document.body).not.toHaveTextContent("private clinic visit")
     expect(bridgeMock.scanSelectedChats).toHaveBeenCalledWith({
       selectedChatIds: ["messages-chat-11111111111111111111111111111111"],
       selectedChats: [rediscoveredChat],
@@ -251,6 +257,7 @@ describe("App Messages chat discovery selection and sync", () => {
       referenceUnixSeconds: expect.any(Number),
       backfillPromptChatIds: ["messages-chat-11111111111111111111111111111111"],
       sourceExcerptsEnabled: true,
+      feedbackTextSnapshotsEnabled: false,
       capPolicy: { mode: "refillForPending", maxVisible: 10, pendingCount: 0 }
     })
   })

@@ -9,6 +9,7 @@ export type AppConfig = {
   readonly permissionsGranted: boolean
   readonly launchAtLogin: boolean
   readonly sourceExcerptsEnabled: boolean
+  readonly feedbackTextSnapshotsEnabled: boolean
   readonly firstProposalGuidanceEnabled: boolean
   readonly telemetryEnabled: false
   readonly crashLogExcerptsEnabled: false
@@ -28,6 +29,7 @@ export const appConfigSchema = z.object({
   permissionsGranted: z.boolean(),
   launchAtLogin: z.boolean(),
   sourceExcerptsEnabled: z.boolean(),
+  feedbackTextSnapshotsEnabled: z.boolean().default(false),
   firstProposalGuidanceEnabled: z.boolean(),
   telemetryEnabled: z.literal(false).default(false),
   crashLogExcerptsEnabled: z.literal(false).default(false),
@@ -42,6 +44,7 @@ export function createDefaultAppConfig(browserTimeZone: string): AppConfig {
     permissionsGranted: false,
     launchAtLogin: false,
     sourceExcerptsEnabled: true,
+    feedbackTextSnapshotsEnabled: false,
     firstProposalGuidanceEnabled: true,
     telemetryEnabled: false,
     crashLogExcerptsEnabled: false,

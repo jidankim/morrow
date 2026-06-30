@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it } from "vitest"
 import { bridgeMock, openAppRoute, seedReadyState } from "./AppPrivacyTestHarness"
 import { registerSettingsFullDiskAccessGuideTests } from "./AppPrivacySettingsGuideTestCases"
 import { App } from "./App"
+import { parseSyncScanRequest } from "./messagesDiscoveryBridge"
 
 describe("App privacy controls", () => {
   beforeEach(() => {
@@ -51,6 +52,7 @@ describe("App privacy controls", () => {
       referenceUnixSeconds: expect.any(Number),
       backfillPromptChatIds: ["messages-chat-11111111111111111111111111111111"],
       sourceExcerptsEnabled: false,
+      feedbackTextSnapshotsEnabled: false,
       capPolicy: {
         mode: "refillForPending",
         maxVisible: 10,
@@ -195,5 +197,39 @@ describe("App privacy controls", () => {
     openAppRoute("#status")
     expect(screen.getByTestId("status-label")).toHaveTextContent("Error")
     expect(screen.getByText("Calendar access was denied excerpt=[redacted]")).toBeInTheDocument()
+  })
+
+  it("rejects malformed feedback snapshot consent in scan request shapes", () => {
+    const scanRequest = {
+      selectedChatIds: ["messages-chat-11111111111111111111111111111111"],
+      selectedChats: [
+        {
+          id: "messages-chat-11111111111111111111111111111111",
+          label: "Chat alpha",
+          participantCount: 2,
+          participantIds: [
+            "messages-participant-11111111111111111111111111111111",
+            "messages-participant-22222222222222222222222222222222"
+          ],
+          latestActivityTimestamp: 1_783_000_000
+        }
+      ],
+      referenceTimezone: "Asia/Seoul",
+      referenceUnixSeconds: 1_783_000_200,
+      backfillPromptChatIds: ["messages-chat-11111111111111111111111111111111"],
+      sourceExcerptsEnabled: true,
+      feedbackTextSnapshotsEnabled: true,
+      capPolicy: { mode: "refillForPending", maxVisible: 10, pendingCount: 0 }
+    } as const
+
+    expect(parseSyncScanRequest(scanRequest).feedbackTextSnapshotsEnabled).toBe(true)
+    expect(() =>
+      parseSyncScanRequest({
+        ...scanRequest,
+        feedbackTextSnapshotsEnabled: -1
+      })
+    ).toThrow()
+    const { feedbackTextSnapshotsEnabled: _missing, ...missingConsent } = scanRequest
+    expect(() => parseSyncScanRequest(missingConsent)).toThrow()
   })
 })

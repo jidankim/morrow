@@ -58,6 +58,7 @@ const syncScanRequestSchema = z.object({
   referenceUnixSeconds: z.number().int().min(0),
   backfillPromptChatIds: z.array(chatIdSchema),
   sourceExcerptsEnabled: z.boolean(),
+  feedbackTextSnapshotsEnabled: z.boolean(),
   capPolicy: z.object({
     mode: z.literal("refillForPending"),
     maxVisible: z.number().int().min(0),
@@ -72,6 +73,7 @@ export type SyncScanRequest = {
   readonly referenceUnixSeconds: number
   readonly backfillPromptChatIds: readonly ChatId[]
   readonly sourceExcerptsEnabled: boolean
+  readonly feedbackTextSnapshotsEnabled: boolean
   readonly capPolicy: {
     readonly mode: "refillForPending"
     readonly maxVisible: number
@@ -95,6 +97,7 @@ export function syncScanRequestFromState(state: SyncScanRequestState): SyncScanR
       .filter((chat) => chat.backfillPromptEnabled)
       .map((chat) => chat.id),
     sourceExcerptsEnabled: state.config.sourceExcerptsEnabled,
+    feedbackTextSnapshotsEnabled: state.config.feedbackTextSnapshotsEnabled,
     capPolicy: {
       mode: "refillForPending",
       maxVisible: 10,

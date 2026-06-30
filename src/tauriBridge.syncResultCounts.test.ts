@@ -31,6 +31,7 @@ const scanRequest = {
   referenceUnixSeconds: 1_783_000_200,
   backfillPromptChatIds: ["messages-chat-11111111111111111111111111111111"],
   sourceExcerptsEnabled: false,
+  feedbackTextSnapshotsEnabled: false,
   capPolicy: { mode: "refillForPending", maxVisible: 10, pendingCount: 7 }
 } as const
 
@@ -50,7 +51,10 @@ describe("createNativeShellBridge sync result counts", () => {
       createdCandidateCount: 4,
       quietLogCount: 2,
       createdExternalProposalCount: 3,
-      failedExternalProposalCount: 1
+      failedExternalProposalCount: 1,
+      feedbackLabelCount: 8,
+      featureSnapshotCount: 6,
+      latestEvalStatus: "needs_review"
     })
     const { createNativeShellBridge } = await import("./tauriBridge")
 
@@ -63,7 +67,10 @@ describe("createNativeShellBridge sync result counts", () => {
       createdCandidateCount: 4,
       quietLogCount: 2,
       createdExternalProposalCount: 3,
-      failedExternalProposalCount: 1
+      failedExternalProposalCount: 1,
+      feedbackLabelCount: 8,
+      featureSnapshotCount: 6,
+      latestEvalStatus: "needs_review"
     })
   })
 
@@ -80,7 +87,10 @@ describe("createNativeShellBridge sync result counts", () => {
       createdCandidateCount: 0,
       quietLogCount: 0,
       createdExternalProposalCount: 0,
-      failedExternalProposalCount: 0
+      failedExternalProposalCount: 0,
+      feedbackLabelCount: 0,
+      featureSnapshotCount: 0,
+      latestEvalStatus: "never_run"
     })
   })
 
@@ -92,6 +102,24 @@ describe("createNativeShellBridge sync result counts", () => {
       quietLogCount: 0,
       createdExternalProposalCount: 0,
       failedExternalProposalCount: 0
+    })
+    const { createNativeShellBridge } = await import("./tauriBridge")
+
+    // When / Then
+    await expect(createNativeShellBridge().scanSelectedChats(scanRequest)).rejects.toThrow()
+  })
+
+  it("rejects malformed_feedback_eval_counts before returning evidence", async () => {
+    // Given
+    tauriMock.invoke.mockResolvedValueOnce({
+      pendingProposalCount: 1,
+      createdCandidateCount: 1,
+      quietLogCount: 0,
+      createdExternalProposalCount: 0,
+      failedExternalProposalCount: 0,
+      feedbackLabelCount: -1,
+      featureSnapshotCount: 2,
+      latestEvalStatus: "unknown"
     })
     const { createNativeShellBridge } = await import("./tauriBridge")
 

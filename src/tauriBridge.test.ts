@@ -44,6 +44,7 @@ describe("createNativeShellBridge scan command", () => {
       referenceUnixSeconds: 1_783_000_200,
       backfillPromptChatIds: ["messages-chat-11111111111111111111111111111111"],
       sourceExcerptsEnabled: false,
+      feedbackTextSnapshotsEnabled: false,
       capPolicy: {
         mode: "refillForPending",
         maxVisible: 10,
@@ -86,6 +87,7 @@ describe("createNativeShellBridge scan command", () => {
       referenceUnixSeconds: 1_783_000_200,
       backfillPromptChatIds: ["messages-chat-33333333333333333333333333333333"],
       sourceExcerptsEnabled: false,
+      feedbackTextSnapshotsEnabled: false,
       capPolicy: {
         mode: "refillForPending",
         maxVisible: 10,
