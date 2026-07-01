@@ -20,6 +20,8 @@ mod feedback_eval_records;
 mod feedback_eval_sql;
 mod feedback_eval_validation;
 mod feedback_privacy_metadata;
+mod provider_route_invalidation;
+mod provider_routes;
 
 const QUIET_LOG_RETENTION_SECONDS: i64 = 30 * 24 * 60 * 60;
 

@@ -18,6 +18,11 @@ pub(crate) const MIGRATIONS: &[Migration] = &[
         name: "feedback_eval",
         sql: include_str!("../migrations/0002_feedback_eval.sql"),
     },
+    Migration {
+        version: 3,
+        name: "provider_route_outcomes",
+        sql: include_str!("../migrations/0003_provider_route_outcomes.sql"),
+    },
 ];
 
 pub(crate) fn record_migration_sql(migration: &Migration) -> Result<String, StorageError> {

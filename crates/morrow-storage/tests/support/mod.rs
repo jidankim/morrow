@@ -63,6 +63,7 @@ pub fn assert_feedback_eval_schema(
         vec![
             vec!["1".to_owned(), "init".to_owned()],
             vec!["2".to_owned(), "feedback_eval".to_owned()],
+            vec!["3".to_owned(), "provider_route_outcomes".to_owned(),],
         ]
     );
 

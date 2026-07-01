@@ -13,7 +13,8 @@ pub(crate) fn summarize_privacy(
          UNION ALL SELECT name FROM pragma_table_info('labels')
          UNION ALL SELECT name FROM pragma_table_info('feature_snapshots')
          UNION ALL SELECT name FROM pragma_table_info('eval_runs')
-         UNION ALL SELECT name FROM pragma_table_info('eval_results');",
+         UNION ALL SELECT name FROM pragma_table_info('eval_results')
+         UNION ALL SELECT name FROM pragma_table_info('provider_route_outcomes');",
     )?;
     let full_message_body_columns = columns
         .iter()
@@ -36,6 +37,9 @@ pub(crate) fn summarize_privacy(
            SELECT excerpt FROM quiet_logs
            UNION ALL
            SELECT excerpt FROM feature_snapshots WHERE excerpt IS NOT NULL
+           UNION ALL
+           SELECT candidate_evidence_excerpt FROM provider_route_outcomes
+           WHERE candidate_evidence_excerpt IS NOT NULL
          );",
     )?)
     .map_err(|err| StorageError::InvalidInput {

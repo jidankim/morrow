@@ -33,6 +33,8 @@ pub use normalized_time::validate_normalized_time;
 pub use store::Store;
 pub use types::{
     AuditEntry, CalendarProposalPayload, CandidateDraft, CandidateFeedbackContext, CandidateKind,
-    CandidateState, ExternalObjectMapping, ExternalSource, PrivacySummary, QuietLogDraft,
-    ReplayStream,
+    CandidateState, ExternalObjectMapping, ExternalSource, PrivacySummary, ProviderRouteCandidate,
+    ProviderRouteLedgerRow, ProviderRouteOutcome, ProviderRouteOutcomeDraft,
+    ProviderRouteOutcomeKind, ProviderRouteRecordStatus, ProviderRouteSourceExcerptPolicy,
+    ProviderRouteStoredOutcome, QuietLogDraft, ReplayStream, PROVIDER_ROUTE_NATIVE_CANDIDATE_TITLE,
 };
