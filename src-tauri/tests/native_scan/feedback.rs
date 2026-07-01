@@ -98,7 +98,7 @@ fn native_scan_records_quiet_snapshot_and_feedback_labels() -> Result<(), String
         db_path: &db_path,
         chat_guid: "quiet-unavailable",
         message_guid: "msg-quiet-unavailable",
-        text: "Maybe meet tomorrow?",
+        text: "Maybe schedule the planning hold tomorrow?",
         provider: &unavailable_provider,
         recorder: &recorder,
     })?;

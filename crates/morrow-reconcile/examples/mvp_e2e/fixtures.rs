@@ -68,6 +68,7 @@ pub fn detect_from_whitelisted_messages(
                 record_quiet_feedback(store, &quiet)?;
                 quiet_logs += 1;
             }
+            DetectionOutcome::CachedProviderRoute { .. } => {}
         }
     }
 
