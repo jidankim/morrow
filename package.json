@@ -9,7 +9,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "tauri:dev": "VITE_DISABLE_REACT_DEVTOOLS=1 SDKROOT=/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk RUSTFLAGS='-C linker=/Library/Developer/CommandLineTools/usr/bin/cc' tauri dev --runner \"$PWD/scripts/tauri-dev-signed-runner.sh\"",
-    "tauri:build": "SDKROOT=/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk RUSTFLAGS='-C linker=/Library/Developer/CommandLineTools/usr/bin/cc' tauri build"
+    "tauri:build": "SDKROOT=/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk RUSTFLAGS='-C linker=/Library/Developer/CommandLineTools/usr/bin/cc' tauri build",
+    "tauri:build:diagnostic": "scripts/build-diagnostic-artifact.sh"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.0.0",
