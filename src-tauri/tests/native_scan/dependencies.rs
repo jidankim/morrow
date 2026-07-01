@@ -1,4 +1,7 @@
-use std::{cell::RefCell, collections::BTreeMap};
+use std::{
+    cell::{Cell, RefCell},
+    collections::BTreeMap,
+};
 
 use morrow_calendar::ProposedEvent;
 use morrow_detection::{AiProvider, ProviderError, ProviderRequest, ProviderResponse};
@@ -22,6 +25,32 @@ impl AiProvider for CandidateProvider {
     }
 }
 
+#[derive(Debug)]
+pub struct CountingProvider<P> {
+    inner: P,
+    calls: Cell<usize>,
+}
+
+impl<P> CountingProvider<P> {
+    pub const fn new(inner: P) -> Self {
+        Self {
+            inner,
+            calls: Cell::new(0),
+        }
+    }
+
+    pub fn calls(&self) -> usize {
+        self.calls.get()
+    }
+}
+
+impl<P: AiProvider> AiProvider for CountingProvider<P> {
+    fn extract(&self, request: ProviderRequest<'_>) -> Result<ProviderResponse, ProviderError> {
+        self.calls.set(self.calls.get() + 1);
+        self.inner.extract(request)
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 pub struct UnavailableTestProvider;
 
@@ -30,6 +59,15 @@ impl AiProvider for UnavailableTestProvider {
         Err(ProviderError::Unavailable {
             reason: "test provider unavailable".to_owned(),
         })
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct InvalidJsonProvider;
+
+impl AiProvider for InvalidJsonProvider {
+    fn extract(&self, _request: ProviderRequest<'_>) -> Result<ProviderResponse, ProviderError> {
+        Ok(ProviderResponse::new("not json"))
     }
 }
 

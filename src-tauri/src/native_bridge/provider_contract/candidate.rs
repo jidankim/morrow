@@ -5,6 +5,8 @@ use serde_json::{json, Value};
 
 use super::ProviderContractError;
 
+pub(crate) const PROVIDER_CANDIDATE_SCHEMA_VERSION: &str = "provider-candidate-schema-v1";
+
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct CandidateObject {

@@ -6,6 +6,7 @@ mod outcome_plan;
 mod persistence;
 mod production;
 mod proposal_replay;
+mod provider_route_cache;
 mod replay_selection;
 mod result;
 
@@ -32,6 +33,10 @@ pub use production::{
 use proposal_replay::replay_external_proposals;
 pub(in crate::native_bridge) use proposal_replay::LocalProposalAdapter;
 pub use proposal_replay::{CalendarProposalReceipt, ProposalReplayAdapter};
+use provider_route_cache::{
+    record_provider_route_ledger_writes, stage_provider_route_ledger_writes,
+    NativeProviderRouteCache,
+};
 use replay_selection::{select_replay_candidates, ReplaySelectionInput};
 use result::count_to_usize;
 pub use result::{LatestEvalStatus, ScanSelectedChatsError, ScanSelectedChatsResult};
@@ -118,15 +123,28 @@ where
         "feedback text snapshots require source excerpt consent"
     );
     let feedback_recorder = FeedbackTraceRecorder::new(dependencies.trace_recorder);
-    let report =
-        pipeline.detect_with_trace(&ingestion.messages, &config.detection, &feedback_recorder);
+    let provider_route_cache = NativeProviderRouteCache::new(&store);
+    let report = pipeline
+        .detect_with_trace_and_provider_cache(
+            &ingestion.messages,
+            &config.detection,
+            &feedback_recorder,
+            &provider_route_cache,
+        )
+        .map_err(provider_route_cache::pipeline_error)?;
     let trace_groups = feedback_recorder.trace_groups()?;
+    let morrow_detection::DetectionReport {
+        outcomes,
+        provider_route_write_intents,
+    } = report;
     let outcome_plan = plan_scan_outcomes(ScanOutcomePlanRequest {
-        outcomes: report.outcomes,
+        outcomes,
         messages: &ingestion.messages,
         trace_group_count: trace_groups.len(),
         source_excerpts: config.detection.source_excerpts,
     })?;
+    let provider_route_writes =
+        stage_provider_route_ledger_writes(&outcome_plan.intents, &provider_route_write_intents)?;
     let persistence = apply_scan_persistence(ScanPersistenceRequest {
         store: &store,
         intents: outcome_plan.intents,
@@ -177,6 +195,9 @@ where
         &replay_selection.replay_candidates,
         dependencies.proposal_adapter,
     )?;
+    if replay.failed == 0 {
+        record_provider_route_ledger_writes(&store, provider_route_writes)?;
+    }
     let feedback_eval_counts = store.feedback_eval_counts().map_err(storage_error)?;
     Ok(ScanSelectedChatsResult {
         pending_proposal_count: replay_selection.pending_proposal_count,

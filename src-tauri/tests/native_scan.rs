@@ -23,6 +23,14 @@ mod proposal_replay_decision;
 mod provider_eventkit;
 #[path = "native_scan/provider_feedback.rs"]
 mod provider_feedback;
+#[path = "native_scan/provider_route_ledger.rs"]
+mod provider_route_ledger;
+#[path = "native_scan/provider_route_ledger_accounting.rs"]
+mod provider_route_ledger_accounting;
+#[path = "native_scan/provider_route_ledger_invalidation.rs"]
+mod provider_route_ledger_invalidation;
+#[path = "native_scan/provider_route_ledger_privacy.rs"]
+mod provider_route_ledger_privacy;
 #[path = "native_scan/replay_selection.rs"]
 mod replay_selection;
 #[path = "native_scan/support.rs"]
