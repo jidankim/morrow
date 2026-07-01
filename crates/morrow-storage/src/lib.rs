@@ -12,6 +12,7 @@ mod normalized_time;
 mod privacy;
 mod sqlite_cli;
 mod store;
+mod sync_scheduler;
 mod types;
 mod validation;
 mod visibility;
@@ -31,6 +32,9 @@ pub use feedback_eval::{
 pub use ids::CandidateId;
 pub use normalized_time::validate_normalized_time;
 pub use store::Store;
+pub use sync_scheduler::{
+    SyncSchedulerIntervalSeconds, SyncSchedulerLastResult, SyncSchedulerState, SyncSchedulerStatus,
+};
 pub use types::{
     AuditEntry, CalendarProposalPayload, CandidateDraft, CandidateFeedbackContext, CandidateKind,
     CandidateState, ExternalObjectMapping, ExternalSource, PrivacySummary, ProviderRouteCandidate,

@@ -10,7 +10,6 @@ use crate::types::{
 };
 use crate::validation::{
     transition_allowed, validate_candidate_draft, validate_mapping, validate_quiet_log,
-    validate_text,
 };
 use crate::StorageError;
 
@@ -22,6 +21,7 @@ mod feedback_eval_validation;
 mod feedback_privacy_metadata;
 mod provider_route_invalidation;
 mod provider_routes;
+mod sync_scheduler;
 
 const QUIET_LOG_RETENTION_SECONDS: i64 = 30 * 24 * 60 * 60;
 
@@ -93,7 +93,7 @@ impl Store {
         reason: &str,
         observed_at: i64,
     ) -> Result<(), StorageError> {
-        validate_text("reason", reason, 240)?;
+        crate::validation::validate_text("reason", reason, 240)?;
         let from_state = self.candidate_state(candidate_id)?;
         if !transition_allowed(from_state, to_state) {
             return Err(StorageError::InvalidTransition {

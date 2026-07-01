@@ -35,6 +35,7 @@ fn migrations_create_required_tables_when_opening_fresh_database() {
         "eval_runs".to_owned(),
         "eval_results".to_owned(),
         "provider_route_outcomes".to_owned(),
+        "sync_scheduler_state".to_owned(),
         "_morrow_migrations".to_owned(),
     ]);
     assert_eq!(table_set, required);
@@ -60,7 +61,56 @@ fn migrations_record_versions_when_opening_fresh_database() {
             vec!["1".to_owned(), "init".to_owned()],
             vec!["2".to_owned(), "feedback_eval".to_owned()],
             vec!["3".to_owned(), "provider_route_outcomes".to_owned(),],
+            vec!["4".to_owned(), "sync_scheduler_state".to_owned(),],
         ]
+    );
+}
+
+#[test]
+fn sync_scheduler_schema_requires_version_four_table_and_default_row() {
+    // Given: a fresh SQLite path opened through Store migrations.
+    let dir = tempfile::tempdir().expect("tempdir");
+    let db_path = dir.path().join("sync-scheduler-schema.sqlite");
+    let _store = Store::open(&db_path).expect("open store");
+
+    // When: the scheduler table metadata and default row are inspected.
+    let columns = sqlite_rows(&db_path, "PRAGMA table_info(sync_scheduler_state);");
+    let column_names = columns
+        .into_iter()
+        .filter_map(|row| row.get(1).cloned())
+        .collect::<BTreeSet<_>>();
+    let rows = sqlite_rows(
+        &db_path,
+        "SELECT id, enabled, interval_seconds, status, retry_attempt
+         FROM sync_scheduler_state;",
+    );
+
+    // Then: the durable singleton table has every scheduler/backoff field and default state.
+    for required in [
+        "id",
+        "enabled",
+        "interval_seconds",
+        "status",
+        "last_started_at",
+        "last_finished_at",
+        "next_run_at",
+        "next_eligible_at",
+        "last_result",
+        "retry_attempt",
+        "last_reason",
+        "updated_at",
+    ] {
+        assert!(column_names.contains(required), "{required} column missing");
+    }
+    assert_eq!(
+        rows,
+        vec![vec![
+            "1".to_owned(),
+            "0".to_owned(),
+            "1800".to_owned(),
+            "disabled".to_owned(),
+            "0".to_owned(),
+        ]]
     );
 }
 
