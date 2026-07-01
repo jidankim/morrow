@@ -43,6 +43,8 @@ pub fn run() -> tauri::Result<()> {
             native_bridge::get_runtime_identity,
             native_bridge::reconcile_now,
             native_bridge::scan_selected_chats,
+            native_bridge::get_sync_scheduler_state,
+            native_bridge::set_sync_scheduler_state,
             native_bridge::record_crash_log
         ])
         .setup(|app| {

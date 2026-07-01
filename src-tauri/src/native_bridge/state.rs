@@ -4,13 +4,13 @@ use morrow_messages::{MessagesDiscoveryDataSource, MessagesDiscoveryReport, Mess
 
 use super::{
     codex_auth, delete_all, eventkit_cleanup, eventkit_proposal, map_permission_status,
-    messages_sqlite, scan, CodexExecRunner, CodexProvider, CodexProviderAuthReadiness,
+    messages_sqlite, scan, scheduler, CodexExecRunner, CodexProvider, CodexProviderAuthReadiness,
     DeleteMorrowDataError, DeleteMorrowDataRequest, FakeNativeBridge, KeychainBridgeError,
     MessagesPreviewCommandReport, MessagesPreviewRequest, MorrowDataDeleteReceipt,
     MorrowTokenVault, PermissionKind, PermissionState, PermissionStatus, ProcessCodexExecRunner,
     ProposalReplayAdapter, ScanSelectedChatsError, ScanSelectedChatsRequest,
-    ScanSelectedChatsResult, TokenCommandReceipt, TokenLookupRequest, TokenReadResponse,
-    TokenWriteRequest,
+    ScanSelectedChatsResult, SyncSchedulerStateCommand, TokenCommandReceipt, TokenLookupRequest,
+    TokenReadResponse, TokenWriteRequest,
 };
 
 #[derive(Debug)]
@@ -160,6 +160,21 @@ impl NativeBridgeState {
                 scan::scan_selected_chats_with_source(request, store_path, bridge)
             }
         }
+    }
+
+    pub fn get_sync_scheduler_state_at(
+        &self,
+        store_path: &Path,
+    ) -> Result<SyncSchedulerStateCommand, String> {
+        scheduler::load_sync_scheduler_state_at(store_path)
+    }
+
+    pub fn set_sync_scheduler_state_at(
+        &self,
+        store_path: &Path,
+        state: SyncSchedulerStateCommand,
+    ) -> Result<SyncSchedulerStateCommand, String> {
+        scheduler::save_sync_scheduler_state_at(store_path, state)
     }
 
     pub fn scan_selected_chats_at_with_codex_dependencies<R, A>(

@@ -10,6 +10,29 @@ pub enum AppMode {
     Error,
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+pub enum AutomaticSyncStatusLabel {
+    #[serde(rename = "Off")]
+    Off,
+    #[serde(rename = "On")]
+    On,
+    #[serde(rename = "Cooling Down")]
+    CoolingDown,
+    #[serde(rename = "Needs Action")]
+    NeedsAction,
+}
+
+impl AutomaticSyncStatusLabel {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Off => "Off",
+            Self::On => "On",
+            Self::CoolingDown => "Cooling Down",
+            Self::NeedsAction => "Needs Action",
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct AppShellState {
@@ -18,6 +41,9 @@ pub struct AppShellState {
     pub error_message: Option<String>,
     pub onboarding_complete: bool,
     pub pending_proposal_count: u32,
+    pub automatic_sync_enabled: bool,
+    pub automatic_sync_status_label: AutomaticSyncStatusLabel,
+    pub automatic_sync_detail: String,
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
@@ -32,6 +58,9 @@ pub struct MenuModel {
     pub settings_label: String,
     pub open_calendar_label: String,
     pub open_reminders_label: String,
+    pub automatic_sync_enabled: bool,
+    pub automatic_sync_label: String,
+    pub automatic_sync_detail: String,
     pub quit_label: String,
 }
 
@@ -84,6 +113,9 @@ impl Default for AppShellState {
             error_message: None,
             onboarding_complete: false,
             pending_proposal_count: 0,
+            automatic_sync_enabled: false,
+            automatic_sync_status_label: AutomaticSyncStatusLabel::Off,
+            automatic_sync_detail: "Automatic sync is off.".to_owned(),
         }
     }
 }
@@ -111,6 +143,9 @@ impl AppShellState {
             error_message: Some(message),
             onboarding_complete: false,
             pending_proposal_count: 0,
+            automatic_sync_enabled: false,
+            automatic_sync_status_label: AutomaticSyncStatusLabel::Off,
+            automatic_sync_detail: "Automatic sync is off.".to_owned(),
         }
     }
 }
@@ -128,6 +163,9 @@ pub fn menu_model(state: &AppShellState) -> MenuModel {
             settings_label: "Settings".to_owned(),
             open_calendar_label: "Open Calendar".to_owned(),
             open_reminders_label: "Open Reminders".to_owned(),
+            automatic_sync_enabled: state.automatic_sync_enabled,
+            automatic_sync_label: automatic_sync_menu_label(state.automatic_sync_status_label),
+            automatic_sync_detail: state.automatic_sync_detail.clone(),
             quit_label: "Quit Morrow".to_owned(),
         },
         AppMode::Error => MenuModel {
@@ -143,6 +181,9 @@ pub fn menu_model(state: &AppShellState) -> MenuModel {
             settings_label: "Settings".to_owned(),
             open_calendar_label: "Open Calendar".to_owned(),
             open_reminders_label: "Open Reminders".to_owned(),
+            automatic_sync_enabled: state.automatic_sync_enabled,
+            automatic_sync_label: automatic_sync_menu_label(state.automatic_sync_status_label),
+            automatic_sync_detail: state.automatic_sync_detail.clone(),
             quit_label: "Quit Morrow".to_owned(),
         },
     }
@@ -165,6 +206,9 @@ fn scanning_menu_model(state: &AppShellState) -> MenuModel {
             settings_label: "Settings".to_owned(),
             open_calendar_label: "Open Calendar".to_owned(),
             open_reminders_label: "Open Reminders".to_owned(),
+            automatic_sync_enabled: state.automatic_sync_enabled,
+            automatic_sync_label: automatic_sync_menu_label(state.automatic_sync_status_label),
+            automatic_sync_detail: state.automatic_sync_detail.clone(),
             quit_label: "Quit Morrow".to_owned(),
         };
     }
@@ -179,8 +223,15 @@ fn scanning_menu_model(state: &AppShellState) -> MenuModel {
         settings_label: "Settings".to_owned(),
         open_calendar_label: "Open Calendar".to_owned(),
         open_reminders_label: "Open Reminders".to_owned(),
+        automatic_sync_enabled: state.automatic_sync_enabled,
+        automatic_sync_label: automatic_sync_menu_label(state.automatic_sync_status_label),
+        automatic_sync_detail: state.automatic_sync_detail.clone(),
         quit_label: "Quit Morrow".to_owned(),
     }
+}
+
+fn automatic_sync_menu_label(status_label: AutomaticSyncStatusLabel) -> String {
+    format!("Automatic Sync: {}", status_label.as_str())
 }
 
 fn format_pending_proposal_count(count: u32) -> String {

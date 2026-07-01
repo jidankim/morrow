@@ -11,6 +11,7 @@ const MENU_PENDING_ID: &str = "morrow_pending_count";
 const MENU_SETTINGS_ID: &str = "morrow_settings";
 const MENU_OPEN_CALENDAR_ID: &str = "morrow_open_calendar";
 const MENU_OPEN_REMINDERS_ID: &str = "morrow_open_reminders";
+const MENU_TOGGLE_AUTOMATIC_SYNC_ID: &str = "morrow_toggle_automatic_sync";
 const MENU_QUIT_ID: &str = "morrow_quit";
 
 pub fn install_menu(app: &AppHandle, state: &AppShellState) -> tauri::Result<()> {
@@ -44,6 +45,13 @@ pub fn install_menu(app: &AppHandle, state: &AppShellState) -> tauri::Result<()>
         menu.sync_now_enabled,
         Some("CmdOrCtrl+Shift+S"),
     )?;
+    let toggle_automatic_sync = MenuItem::with_id(
+        app,
+        MENU_TOGGLE_AUTOMATIC_SYNC_ID,
+        menu.automatic_sync_label,
+        true,
+        None::<&str>,
+    )?;
     let open_calendar = MenuItem::with_id(
         app,
         MENU_OPEN_CALENDAR_ID,
@@ -72,6 +80,7 @@ pub fn install_menu(app: &AppHandle, state: &AppShellState) -> tauri::Result<()>
         .item(&settings)
         .item(&pause_resume)
         .item(&sync_now)
+        .item(&toggle_automatic_sync)
         .separator()
         .item(&open_calendar)
         .item(&open_reminders)
@@ -110,6 +119,9 @@ pub fn register_menu_events(app: &mut tauri::App) {
         }
         MENU_OPEN_REMINDERS_ID => {
             let _ = app_handle.emit("morrow://open-reminders", ());
+        }
+        MENU_TOGGLE_AUTOMATIC_SYNC_ID => {
+            let _ = app_handle.emit("morrow://toggle-automatic-sync", ());
         }
         MENU_QUIT_ID => {
             app_handle.exit(0);

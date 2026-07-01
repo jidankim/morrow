@@ -1,4 +1,4 @@
-use super::{menu_model, sync_now_event_allowed, AppMode, AppShellState};
+use super::{menu_model, sync_now_event_allowed, AppMode, AppShellState, AutomaticSyncStatusLabel};
 
 #[test]
 fn menu_model_reports_setup_needed_by_default() {
@@ -16,6 +16,9 @@ fn menu_model_reports_setup_needed_by_default() {
     assert_eq!(menu.open_reminders_label, "Open Reminders");
     assert_eq!(menu.quit_label, "Quit Morrow");
     assert_eq!(menu.pending_proposal_label, "0");
+    assert_eq!(menu.automatic_sync_label, "Automatic Sync: Off");
+    assert!(!menu.automatic_sync_enabled);
+    assert_eq!(menu.automatic_sync_detail, "Automatic sync is off.");
 }
 
 #[test]
@@ -100,4 +103,58 @@ fn menu_model_gates_error_sync_until_setup_complete() {
     assert_eq!(menu.pause_resume_label, "Disable Sync Now");
     assert!(!menu.sync_now_enabled);
     assert!(!sync_now_event_allowed(&state));
+}
+
+#[test]
+fn menu_model_reports_automatic_sync_on_label() {
+    let state = AppShellState {
+        automatic_sync_enabled: true,
+        automatic_sync_status_label: AutomaticSyncStatusLabel::On,
+        automatic_sync_detail: "Next run at 09:30.".to_owned(),
+        ..AppShellState::default()
+    };
+
+    let menu = menu_model(&state);
+
+    assert_eq!(menu.automatic_sync_label, "Automatic Sync: On");
+    assert!(menu.automatic_sync_enabled);
+    assert_eq!(menu.automatic_sync_detail, "Next run at 09:30.");
+}
+
+#[test]
+fn menu_model_reports_automatic_sync_cooling_down_label() {
+    let state = AppShellState {
+        automatic_sync_enabled: true,
+        automatic_sync_status_label: AutomaticSyncStatusLabel::CoolingDown,
+        automatic_sync_detail: "Retrying after a transient failure.".to_owned(),
+        ..AppShellState::default()
+    };
+
+    let menu = menu_model(&state);
+
+    assert_eq!(menu.automatic_sync_label, "Automatic Sync: Cooling Down");
+    assert!(menu.automatic_sync_enabled);
+    assert_eq!(
+        menu.automatic_sync_detail,
+        "Retrying after a transient failure."
+    );
+}
+
+#[test]
+fn menu_model_reports_automatic_sync_needs_action_label() {
+    let state = AppShellState {
+        automatic_sync_enabled: true,
+        automatic_sync_status_label: AutomaticSyncStatusLabel::NeedsAction,
+        automatic_sync_detail: "Choose at least one chat before automatic sync can run.".to_owned(),
+        ..AppShellState::default()
+    };
+
+    let menu = menu_model(&state);
+
+    assert_eq!(menu.automatic_sync_label, "Automatic Sync: Needs Action");
+    assert!(menu.automatic_sync_enabled);
+    assert_eq!(
+        menu.automatic_sync_detail,
+        "Choose at least one chat before automatic sync can run."
+    );
 }

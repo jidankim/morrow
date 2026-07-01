@@ -18,6 +18,7 @@ mod public_chat_id;
 mod runtime_identity;
 mod scan;
 mod scan_privacy;
+mod scheduler;
 mod state;
 mod store_probe;
 
@@ -67,6 +68,9 @@ pub use scan::{
     scan_selected_chats_with_dependencies, CalendarProposalReceipt, CapPolicyRequest,
     ProposalReplayAdapter, ScanSelectedChatsDependencies, ScanSelectedChatsError,
     ScanSelectedChatsRequest, ScanSelectedChatsResult,
+};
+pub use scheduler::{
+    SyncSchedulerLastResultCommand, SyncSchedulerStateCommand, SyncSchedulerStatusCommand,
 };
 pub use state::{NativeBridgeState, ProductionScanCodexDependencies};
 
@@ -140,6 +144,25 @@ pub fn scan_selected_chats(
     state
         .scan_selected_chats_at(request, &store_path, &messages_db_path)
         .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn get_sync_scheduler_state(
+    app: AppHandle,
+    state: State<'_, NativeBridgeState>,
+) -> Result<SyncSchedulerStateCommand, String> {
+    let store_path = morrow_store_path(&app)?;
+    state.get_sync_scheduler_state_at(&store_path)
+}
+
+#[tauri::command]
+pub fn set_sync_scheduler_state(
+    app: AppHandle,
+    bridge_state: State<'_, NativeBridgeState>,
+    state: SyncSchedulerStateCommand,
+) -> Result<SyncSchedulerStateCommand, String> {
+    let store_path = morrow_store_path(&app)?;
+    bridge_state.set_sync_scheduler_state_at(&store_path, state)
 }
 
 #[tauri::command]
