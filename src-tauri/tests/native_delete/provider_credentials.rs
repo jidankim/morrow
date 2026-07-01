@@ -47,7 +47,7 @@ fn delete_all_attempts_owned_and_provider_token_delete() -> Result<(), String> {
     assert!(receipt.provider_oauth_delete_requested);
     assert!(receipt.provider_oauth_deleted);
     assert!(!receipt.provider_oauth_delete_failed);
-    assert!(receipt.diagnostics_artifacts_deleted == false);
+    assert!(!receipt.diagnostics_artifacts_deleted);
     assert_eq!(receipt.provider_credential_deletes.len(), 2);
     assert!(receipt
         .provider_credential_deletes

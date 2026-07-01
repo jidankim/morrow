@@ -157,7 +157,8 @@ fn scanning_menu_model(state: &AppShellState) -> MenuModel {
         return MenuModel {
             status_kind: "scanning".to_owned(),
             status_label: "Ready".to_owned(),
-            detail: "Ready. Use Sync Now to reconcile calendars and scan selected chats.".to_owned(),
+            detail: "Ready. Use Sync Now to reconcile calendars and scan selected chats."
+                .to_owned(),
             pause_resume_label: "Disable Sync Now".to_owned(),
             sync_now_enabled: true,
             pending_proposal_label: format_pending_proposal_count(state.pending_proposal_count),
