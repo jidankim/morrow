@@ -12,6 +12,10 @@ This repository is prepared as a v0.1 source snapshot. Local OMO planning and ev
 
 Because of that, do not treat synthetic e2e success as proof that a real message has created a real Calendar event.
 
+## Packaged Beta Testing
+
+Packaged beta testers should start with `docs/beta-testing.md`: download and open the DMG, drag/install `Morrow.app`, open Morrow, grant Full Disk Access and Calendar access, install Codex CLI and run `codex login` only when validating provider-backed `Sync Now`, then run the manual QA flow.
+
 ## What Is Needed For Message To Calendar QA
 
 To run a true manual QA pass from Messages to Calendar, the app needs all of these pieces working in the production Tauri path:
@@ -26,13 +30,17 @@ No OAuth is required for native Messages discovery. Messages discovery is a loca
 
 The latest-message body preview is not part of the default MVP. Discovery rows should remain limited to privacy-safe metadata such as a sanitized chat label, participant count, latest activity timestamp, and selected/verified state.
 
-## Local Setup
+## Maintainer/source-build only Local Setup
+
+The commands in this section are for maintainers building or debugging Morrow from source. Packaged beta testers should use the DMG flow in `docs/beta-testing.md` instead.
 
 Install dependencies:
 
 ```bash
 npm install
 ```
+
+Rust and Xcode/Command Line Tools are maintainer prerequisites for source builds and local Tauri debugging.
 
 For Tauri/Rust commands on this machine, use the same SDK/linker environment as the package scripts:
 
@@ -154,9 +162,9 @@ env -u MORROW_REAL_QA_OPENAI_API_KEY scripts/messages-calendar-real-qa.sh
 
 This path must use the local Codex CLI session and must not require an OpenAI API key. It can still block on external setup: missing Codex CLI login, missing Full Disk Access for Messages, missing Calendar access, or missing real QA chat environment variables.
 
-## Manual QA Script Once Production Wiring Exists
+## Manual QA Flow Once Production Wiring Exists
 
-1. Start the app with `npm run tauri:dev`.
+1. For packaged beta QA, open the installed `Morrow.app`. For maintainer/source-build only debugging, start the app with `npm run tauri:dev`.
 2. Grant Full Disk Access and Calendar access to the app.
 3. Complete onboarding: choose Calendar source, set reference timezone, confirm Codex provider readiness, and select exactly one test chat.
 4. Send a scheduling-shaped message in that selected chat, for example a future meeting with a concrete time.
