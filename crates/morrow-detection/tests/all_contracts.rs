@@ -6,5 +6,7 @@ mod golden;
 mod pipeline;
 #[path = "contracts/provider.rs"]
 mod provider;
+#[path = "contracts/provider_route_cache.rs"]
+mod provider_route_cache;
 #[path = "contracts/trace.rs"]
 mod trace;

@@ -111,6 +111,12 @@ fn openai_provider_extracts_completed_output_text_candidate() -> Result<(), Stri
         DetectionOutcome::QuietLog(quiet) => {
             Err(format!("expected candidate, got {}", quiet.reason))
         }
+        DetectionOutcome::CachedProviderRoute {
+            route_fingerprint,
+            outcome_kind,
+        } => Err(format!(
+            "expected candidate, got cached provider route {route_fingerprint} ({outcome_kind:?})"
+        )),
     }
 }
 

@@ -4,7 +4,7 @@ use morrow_diagnostics::{
 };
 use morrow_messages::MessageEvidence;
 
-use crate::pipeline::DetectionOutcome;
+use crate::outcome::DetectionOutcome;
 use crate::trace_event::{bounded_confidence, candidate_outcome, TraceEvent};
 use crate::types::{DetectionConfig, SourceExcerptPolicy};
 
@@ -78,6 +78,20 @@ impl<'a, R: TraceRecorder + ?Sized> MessageTrace<'a, R> {
             decision: Some(TraceDecision::ProviderRoute),
             outcome: TraceOutcome::Noop,
             reason_code: Some("provider_route"),
+            confidence_millis: None,
+            title: None,
+            privacy_tier: TracePrivacyTier::InternalMetadata,
+            provider: Some(&config.provider),
+        });
+    }
+
+    pub(crate) fn provider_route_cache_hit(&self, config: &DetectionConfig) {
+        self.record_child(TraceEvent {
+            component: TraceComponent::Provider,
+            operation: TraceOperation::ProviderRoute,
+            decision: Some(TraceDecision::ProviderRoute),
+            outcome: TraceOutcome::Noop,
+            reason_code: Some("provider_route_cache_hit"),
             confidence_millis: None,
             title: None,
             privacy_tier: TracePrivacyTier::InternalMetadata,
@@ -186,6 +200,17 @@ impl<'a, R: TraceRecorder + ?Sized> MessageTrace<'a, R> {
                 decision: Some(TraceDecision::Stop),
                 outcome: TraceOutcome::QuietLogged,
                 reason_code: Some(&quiet.reason),
+                confidence_millis: None,
+                title: None,
+                privacy_tier: TracePrivacyTier::InternalMetadata,
+                provider: None,
+            },
+            DetectionOutcome::CachedProviderRoute { .. } => TraceEvent {
+                component: TraceComponent::Outcome,
+                operation: TraceOperation::OutcomeMaterialized,
+                decision: Some(TraceDecision::ProviderRoute),
+                outcome: TraceOutcome::Noop,
+                reason_code: Some("provider_route_cache_hit"),
                 confidence_millis: None,
                 title: None,
                 privacy_tier: TracePrivacyTier::InternalMetadata,

@@ -182,6 +182,11 @@ pub fn only_candidate(
         DetectionOutcome::QuietLog(quiet) => {
             Err(format!("expected candidate, got quiet log {}", quiet.reason).into())
         }
+        DetectionOutcome::CachedProviderRoute {
+            route_fingerprint, ..
+        } => {
+            Err(format!("expected candidate, got cached provider route {route_fingerprint}").into())
+        }
     }
 }
 
@@ -196,6 +201,11 @@ pub fn only_quiet(
         DetectionOutcome::QuietLog(quiet) => Ok(quiet),
         DetectionOutcome::Candidate(candidate) => {
             Err(format!("expected quiet log, got candidate {}", candidate.title).into())
+        }
+        DetectionOutcome::CachedProviderRoute {
+            route_fingerprint, ..
+        } => {
+            Err(format!("expected quiet log, got cached provider route {route_fingerprint}").into())
         }
     }
 }

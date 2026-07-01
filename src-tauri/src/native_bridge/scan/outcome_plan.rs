@@ -72,6 +72,7 @@ pub(super) fn plan_scan_outcomes<'a>(
                     },
                 ));
             }
+            DetectionOutcome::CachedProviderRoute { .. } => {}
         }
     }
     Ok(ScanOutcomePlan { intents })

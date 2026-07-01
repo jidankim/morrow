@@ -139,6 +139,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                         return Err("quiet log stored too much evidence text".into());
                     }
                 }
+                DetectionOutcome::CachedProviderRoute { .. } => {}
             }
         }
     }

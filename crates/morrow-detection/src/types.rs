@@ -240,14 +240,12 @@ fn normalized_time_component<'a>(raw: &str, rest: &'a str) -> Result<&'a str, De
 }
 
 fn validate_normalized_date(date: &str) -> Result<(), DetectionError> {
-    let parts = date.split('-').collect::<Vec<_>>();
-    if parts.len() == 3 && parts[0].len() == 4 && parts[1].len() == 2 && parts[2].len() == 2 {
-        Ok(())
-    } else {
-        Err(DetectionError::InvalidInput {
+    match date.split('-').collect::<Vec<_>>().as_slice() {
+        [year, month, day] if year.len() == 4 && month.len() == 2 && day.len() == 2 => Ok(()),
+        _ => Err(DetectionError::InvalidInput {
             field: "normalized_time",
             reason: "must use fixed-width date",
-        })
+        }),
     }
 }
 

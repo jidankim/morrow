@@ -39,6 +39,14 @@ fn openai_provider_transport_boundary_never_logs_token() -> Result<(), String> {
         DetectionOutcome::QuietLog(quiet) => {
             return Err(format!("expected candidate, got {}", quiet.reason));
         }
+        DetectionOutcome::CachedProviderRoute {
+            route_fingerprint,
+            outcome_kind,
+        } => {
+            return Err(format!(
+                "expected candidate, got cached provider route {route_fingerprint} ({outcome_kind:?})"
+            ));
+        }
     }
     let request = transport.only_request()?;
     assert_eq!(request.url, OPENAI_RESPONSES_URL);

@@ -122,20 +122,19 @@ fn codex_provider_extracts_valid_candidate_json() -> Result<(), String> {
     let report = pipeline.detect(&evidence, &config()?);
 
     // Then
-    let outcome = report
-        .outcomes
-        .first()
-        .ok_or_else(|| "missing detection outcome".to_owned())?;
-    match outcome {
-        DetectionOutcome::Candidate(candidate) => {
-            assert_eq!(candidate.title, "Provider meeting");
-            assert_eq!(runner.observation_count(), 1);
-            Ok(())
+    let candidate = match report.outcomes.as_slice() {
+        [DetectionOutcome::Candidate(candidate), ..] => candidate,
+        [DetectionOutcome::QuietLog(quiet), ..] => {
+            return Err(format!("expected candidate, got {}", quiet.reason));
         }
-        DetectionOutcome::QuietLog(quiet) => {
-            Err(format!("expected candidate, got {}", quiet.reason))
+        [DetectionOutcome::CachedProviderRoute { .. }, ..] => {
+            return Err("expected candidate, got cached provider route".to_owned());
         }
-    }
+        [] => return Err("missing detection outcome".to_owned()),
+    };
+    assert_eq!(candidate.title, "Provider meeting");
+    assert_eq!(runner.observation_count(), 1);
+    Ok(())
 }
 
 #[test]
