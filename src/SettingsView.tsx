@@ -1,5 +1,6 @@
 import type { AppConfig } from "./domain/appShell"
 import type { DeleteAllOptions } from "./domain/privacyControls"
+import type { SyncSchedulerIntervalSeconds, SyncSchedulerState } from "./domain/syncScheduler"
 import {
   SettingsPrivacyControls,
   type DeleteAllState
@@ -8,6 +9,7 @@ import {
   SettingsProviderCredentialSection,
   type ProviderCredentialState
 } from "./SettingsProviderCredentialSection"
+import { SyncSchedulerControls } from "./SyncSchedulerControls"
 import type { PrivacySettingsPane, RuntimeIdentity } from "./tauriBridge"
 
 export type { DeleteAllState } from "./SettingsPrivacyControls"
@@ -18,10 +20,14 @@ type SettingsViewProps = {
   readonly deleteAllState: DeleteAllState
   readonly providerCredentialState: ProviderCredentialState
   readonly runtimeIdentity?: RuntimeIdentity | undefined
+  readonly syncScheduler: SyncSchedulerState
+  readonly syncSchedulerNowUnixSeconds: number
+  readonly onChangeAutomaticSyncInterval: (intervalSeconds: SyncSchedulerIntervalSeconds) => void
   readonly onChange: (config: AppConfig) => void
   readonly onCheckProviderCredential: () => Promise<void>
   readonly onDeleteAll: (options: DeleteAllOptions) => void
   readonly onOpenPrivacySettings: (pane: PrivacySettingsPane) => Promise<void>
+  readonly onToggleAutomaticSync: () => void
 }
 
 export function SettingsView({
@@ -29,10 +35,14 @@ export function SettingsView({
   deleteAllState,
   providerCredentialState,
   runtimeIdentity,
+  syncScheduler,
+  syncSchedulerNowUnixSeconds,
+  onChangeAutomaticSyncInterval,
   onChange,
   onCheckProviderCredential,
   onDeleteAll,
-  onOpenPrivacySettings
+  onOpenPrivacySettings,
+  onToggleAutomaticSync
 }: SettingsViewProps): JSX.Element {
   return (
     <div className="panel">
@@ -91,6 +101,13 @@ export function SettingsView({
         />
         <span>Show first-proposal guidance</span>
       </label>
+      <SyncSchedulerControls
+        nowUnixSeconds={syncSchedulerNowUnixSeconds}
+        scheduler={syncScheduler}
+        surface="settings"
+        onIntervalChange={onChangeAutomaticSyncInterval}
+        onToggle={onToggleAutomaticSync}
+      />
       <SettingsProviderCredentialSection
         state={providerCredentialState}
         onCheckProviderCredential={onCheckProviderCredential}

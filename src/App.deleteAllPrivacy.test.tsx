@@ -1,49 +1,61 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { App } from "./App"
+import type { SyncSchedulerState } from "./domain/syncScheduler"
 import type { MorrowDataDeleteReceipt } from "./tauriBridge"
 
 type CrashLogRequestForTest = {
   readonly message: string
 }
 
-const bridgeMock = vi.hoisted(() => ({
-  getState: vi.fn(async () => undefined),
-  setShellState: vi.fn(async () => undefined),
-  getRuntimeIdentity: vi.fn(async () => undefined),
-  subscribeAppState: vi.fn(async () => vi.fn()),
-  subscribeMenuCommand: vi.fn(async () => vi.fn()),
-  reconcileNow: vi.fn(async () => undefined),
-  scanSelectedChats: vi.fn(async () => ({ pendingProposalCount: 12 })),
-  checkProviderAuth: vi.fn(async () => ({
-    status: "loggedInUsingChatGpt",
-    ready: true,
-    commandSurface: "codex login status",
-    commandOutputRedacted: true,
-    diagnostic: "Codex CLI ChatGPT session is ready."
-  })),
-  storeMorrowToken: vi.fn(async () => ({ storageSurface: "keychainBridge", stored: true, deleted: false })),
-  readMorrowToken: vi.fn(async () => ({ storageSurface: "keychainBridge", present: true })),
-  deleteMorrowToken: vi.fn(async () => ({ storageSurface: "keychainBridge", stored: false, deleted: true })),
-  discoverMessagesChats: vi.fn(async () => ({
-    status: "ready",
-    chats: [
-      {
-        chatId: "messages-chat-11111111111111111111111111111111",
-        displayLabel: "Chat alpha",
-        participantCount: 2,
-        participantIds: [
-          "messages-participant-11111111111111111111111111111111",
-          "messages-participant-22222222222222222222222222222222"
-        ],
-        latestActivityTimestamp: 1_783_000_000
-      }
-    ]
-  })),
-  openPrivacySettings: vi.fn(async () => ({ pane: "fullDiskAccess", opened: true })),
-  deleteMorrowData: vi.fn(async (): Promise<MorrowDataDeleteReceipt> => deleteSuccessReceipt()),
-  recordCrashLog: vi.fn(async (_request: CrashLogRequestForTest) => ({ stored: true }))
-}))
+const bridgeMock = vi.hoisted(() => {
+  const defaultSchedulerState: SyncSchedulerState = {
+    enabled: false,
+    interval_seconds: 1_800,
+    status: "disabled",
+    retry_attempt: 0,
+    updated_at: 1_783_000_000
+  }
+  return {
+    getState: vi.fn(async () => undefined),
+    setShellState: vi.fn(async () => undefined),
+    getRuntimeIdentity: vi.fn(async () => undefined),
+    subscribeAppState: vi.fn(async () => vi.fn()),
+    subscribeMenuCommand: vi.fn(async () => vi.fn()),
+    reconcileNow: vi.fn(async () => undefined),
+    scanSelectedChats: vi.fn(async () => ({ pendingProposalCount: 12 })),
+    getSyncSchedulerState: vi.fn(async () => defaultSchedulerState),
+    setSyncSchedulerState: vi.fn(async (state: SyncSchedulerState) => state),
+    checkProviderAuth: vi.fn(async () => ({
+      status: "loggedInUsingChatGpt",
+      ready: true,
+      commandSurface: "codex login status",
+      commandOutputRedacted: true,
+      diagnostic: "Codex CLI ChatGPT session is ready."
+    })),
+    storeMorrowToken: vi.fn(async () => ({ storageSurface: "keychainBridge", stored: true, deleted: false })),
+    readMorrowToken: vi.fn(async () => ({ storageSurface: "keychainBridge", present: true })),
+    deleteMorrowToken: vi.fn(async () => ({ storageSurface: "keychainBridge", stored: false, deleted: true })),
+    discoverMessagesChats: vi.fn(async () => ({
+      status: "ready",
+      chats: [
+        {
+          chatId: "messages-chat-11111111111111111111111111111111",
+          displayLabel: "Chat alpha",
+          participantCount: 2,
+          participantIds: [
+            "messages-participant-11111111111111111111111111111111",
+            "messages-participant-22222222222222222222222222222222"
+          ],
+          latestActivityTimestamp: 1_783_000_000
+        }
+      ]
+    })),
+    openPrivacySettings: vi.fn(async () => ({ pane: "fullDiskAccess", opened: true })),
+    deleteMorrowData: vi.fn(async (): Promise<MorrowDataDeleteReceipt> => deleteSuccessReceipt()),
+    recordCrashLog: vi.fn(async (_request: CrashLogRequestForTest) => ({ stored: true }))
+  }
+})
 
 vi.mock("./tauriBridge", () => ({
   MORROW_KEYCHAIN_SERVICE: "com.morrow.desktop.token",
@@ -135,6 +147,8 @@ describe("App delete-all privacy controls", () => {
     window.location.hash = ""
     bridgeMock.deleteMorrowData.mockClear()
     bridgeMock.recordCrashLog.mockClear()
+    bridgeMock.getSyncSchedulerState.mockClear()
+    bridgeMock.setSyncSchedulerState.mockClear()
   })
 
   it("requires type-to-confirm before delete-all calls native Morrow data deletion", async () => {
@@ -162,7 +176,7 @@ describe("App delete-all privacy controls", () => {
       deleteEmptyProposalContainers: false,
       revokeProviderOAuth: true
     })
-    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Morrow data reset"))
+    expect(await screen.findByRole("heading", { name: "Morrow data reset" })).toBeInTheDocument()
     expect(screen.getByText("Approved Calendar and Reminders items were preserved.")).toBeInTheDocument()
     expect(screen.getByText("Deleted 1 proposed Calendar item(s) and 1 proposed Reminder item(s).")).toBeInTheDocument()
   })
@@ -173,7 +187,7 @@ describe("App delete-all privacy controls", () => {
 
     await confirmDeleteAll()
 
-    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Morrow data reset"))
+    expect(await screen.findByRole("heading", { name: "Morrow data reset" })).toBeInTheDocument()
     expect(
       screen.getByText(
         "Morrow-owned provider credentials could not be deleted by macOS. Codex CLI login was left unchanged."

@@ -132,7 +132,7 @@ describe("App privacy controls", () => {
       deleteEmptyProposalContainers: false,
       revokeProviderOAuth: true
     })
-    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Morrow data reset"))
+    expect(await screen.findByRole("heading", { name: "Morrow data reset" })).toBeInTheDocument()
     expect(screen.getByText("Approved Calendar and Reminders items were preserved.")).toBeInTheDocument()
     expect(screen.getByText("Local diagnostics artifacts were deleted.")).toBeInTheDocument()
     expect(screen.getByText("Deleted 1 proposed Calendar item(s) and 1 proposed Reminder item(s).")).toBeInTheDocument()
@@ -197,7 +197,7 @@ describe("App privacy controls", () => {
     })
     fireEvent.click(screen.getByRole("button", { name: "Delete Morrow data" }))
 
-    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Morrow data reset"))
+    expect(await screen.findByRole("heading", { name: "Morrow data reset" })).toBeInTheDocument()
     expect(
       screen.getByText(
         "Morrow-owned provider credentials could not be deleted by macOS. Codex CLI login was left unchanged."

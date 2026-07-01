@@ -27,7 +27,15 @@ const nativeReadyReport = {
   ]
 } as const
 
-const bridgeMock = vi.hoisted(() => ({
+const bridgeMock = vi.hoisted(() => {
+  const defaultSchedulerState = {
+    enabled: false,
+    interval_seconds: 1_800,
+    status: "disabled",
+    retry_attempt: 0,
+    updated_at: 1_783_000_000
+  } as const
+  return {
   getState: vi.fn(async () => undefined),
   setShellState: vi.fn(async () => undefined),
   getRuntimeIdentity: vi.fn(async () => undefined),
@@ -63,9 +71,12 @@ const bridgeMock = vi.hoisted(() => ({
     deleted: true
   })),
   discoverMessagesChats: vi.fn(async () => nativeReadyReport),
+  getSyncSchedulerState: vi.fn(async () => defaultSchedulerState),
+  setSyncSchedulerState: vi.fn(async () => defaultSchedulerState),
   openPrivacySettings: vi.fn(async () => ({ pane: "fullDiskAccess", opened: true })),
   recordCrashLog: vi.fn(async () => ({ path: "morrow-crash.log", written: true }))
-}))
+  }
+})
 
 vi.mock("./tauriBridge", () => ({
   MORROW_KEYCHAIN_SERVICE: "com.morrow.desktop.token",
@@ -96,6 +107,8 @@ describe("App Sync Now result counts", () => {
     bridgeMock.subscribeMenuCommand.mockClear()
     bridgeMock.reconcileNow.mockClear()
     bridgeMock.scanSelectedChats.mockClear()
+    bridgeMock.getSyncSchedulerState.mockClear()
+    bridgeMock.setSyncSchedulerState.mockClear()
     bridgeMock.readMorrowToken.mockClear()
     bridgeMock.readMorrowToken.mockResolvedValue({
       storageSurface: "keychainBridge",

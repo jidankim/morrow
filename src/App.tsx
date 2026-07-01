@@ -45,10 +45,14 @@ export function App(): JSX.Element {
             deleteAllState={shell.deleteAllState}
             providerCredentialState={shell.providerCredentialState}
             runtimeIdentity={runtimeIdentity}
+            syncScheduler={shell.syncScheduler}
+            syncSchedulerNowUnixSeconds={shell.syncSchedulerNowUnixSeconds}
+            onChangeAutomaticSyncInterval={shell.changeAutomaticSyncInterval}
             onChange={shell.updateConfig}
             onCheckProviderCredential={shell.checkProviderCredential}
             onDeleteAll={shell.deleteAllMorrowData}
             onOpenPrivacySettings={shell.openPrivacySettings}
+            onToggleAutomaticSync={shell.toggleAutomaticSync}
           />
         ) : (
           <StatusView
@@ -59,9 +63,13 @@ export function App(): JSX.Element {
             syncEnabled={shell.syncEnabled}
             runtimeIdentity={runtimeIdentity}
             previewDisclosure={shell.previewDisclosure}
+            syncScheduler={shell.syncScheduler}
+            syncSchedulerNowUnixSeconds={shell.syncSchedulerNowUnixSeconds}
+            onChangeAutomaticSyncInterval={shell.changeAutomaticSyncInterval}
             onPause={() => shell.setMode("paused")}
             onResume={() => shell.setMode("scanning")}
             onSyncNow={shell.runSyncNow}
+            onToggleAutomaticSync={shell.toggleAutomaticSync}
             onHidePreviews={shell.hidePreviews}
             onRetryChatDiscovery={shell.loadMessagesDiscovery}
             onRevealPreviews={shell.revealPreviews}

@@ -6,9 +6,31 @@ type NativeStateForTest = {
   readonly errorMessage?: string
   readonly onboardingComplete: boolean
   readonly pendingProposalCount: number
+  readonly automaticSyncEnabled: boolean
+  readonly automaticSyncStatusLabel: "Off" | "On" | "Cooling Down" | "Needs Action"
+  readonly automaticSyncDetail: string
 }
 
-type NativeMenuCommandForTest = "sync-now" | "open-settings" | "open-calendar" | "open-reminders"
+type NativeMenuCommandForTest =
+  | "sync-now"
+  | "open-settings"
+  | "open-calendar"
+  | "open-reminders"
+  | "toggle-automatic-sync"
+
+type NativeSyncSchedulerStateForTest = {
+  readonly enabled: boolean
+  readonly interval_seconds: 900 | 1_800 | 3_600
+  readonly status: "disabled" | "scheduled" | "running" | "cooldown" | "blocked"
+  readonly last_started_at?: number | undefined
+  readonly last_finished_at?: number | undefined
+  readonly next_run_at?: number | undefined
+  readonly next_eligible_at?: number | undefined
+  readonly last_result?: "success" | "retryable_failure" | "blocked" | "manual_disabled" | undefined
+  readonly retry_attempt: number
+  readonly last_reason?: string | undefined
+  readonly updated_at: number
+}
 
 type NativeDiscoveryReportForTest =
   | {
@@ -53,6 +75,13 @@ export const nativeReadyReport = {
 const hoistedBridgeMock = vi.hoisted(() => {
   let nativeStateListener: ((state: NativeStateForTest) => void) | undefined
   let nativeMenuCommandListener: ((command: NativeMenuCommandForTest) => void) | undefined
+  let schedulerState: NativeSyncSchedulerStateForTest | undefined = {
+    enabled: false,
+    interval_seconds: 1_800,
+    status: "disabled",
+    retry_attempt: 0,
+    updated_at: 1_783_000_000
+  }
   const syncCalls: string[] = []
   return {
     getState: vi.fn(async () => undefined),
@@ -72,6 +101,11 @@ const hoistedBridgeMock = vi.hoisted(() => {
     scanSelectedChats: vi.fn(async () => {
       syncCalls.push("scan")
       return { pendingProposalCount: 12 }
+    }),
+    getSyncSchedulerState: vi.fn(async () => schedulerState),
+    setSyncSchedulerState: vi.fn(async (state: NativeSyncSchedulerStateForTest) => {
+      schedulerState = state
+      return state
     }),
     checkProviderAuth: vi.fn(async () => ({
       status: "loggedInUsingChatGpt",
@@ -104,13 +138,46 @@ const hoistedBridgeMock = vi.hoisted(() => {
       nativeMenuCommandListener?.(command)
     },
     getSyncCalls: (): readonly string[] => syncCalls,
+    getSchedulerState: (): NativeSyncSchedulerStateForTest | undefined => schedulerState,
+    setSchedulerState: (state: NativeSyncSchedulerStateForTest | undefined): void => {
+      schedulerState = state
+    },
     resetSyncCalls: (): void => {
       syncCalls.length = 0
+    },
+    resetSchedulerState: (): void => {
+      schedulerState = {
+        enabled: false,
+        interval_seconds: 1_800,
+        status: "disabled",
+        retry_attempt: 0,
+        updated_at: 1_783_000_000
+      }
     }
   }
 })
 
 export const bridgeMock = hoistedBridgeMock
+
+export const resetAppShellBridgeTestHarness = (): void => {
+  vi.useRealTimers()
+  window.localStorage.clear()
+  window.location.hash = ""
+  bridgeMock.getState.mockClear()
+  bridgeMock.setShellState.mockClear()
+  bridgeMock.subscribeAppState.mockClear()
+  bridgeMock.subscribeMenuCommand.mockClear()
+  bridgeMock.reconcileNow.mockClear()
+  bridgeMock.scanSelectedChats.mockClear()
+  bridgeMock.getSyncSchedulerState.mockClear()
+  bridgeMock.setSyncSchedulerState.mockClear()
+  bridgeMock.resetSchedulerState()
+  bridgeMock.readMorrowToken.mockClear()
+  bridgeMock.discoverMessagesChats.mockClear()
+  bridgeMock.discoverMessagesChats.mockResolvedValue(nativeReadyReport)
+  bridgeMock.openPrivacySettings.mockClear()
+  bridgeMock.resetSyncCalls()
+}
 
 vi.mock("./tauriBridge", () => ({
   MORROW_KEYCHAIN_SERVICE: "com.morrow.desktop.token",
@@ -124,6 +191,8 @@ vi.mock("./tauriBridge", () => ({
     subscribeMenuCommand: bridgeMock.subscribeMenuCommand,
     reconcileNow: bridgeMock.reconcileNow,
     scanSelectedChats: bridgeMock.scanSelectedChats,
+    getSyncSchedulerState: bridgeMock.getSyncSchedulerState,
+    setSyncSchedulerState: bridgeMock.setSyncSchedulerState,
     checkProviderAuth: bridgeMock.checkProviderAuth,
     storeMorrowToken: bridgeMock.storeMorrowToken,
     readMorrowToken: bridgeMock.readMorrowToken,

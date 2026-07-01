@@ -101,6 +101,15 @@ All spacing derives from 4px.
 - **Accessibility**: native button, visible focus ring.
 - **Motion**: transform and color transitions only.
 
+### Automatic Sync Control
+
+- **Structure**: compact status header, command toggle, interval field, and three metadata rows.
+- **Variants**: off, enabled, running, cooling down, needs action.
+- **Spacing**: --space-3 control gap, --space-4 metadata gap, --space-5 section padding.
+- **States**: toggle and interval changes persist durable scheduler configuration.
+- **Accessibility**: native button, native select, status exposed with role=status.
+- **Motion**: button transform and color transitions only.
+
 ## 6. Motion & Interaction
 
 ### Timing

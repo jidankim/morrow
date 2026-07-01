@@ -1,11 +1,19 @@
 import { act, render, screen, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { App } from "./App"
+import type { SyncSchedulerState } from "./domain/syncScheduler"
 
 type NativeMenuCommandForTest = "sync-now" | "open-settings" | "open-calendar" | "open-reminders"
 
 const bridgeMock = vi.hoisted(() => {
   let nativeMenuCommandListener: ((command: NativeMenuCommandForTest) => void) | undefined
+  const defaultSchedulerState: SyncSchedulerState = {
+    enabled: false,
+    interval_seconds: 1_800,
+    status: "disabled",
+    retry_attempt: 0,
+    updated_at: 1_783_000_000
+  }
   return {
     getState: vi.fn(async () => undefined),
     setShellState: vi.fn(async () => undefined),
@@ -17,6 +25,8 @@ const bridgeMock = vi.hoisted(() => {
     }),
     reconcileNow: vi.fn(async () => undefined),
     scanSelectedChats: vi.fn(async () => ({ pendingProposalCount: 12 })),
+    getSyncSchedulerState: vi.fn(async () => defaultSchedulerState),
+    setSyncSchedulerState: vi.fn(async (state: SyncSchedulerState) => state),
     checkProviderAuth: vi.fn(async () => ({
       status: "loggedInUsingChatGpt",
       ready: true,
@@ -61,6 +71,8 @@ describe("App native menu navigation", () => {
     window.location.hash = ""
     bridgeMock.readMorrowToken.mockClear()
     bridgeMock.subscribeMenuCommand.mockClear()
+    bridgeMock.getSyncSchedulerState.mockClear()
+    bridgeMock.setSyncSchedulerState.mockClear()
   })
 
   it("opens Settings for native settings, calendar, and reminders commands", async () => {

@@ -135,6 +135,86 @@ describe("createNativeShellBridge scan command", () => {
     expect(tauriMock.invoke).toHaveBeenCalledWith("reconcile_now")
   })
 
+  it("gets and sets native sync scheduler state with exact command names", async () => {
+    // Given
+    const schedulerState = {
+      enabled: true,
+      interval_seconds: 1800,
+      status: "scheduled",
+      last_started_at: 1_783_000_000,
+      last_finished_at: 1_783_000_030,
+      next_run_at: 1_783_001_800,
+      next_eligible_at: undefined,
+      last_result: "success",
+      retry_attempt: 0,
+      last_reason: "Automatic sync scheduled.",
+      updated_at: 1_783_000_030
+    } as const
+    tauriMock.invoke.mockResolvedValueOnce(schedulerState).mockResolvedValueOnce(schedulerState)
+    const { createNativeShellBridge } = await import("./tauriBridge")
+    const bridge = createNativeShellBridge()
+
+    // When
+    const loaded = await bridge.getSyncSchedulerState()
+    const saved = await bridge.setSyncSchedulerState(schedulerState)
+
+    // Then
+    expect(loaded).toEqual(schedulerState)
+    expect(saved).toEqual(schedulerState)
+    expect(tauriMock.invoke).toHaveBeenNthCalledWith(1, "get_sync_scheduler_state")
+    expect(tauriMock.invoke).toHaveBeenNthCalledWith(2, "set_sync_scheduler_state", {
+      state: schedulerState
+    })
+  })
+
+  it("rejects malformed native sync scheduler status and retry attempt", async () => {
+    // Given
+    const malformedStatus = {
+      enabled: true,
+      interval_seconds: 1800,
+      status: "stuck",
+      retry_attempt: 0,
+      updated_at: 1_783_000_030
+    }
+    const malformedRetryAttempt = {
+      enabled: true,
+      interval_seconds: 1800,
+      status: "scheduled",
+      retry_attempt: -1,
+      updated_at: 1_783_000_030
+    }
+    tauriMock.invoke.mockResolvedValueOnce(malformedStatus).mockResolvedValueOnce(malformedRetryAttempt)
+    const { createNativeShellBridge } = await import("./tauriBridge")
+    const bridge = createNativeShellBridge()
+
+    // When / Then
+    await expect(bridge.getSyncSchedulerState()).rejects.toThrow()
+    await expect(bridge.getSyncSchedulerState()).rejects.toThrow()
+  })
+
+  it("returns undefined for sync scheduler state outside Tauri", async () => {
+    // Given
+    Reflect.deleteProperty(window, "__TAURI_INTERNALS__")
+    const { createNativeShellBridge } = await import("./tauriBridge")
+    const bridge = createNativeShellBridge()
+    const schedulerState = {
+      enabled: false,
+      interval_seconds: 1800,
+      status: "disabled",
+      retry_attempt: 0,
+      updated_at: 1_783_000_030
+    } as const
+
+    // When
+    const loaded = await bridge.getSyncSchedulerState()
+    const saved = await bridge.setSyncSchedulerState(schedulerState)
+
+    // Then
+    expect(loaded).toBeUndefined()
+    expect(saved).toBeUndefined()
+    expect(tauriMock.invoke).not.toHaveBeenCalled()
+  })
+
   it("invokes native load_messages_chat_previews with opaque chat ids", async () => {
     // Given
     const report = {

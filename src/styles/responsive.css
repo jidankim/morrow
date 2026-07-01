@@ -45,6 +45,10 @@
     grid-template-columns: 1fr;
   }
 
+  .sync-scheduler-details {
+    grid-template-columns: 1fr;
+  }
+
   .panel {
     padding: var(--space-4);
   }
@@ -59,7 +63,8 @@
 
   .command-row,
   .discovery-actions,
-  .chat-preview-toolbar {
+  .chat-preview-toolbar,
+  .sync-scheduler-controls {
     display: grid;
   }
 
@@ -67,7 +72,9 @@
   .credential-action-row .button,
   .discovery-actions .button,
   .chat-preview-toolbar .button,
-  .permission-action-row .button {
+  .permission-action-row .button,
+  .sync-scheduler-controls .button,
+  .sync-scheduler-interval {
     width: 100%;
     justify-content: center;
   }

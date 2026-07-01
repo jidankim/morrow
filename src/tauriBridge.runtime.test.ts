@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import type { NativeAppShellState } from "./domain/appShell"
 
 const tauriMock = vi.hoisted(() => ({
   invoke: vi.fn(async (): Promise<unknown> => ({ pendingProposalCount: 3 })),
@@ -98,7 +99,14 @@ describe("createNativeShellBridge runtime identity", () => {
     // Given
     const { createNativeShellBridge, MORROW_KEYCHAIN_SERVICE, MORROW_PROVIDER_TOKEN_KIND } = await import("./tauriBridge")
     const bridge = createNativeShellBridge()
-    const shellState = { mode: "scanning", onboardingComplete: true, pendingProposalCount: 0 } as const
+    const shellState: NativeAppShellState = {
+      mode: "scanning",
+      onboardingComplete: true,
+      pendingProposalCount: 0,
+      automaticSyncEnabled: false,
+      automaticSyncStatusLabel: "Off",
+      automaticSyncDetail: "Automatic sync is off."
+    }
     const selectedChat = { id: "messages-chat-11111111111111111111111111111111", label: "Team planning", participantCount: 1, participantIds: ["messages-participant-11111111111111111111111111111111"], latestActivityTimestamp: 1 } as const
     const scanRequest = { selectedChatIds: [selectedChat.id], selectedChats: [selectedChat], referenceTimezone: "Asia/Seoul", referenceUnixSeconds: 1, backfillPromptChatIds: [selectedChat.id], sourceExcerptsEnabled: false, feedbackTextSnapshotsEnabled: false, capPolicy: { mode: "refillForPending", maxVisible: 1, pendingCount: 0 } } as const
     const previewRequest = { chatIds: [selectedChat.id] } as const

@@ -1,29 +1,33 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
-import { beforeEach, describe, expect, it } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 import {
   bridgeMock,
   discoveredChat,
-  nativeReadyReport,
+  resetAppShellBridgeTestHarness,
   seedReadyState
 } from "./AppShellBridgeTestHarness"
 import { App } from "./App"
 import { APP_SHELL_STATE_KEY } from "./domain/appShell"
 
+const NOW = 1_783_000_000
+
+async function advanceSchedulerBy(milliseconds: number): Promise<void> {
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(milliseconds)
+  })
+}
+
+async function flushAsyncEffects(): Promise<void> {
+  await act(async () => {
+    await Promise.resolve()
+    await Promise.resolve()
+    await Promise.resolve()
+  })
+}
+
 describe("App native shell bridge", () => {
   beforeEach(() => {
-    window.localStorage.clear()
-    window.location.hash = ""
-    bridgeMock.getState.mockClear()
-    bridgeMock.setShellState.mockClear()
-    bridgeMock.subscribeAppState.mockClear()
-    bridgeMock.subscribeMenuCommand.mockClear()
-    bridgeMock.reconcileNow.mockClear()
-    bridgeMock.scanSelectedChats.mockClear()
-    bridgeMock.readMorrowToken.mockClear()
-    bridgeMock.discoverMessagesChats.mockClear()
-    bridgeMock.discoverMessagesChats.mockResolvedValue(nativeReadyReport)
-    bridgeMock.openPrivacySettings.mockClear()
-    bridgeMock.resetSyncCalls()
+    resetAppShellBridgeTestHarness()
   })
 
   it("persists native menu pause events and disables Sync Now", async () => {
@@ -34,7 +38,10 @@ describe("App native shell bridge", () => {
       bridgeMock.emitNativeState({
         mode: "paused",
         onboardingComplete: false,
-        pendingProposalCount: 0
+        pendingProposalCount: 0,
+        automaticSyncEnabled: false,
+        automaticSyncStatusLabel: "Off",
+        automaticSyncDetail: "Automatic sync is off."
       })
     })
 
@@ -107,6 +114,95 @@ describe("App native shell bridge", () => {
     expect(bridgeMock.scanSelectedChats).toHaveBeenCalledOnce()
   })
 
+  it("toggles persisted automatic sync from native menu without running sync", async () => {
+    // Given
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(NOW * 1_000))
+    seedReadyState()
+    render(<App />)
+
+    await flushAsyncEffects()
+    expect(bridgeMock.subscribeMenuCommand).toHaveBeenCalledOnce()
+    expect(bridgeMock.getSyncSchedulerState).toHaveBeenCalledOnce()
+    bridgeMock.setSyncSchedulerState.mockClear()
+    bridgeMock.setShellState.mockClear()
+
+    // When
+    act(() => {
+      bridgeMock.emitMenuCommand("toggle-automatic-sync")
+    })
+
+    // Then
+    await flushAsyncEffects()
+    expect(bridgeMock.setSyncSchedulerState).toHaveBeenCalledOnce()
+    expect(bridgeMock.setSyncSchedulerState).toHaveBeenCalledWith({
+      enabled: true,
+      interval_seconds: 1_800,
+      status: "scheduled",
+      next_run_at: NOW + 1_800,
+      retry_attempt: 0,
+      updated_at: NOW
+    })
+    expect(bridgeMock.getSyncCalls()).toEqual([])
+    expect(bridgeMock.reconcileNow).not.toHaveBeenCalled()
+    expect(bridgeMock.scanSelectedChats).not.toHaveBeenCalled()
+    expect(bridgeMock.setShellState).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        automaticSyncEnabled: true,
+        automaticSyncStatusLabel: "On",
+        automaticSyncDetail: "Next automatic sync in 30 min."
+      })
+    )
+  })
+
+  it("records needs action after native automatic sync toggle becomes due without provider credentials", async () => {
+    // Given
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(NOW * 1_000))
+    bridgeMock.checkProviderAuth.mockResolvedValueOnce({
+      status: "notLoggedIn",
+      ready: false,
+      commandSurface: "codex login status",
+      commandOutputRedacted: true,
+      diagnostic: "Codex CLI is not logged in."
+    })
+    seedReadyState()
+    render(<App />)
+
+    await flushAsyncEffects()
+    expect(bridgeMock.subscribeMenuCommand).toHaveBeenCalledOnce()
+    expect(screen.getAllByText("Finish Codex CLI setup in Settings before scanning.").length).toBeGreaterThan(0)
+
+    // When
+    act(() => {
+      bridgeMock.emitMenuCommand("toggle-automatic-sync")
+    })
+    await flushAsyncEffects()
+    expect(bridgeMock.getSchedulerState()).toMatchObject({
+      enabled: true,
+      status: "scheduled",
+      next_run_at: NOW + 1_800
+    })
+    await advanceSchedulerBy(1_800_000)
+    await flushAsyncEffects()
+
+    // Then
+    expect(bridgeMock.getSyncCalls()).toEqual([])
+    expect(bridgeMock.reconcileNow).not.toHaveBeenCalled()
+    expect(bridgeMock.scanSelectedChats).not.toHaveBeenCalled()
+    expect(bridgeMock.getSchedulerState()).toMatchObject({
+      status: "blocked",
+      last_result: "blocked",
+      last_reason: "Finish Codex CLI setup in Settings before scanning."
+    })
+    expect(bridgeMock.setShellState).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        automaticSyncStatusLabel: "Needs Action",
+        automaticSyncDetail: "Finish Codex CLI setup in Settings before scanning."
+      })
+    )
+  })
+
   it("shows an error state when Sync Now rejects with a native string error", async () => {
     bridgeMock.reconcileNow.mockRejectedValueOnce("native sync failed")
     seedReadyState()
@@ -118,6 +214,23 @@ describe("App native shell bridge", () => {
 
     await expect(screen.findByTestId("status-label")).resolves.toHaveTextContent("Error")
     expect(screen.getByText("native sync failed")).toBeInTheDocument()
+  })
+
+  it("shows fallback text when manual Sync Now rejects with an unknown error", async () => {
+    // Given
+    bridgeMock.reconcileNow.mockRejectedValueOnce({ reason: "not an Error" })
+    seedReadyState()
+    render(<App />)
+
+    const syncButton = screen.getByRole("button", { name: "Sync Now" })
+    await waitFor(() => expect(syncButton).toBeEnabled())
+
+    // When
+    fireEvent.click(syncButton)
+
+    // Then
+    await expect(screen.findByTestId("status-label")).resolves.toHaveTextContent("Error")
+    expect(screen.getByText("Sync Now could not complete.")).toBeInTheDocument()
   })
 
   it("shows an error state when native shell state rejects with a string error", async () => {

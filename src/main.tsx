@@ -4,8 +4,16 @@ import { App } from "./App"
 import { SettingsView } from "./SettingsView"
 import { StatusView } from "./StatusView"
 import type { ChatPreviewDisclosure } from "./ChatPreviewControls"
-import { createDefaultAppShellState, getMenuModel, getOnboardingWarnings, isSyncNowEnabled, reduceAppShellState, type AppShellState, type ChatId, type DiscoveredChat, type SelectedChat } from "./domain/appShell"
+import { createDefaultAppShellState, getMenuModel, getOnboardingWarnings, isSyncNowEnabled, reduceAppShellState, type AppShellState, type ChatId } from "./domain/appShell"
+import { createDefaultSyncSchedulerState, type SyncSchedulerIntervalSeconds } from "./domain/syncScheduler"
 import type { RuntimeIdentity } from "./tauriBridge"
+import { VisualSyncSchedulerHarness, isVisualSyncSchedulerState, type VisualSyncSchedulerState } from "./VisualSyncSchedulerHarness"
+import {
+  selectedVisualChat,
+  staleSelectedVisualChat,
+  visualChatPreviews,
+  visualDiscoveredChats
+} from "./visualQaChatFixtures"
 import "./styles.css"
 
 if (import.meta.env.DEV && import.meta.env["VITE_DISABLE_REACT_DEVTOOLS"] !== "1") {
@@ -37,15 +45,29 @@ type VisualFullDiskAccessRecoveryState = keyof typeof visualFullDiskAccessRecove
 
 type VisualQaState = { readonly kind: "chatDiscovery"; readonly stateName: VisualChatDiscoveryState }
   | { readonly kind: "fullDiskAccessRecovery"; readonly stateName: VisualFullDiskAccessRecoveryState }
+  | { readonly kind: "syncScheduler"; readonly stateName: VisualSyncSchedulerState }
 
 const visualQaState = import.meta.env.DEV ? getVisualQaState(window.location.search) : undefined
+const VISUAL_QA_NOW_UNIX_SECONDS = 1_783_000_000
+const visualSyncScheduler = createDefaultSyncSchedulerState(VISUAL_QA_NOW_UNIX_SECONDS)
 
 createRoot(rootElement).render(<StrictMode>{visualQaState === undefined ? <App /> : <VisualQaHarness state={visualQaState} />}</StrictMode>)
 
 function VisualQaHarness({ state }: { readonly state: VisualQaState }): JSX.Element {
-  return state.kind === "chatDiscovery"
-    ? <VisualChatDiscoveryHarness stateName={state.stateName} />
-    : <VisualFullDiskAccessRecoveryHarness stateName={state.stateName} />
+  switch (state.kind) {
+    case "chatDiscovery":
+      return <VisualChatDiscoveryHarness stateName={state.stateName} />
+    case "fullDiskAccessRecovery":
+      return <VisualFullDiskAccessRecoveryHarness stateName={state.stateName} />
+    case "syncScheduler":
+      return (
+        <VisualQaShell stateName={state.stateName} lede="Automatic sync visual QA">
+          <VisualSyncSchedulerHarness stateName={state.stateName} />
+        </VisualQaShell>
+      )
+    default:
+      return assertNever(state)
+  }
 }
 
 function VisualChatDiscoveryHarness({ stateName }: { readonly stateName: VisualChatDiscoveryState }): JSX.Element {
@@ -78,8 +100,11 @@ function VisualFullDiskAccessRecoveryHarness({ stateName }: { readonly stateName
       return (
         <VisualQaShell stateName={stateName}>
           <SettingsView config={createVisualBaseState().config} deleteAllState={{ status: "idle" }}
-            providerCredentialState={{ status: "ready" }} runtimeIdentity={runtimeIdentity} onChange={noop}
-            onCheckProviderCredential={noopAsync} onDeleteAll={noop} onOpenPrivacySettings={noopAsync} />
+            providerCredentialState={{ status: "ready" }} runtimeIdentity={runtimeIdentity}
+            syncScheduler={visualSyncScheduler} syncSchedulerNowUnixSeconds={VISUAL_QA_NOW_UNIX_SECONDS}
+            onChangeAutomaticSyncInterval={noopIntervalChange} onChange={noop}
+            onCheckProviderCredential={noopAsync} onDeleteAll={noop} onOpenPrivacySettings={noopAsync}
+            onToggleAutomaticSync={noop} />
         </VisualQaShell>
       )
     default:
@@ -109,11 +134,13 @@ function VisualStatusFixture({ state, previewDisclosure, runtimeIdentity }: {
     <StatusView
       menu={getMenuModel(fixtureState)} state={fixtureState} warnings={getOnboardingWarnings(fixtureState)} syncing={false}
       syncEnabled={isSyncNowEnabled(fixtureState)} previewDisclosure={previewDisclosure} runtimeIdentity={runtimeIdentity}
+      syncScheduler={visualSyncScheduler} syncSchedulerNowUnixSeconds={VISUAL_QA_NOW_UNIX_SECONDS}
+      onChangeAutomaticSyncInterval={noopIntervalChange}
       onPause={() => setFixtureState((current) => reduceAppShellState(current, { type: "pause" }))}
       onResume={() => setFixtureState((current) => reduceAppShellState(current, { type: "resume" }))}
       onSyncNow={noop} onOpenSettings={noop} onRetryChatDiscovery={noop}
       onOpenFullDiskAccess={noop} onRevealPreviews={noop} onHidePreviews={noop}
-      onToggleChat={noopChatToggle} onToggleBackfillPrompt={noopBackfillToggle}
+      onToggleAutomaticSync={noop} onToggleChat={noopChatToggle} onToggleBackfillPrompt={noopBackfillToggle}
     />
   )
 }
@@ -139,6 +166,11 @@ function getVisualQaState(search: string): VisualQaState | undefined {
         throw new Error(`Unsupported visual QA Full Disk Access recovery state: ${stateName}`)
       }
       return { kind: "fullDiskAccessRecovery", stateName }
+    case "sync-scheduler":
+      if (!isVisualSyncSchedulerState(stateName)) {
+        throw new Error(`Unsupported visual QA sync scheduler state: ${stateName}`)
+      }
+      return { kind: "syncScheduler", stateName }
     default:
       return undefined
   }
@@ -203,32 +235,6 @@ function createVisualBaseState(): AppShellState {
   }
 }
 
-const visualChatAlpha: DiscoveredChat = {
-  id: "messages-chat-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", label: "Planning circle", participantCount: 2,
-  participantIds: ["messages-participant-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "messages-participant-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"],
-  latestActivityTimestamp: 1_783_000_000
-}
-
-const visualChatBeta: DiscoveredChat = {
-  id: "messages-chat-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", label: "Design review", participantCount: 3,
-  participantIds: ["messages-participant-cccccccccccccccccccccccccccccccc", "messages-participant-dddddddddddddddddddddddddddddddd", "messages-participant-eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"],
-  latestActivityTimestamp: 1_782_914_400
-}
-
-const visualChatGamma: DiscoveredChat = {
-  id: "messages-chat-cccccccccccccccccccccccccccccccc", label: "Messages chat", participantCount: 1,
-  participantIds: ["messages-participant-ffffffffffffffffffffffffffffffff"],
-  latestActivityTimestamp: 1_782_828_000
-}
-
-const visualDiscoveredChats = [visualChatAlpha, visualChatBeta, visualChatGamma] as const
-
-const visualChatPreviews = new Map<ChatId, string>([
-  [visualChatAlpha.id, "Agenda moved to Thursday afternoon; bring the launch notes and confirm room setup before review."],
-  [visualChatBeta.id, "Design notes are ready with the calmer status copy and the final checklist grouped by topic."],
-  [visualChatGamma.id, "Quick reminder to compare the short list before choosing which thread stays selected."]
-])
-
 const visualBinaryRuntimeIdentity: RuntimeIdentity = {
   displayName: "morrow", bundleIdentifier: "dev.morrow.local",
   executablePath: "/Users/example/workspace/morrow/src-tauri/target/debug/morrow",
@@ -256,17 +262,11 @@ function visualRecoveryRuntimeIdentity(stateName: VisualFullDiskAccessRecoverySt
   }
 }
 
-const selectedVisualChat: SelectedChat = { ...visualChatAlpha, backfillPromptEnabled: true }
-
-const staleSelectedVisualChat: SelectedChat = {
-  id: "messages-chat-dddddddddddddddddddddddddddddddd", label: "Previous planning circle",
-  participantCount: 2, participantIds: ["messages-participant-11111111111111111111111111111111", "messages-participant-22222222222222222222222222222222"],
-  latestActivityTimestamp: 1_782_741_600, backfillPromptEnabled: true
-}
-
 function noop(): void {}
 
 async function noopAsync(): Promise<void> {}
+
+function noopIntervalChange(_intervalSeconds: SyncSchedulerIntervalSeconds): void {}
 
 function noopChatToggle(_chatId: ChatId): void {}
 

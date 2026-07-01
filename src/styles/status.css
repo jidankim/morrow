@@ -41,6 +41,7 @@
 
 .warning-surface h3,
 .setup-section h3,
+.sync-scheduler-section h3,
 .settings-section h3 {
   margin: 0;
   font-size: 16px;
@@ -66,6 +67,81 @@
   margin-top: var(--space-6);
   padding-top: var(--space-5);
   border-top: 1px solid var(--border-subtle);
+}
+
+.sync-scheduler-section {
+  margin-top: var(--space-6);
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.sync-scheduler-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.sync-scheduler-controls {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}
+
+.sync-scheduler-interval {
+  min-width: 148px;
+  margin-top: 0;
+}
+
+.sync-scheduler-details {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3);
+  margin: var(--space-4) 0 0;
+}
+
+.sync-scheduler-details div {
+  min-width: 0;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.sync-scheduler-details dt {
+  margin: 0 0 var(--space-2);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.sync-scheduler-details dd {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.sync-scheduler-pill.disabled {
+  background: color-mix(in srgb, var(--text-tertiary) 14%, transparent);
+  color: var(--text-tertiary);
+}
+
+.sync-scheduler-pill.scheduled,
+.sync-scheduler-pill.running {
+  background: color-mix(in srgb, var(--status-success) 14%, transparent);
+  color: var(--status-success);
+}
+
+.sync-scheduler-pill.cooldown {
+  background: color-mix(in srgb, var(--status-info) 14%, transparent);
+  color: var(--status-info);
+}
+
+.sync-scheduler-pill.blocked {
+  background: color-mix(in srgb, var(--status-warning) 14%, transparent);
+  color: var(--status-warning);
 }
 
 .readiness-list {

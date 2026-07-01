@@ -6,6 +6,7 @@ import {
   createDefaultAppShellState,
   type ChatDiscovery
 } from "./domain/appShell"
+import type { SyncSchedulerState } from "./domain/syncScheduler"
 import type { RuntimeIdentity } from "./tauriBridge"
 
 export type NativeDiscoveryReportForTest =
@@ -71,37 +72,48 @@ export const nativeChatFromFixture = (chat: ChatFixtureForTest): NativeReadyChat
 export const nativeReadyReport = { status: "ready", chats: [nativeChatFromFixture(discoveredChat)] } as const
 export const changedNativeReadyReport = { status: "ready", chats: [nativeChatFromFixture(rediscoveredChat)] } as const
 
-const bridgeMock = vi.hoisted(() => ({
-  getState: vi.fn(async () => undefined),
-  setShellState: vi.fn(async () => undefined),
-  getRuntimeIdentity: vi.fn<() => Promise<RuntimeIdentity | undefined>>(async () => undefined),
-  subscribeAppState: vi.fn(async () => vi.fn()),
-  subscribeMenuCommand: vi.fn(async () => vi.fn()),
-  reconcileNow: vi.fn(async () => undefined),
-  scanSelectedChats: vi.fn(async () => ({
-    pendingProposalCount: 12,
-    feedbackLabelCount: 9,
-    featureSnapshotCount: 4,
-    latestEvalStatus: "passed"
-  })),
-  loadMessagesChatPreviews: vi.fn(async (): Promise<NativePreviewReportForTest> => ({
-    chats: [{ chatId: discoveredChat.id, preview: privatePreviewText }]
-  })),
-  checkProviderAuth: vi.fn(async () => ({
-    status: "loggedInUsingChatGpt",
-    ready: true,
-    commandSurface: "codex login status",
-    commandOutputRedacted: true,
-    diagnostic: "Codex CLI ChatGPT session is ready."
-  })),
-  storeMorrowToken: vi.fn(async () => ({ storageSurface: "keychainBridge", stored: true, deleted: false })),
-  readMorrowToken: vi.fn(async () => ({ storageSurface: "keychainBridge", present: true })),
-  deleteMorrowToken: vi.fn(async () => ({ storageSurface: "keychainBridge", stored: false, deleted: true })),
-  discoverMessagesChats: vi.fn(async (): Promise<NativeDiscoveryReportForTest> => nativeReadyReport),
-  openPrivacySettings: vi.fn(async () => ({ pane: "fullDiskAccess", opened: true })),
-  deleteMorrowData: vi.fn(async () => undefined),
-  recordCrashLog: vi.fn(async () => ({ stored: true }))
-}))
+const bridgeMock = vi.hoisted(() => {
+  const defaultSchedulerState: SyncSchedulerState = {
+    enabled: false,
+    interval_seconds: 1_800,
+    status: "disabled",
+    retry_attempt: 0,
+    updated_at: 1_783_000_000
+  }
+  return {
+    getState: vi.fn(async () => undefined),
+    setShellState: vi.fn(async () => undefined),
+    getRuntimeIdentity: vi.fn<() => Promise<RuntimeIdentity | undefined>>(async () => undefined),
+    subscribeAppState: vi.fn(async () => vi.fn()),
+    subscribeMenuCommand: vi.fn(async () => vi.fn()),
+    reconcileNow: vi.fn(async () => undefined),
+    scanSelectedChats: vi.fn(async () => ({
+      pendingProposalCount: 12,
+      feedbackLabelCount: 9,
+      featureSnapshotCount: 4,
+      latestEvalStatus: "passed"
+    })),
+    getSyncSchedulerState: vi.fn(async () => defaultSchedulerState),
+    setSyncSchedulerState: vi.fn(async (state: SyncSchedulerState) => state),
+    loadMessagesChatPreviews: vi.fn(async (): Promise<NativePreviewReportForTest> => ({
+      chats: [{ chatId: discoveredChat.id, preview: privatePreviewText }]
+    })),
+    checkProviderAuth: vi.fn(async () => ({
+      status: "loggedInUsingChatGpt",
+      ready: true,
+      commandSurface: "codex login status",
+      commandOutputRedacted: true,
+      diagnostic: "Codex CLI ChatGPT session is ready."
+    })),
+    storeMorrowToken: vi.fn(async () => ({ storageSurface: "keychainBridge", stored: true, deleted: false })),
+    readMorrowToken: vi.fn(async () => ({ storageSurface: "keychainBridge", present: true })),
+    deleteMorrowToken: vi.fn(async () => ({ storageSurface: "keychainBridge", stored: false, deleted: true })),
+    discoverMessagesChats: vi.fn(async (): Promise<NativeDiscoveryReportForTest> => nativeReadyReport),
+    openPrivacySettings: vi.fn(async () => ({ pane: "fullDiskAccess", opened: true })),
+    deleteMorrowData: vi.fn(async () => undefined),
+    recordCrashLog: vi.fn(async () => ({ stored: true }))
+  }
+})
 export { bridgeMock }
 
 vi.mock("./tauriBridge", () => ({
@@ -119,6 +131,8 @@ export function resetDiscoveryAppTestState(): void {
   bridgeMock.getRuntimeIdentity.mockResolvedValue(undefined)
   bridgeMock.reconcileNow.mockClear()
   bridgeMock.scanSelectedChats.mockClear()
+  bridgeMock.getSyncSchedulerState.mockClear()
+  bridgeMock.setSyncSchedulerState.mockClear()
   bridgeMock.loadMessagesChatPreviews.mockClear()
   bridgeMock.loadMessagesChatPreviews.mockResolvedValue({
     chats: [{ chatId: discoveredChat.id, preview: privatePreviewText }]

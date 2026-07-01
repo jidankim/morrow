@@ -12,11 +12,7 @@ import {
   type DiscoveredChat,
   type SelectedChat
 } from "./chatDiscovery"
-import {
-  appConfigSchema,
-  createDefaultAppConfig,
-  type AppConfig
-} from "./appConfig"
+import { appConfigSchema, createDefaultAppConfig, type AppConfig } from "./appConfig"
 import {
   emptySyncResultCounts,
   syncResultCountsFrom,
@@ -44,6 +40,7 @@ export {
 export const APP_SHELL_STATE_KEY = "morrow.appShellState.v1"
 
 export type AppMode = "scanning" | "paused" | "error"
+export type AutomaticSyncStatusLabel = "Off" | "On" | "Cooling Down" | "Needs Action"
 export type ProviderCredentialStatus = "unchecked" | "configured" | "missing"
 export type { AppConfig, CalendarSource } from "./appConfig"
 export type {
@@ -70,6 +67,9 @@ export type NativeAppShellState = {
   readonly errorMessage?: string | undefined
   readonly onboardingComplete: boolean
   readonly pendingProposalCount: number
+  readonly automaticSyncEnabled: boolean
+  readonly automaticSyncStatusLabel: AutomaticSyncStatusLabel
+  readonly automaticSyncDetail: string
 }
 
 export type AppShellEvent =

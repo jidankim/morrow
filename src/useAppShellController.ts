@@ -21,19 +21,18 @@ import {
   type DeleteAllOptions
 } from "./domain/privacyControls"
 import { privacyPaneName, requireDeleteReceipt } from "./domain/privacySettings"
-import { syncResultCountsFrom } from "./domain/syncResultCounts"
 import {
   createNativeShellBridge,
   type NativeMenuCommand,
   type PrivacySettingsPane
 } from "./tauriBridge"
 import { assertNeverNativeMenuCommand, loadInitialState, routeFromHash } from "./appRuntime"
-import { syncScanRequestFromState } from "./messagesDiscoveryBridge"
 import { nativeErrorMessage } from "./nativeErrors"
 import { useMessagesDiscoveryActions } from "./useMessagesDiscovery"
 import { useMessagesPreviewDisclosure } from "./useMessagesPreviewDisclosure"
 import { useNativeShellState } from "./useNativeShellState"
 import { useProviderCredentialActions } from "./useProviderCredentialActions"
+import { useSyncSchedulerOrchestrator } from "./useSyncSchedulerOrchestrator"
 
 export function useAppShellController() {
   const storage = useMemo(() => createBrowserShellStorage(window.localStorage), [])
@@ -47,10 +46,18 @@ export function useAppShellController() {
   const [deleteAllState, setDeleteAllState] = useState<DeleteAllState>({ status: "idle" })
   const syncInFlight = useRef(false)
   const runSyncNowRef = useRef<() => void>(() => undefined)
+  const toggleAutomaticSyncRef = useRef<() => void>(() => undefined)
   const menu = getMenuModel(state)
   const warnings = getOnboardingWarnings(state)
   const syncEnabled = isSyncNowEnabled(state)
   const previewDisclosureActions = useMessagesPreviewDisclosure({ discovery: state.discovery, nativeBridge })
+  const syncSchedulerActions = useSyncSchedulerOrchestrator({
+    nativeBridge,
+    state,
+    setState,
+    setSyncing,
+    syncInFlight
+  })
 
   const openSettingsRoute = useCallback((): void => {
     window.location.hash = "#settings"
@@ -73,9 +80,10 @@ export function useAppShellController() {
       mode: state.mode,
       errorMessage: state.errorMessage,
       onboardingComplete: isOnboardingComplete(state),
-      pendingProposalCount: state.pendingProposalCount
+      pendingProposalCount: state.pendingProposalCount,
+      ...syncSchedulerActions.schedulerShellState
     })
-  }, [nativeBridge, state, storage])
+  }, [nativeBridge, state, storage, syncSchedulerActions.schedulerShellState])
 
   const setMode = (mode: AppMode): void => {
     setState((current) => {
@@ -118,31 +126,7 @@ export function useAppShellController() {
   }
 
   const runSyncNow = (): void => {
-    if (!syncEnabled || syncInFlight.current) {
-      return
-    }
-    syncInFlight.current = true
-    setSyncing(true)
-    void nativeBridge
-      .reconcileNow()
-      .then(() => nativeBridge.scanSelectedChats(syncScanRequestFromState(state)))
-      .then((result) => {
-        const counts = syncResultCountsFrom(result)
-        setState((current) =>
-          reduceAppShellState(current, {
-            type: "syncCompleted",
-            ...counts
-          })
-        )
-      })
-      .catch((error: unknown) => {
-        const message = nativeErrorMessage(error, "Sync Now could not complete.")
-        setState((current) => reduceAppShellState(current, { type: "fail", message }))
-      })
-      .finally(() => {
-        syncInFlight.current = false
-        setSyncing(false)
-      })
+    syncSchedulerActions.runSyncNow()
   }
 
   const deleteAllMorrowData = (options: DeleteAllOptions): void => {
@@ -187,7 +171,8 @@ export function useAppShellController() {
     setState
   })
 
-  runSyncNowRef.current = runSyncNow
+  runSyncNowRef.current = syncSchedulerActions.runSyncNow
+  toggleAutomaticSyncRef.current = syncSchedulerActions.toggleAutomaticSync
 
   useEffect(() => {
     loadMessagesDiscovery()
@@ -214,6 +199,9 @@ export function useAppShellController() {
         case "open-calendar":
         case "open-reminders":
           openSettingsRoute()
+          return
+        case "toggle-automatic-sync":
+          toggleAutomaticSyncRef.current()
           return
         default:
           assertNeverNativeMenuCommand(command)
@@ -242,6 +230,7 @@ export function useAppShellController() {
 
   return {
     checkProviderCredential,
+    changeAutomaticSyncInterval: syncSchedulerActions.changeAutomaticSyncInterval,
     deleteAllMorrowData,
     deleteAllState,
     loadMessagesDiscovery,
@@ -257,8 +246,11 @@ export function useAppShellController() {
     runSyncNow,
     setMode,
     state,
+    syncScheduler: syncSchedulerActions.syncScheduler,
+    syncSchedulerNowUnixSeconds: syncSchedulerActions.syncSchedulerNowUnixSeconds,
     syncEnabled,
     syncing,
+    toggleAutomaticSync: syncSchedulerActions.toggleAutomaticSync,
     toggleBackfillPrompt,
     toggleChat,
     updateConfig,

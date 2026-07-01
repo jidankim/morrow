@@ -1,5 +1,4 @@
 import { invoke } from "@tauri-apps/api/core"
-import { listen } from "@tauri-apps/api/event"
 import { z } from "zod"
 import type { MenuModel, NativeAppShellState } from "./domain/appShell"
 import {
@@ -14,6 +13,13 @@ import {
   scanSelectedChatsInTauri,
   type SyncScanResult
 } from "./messagesTauriCommands"
+import {
+  getNativeAppShellState,
+  setNativeAppShellState,
+  subscribeNativeAppShellState,
+  subscribeNativeMenuCommand,
+  type NativeMenuCommand
+} from "./nativeAppShellBridge"
 import { parseNativePermissionStatuses, type NativePermissionStatus } from "./nativePermissionBridge"
 import { parseRuntimeIdentity, type RuntimeIdentity } from "./nativeRuntimeBridge"
 import {
@@ -28,10 +34,16 @@ import {
   type PrivacySettingsRequest
 } from "./nativePrivacyBridge"
 import { parseCodexProviderAuthReadiness, type CodexProviderAuthReadiness } from "./providerAuthBridge"
+import {
+  getSyncSchedulerStateInTauri,
+  setSyncSchedulerStateInTauri,
+  type SyncSchedulerState
+} from "./syncSchedulerTauriBridge"
 
 export type { NativePermissionStatus } from "./nativePermissionBridge"
 export type { RuntimeIdentity } from "./nativeRuntimeBridge"
 export { parseMessagesDiscoveryReport } from "./messagesDiscoveryBridge"
+export type { NativeMenuCommand } from "./nativeAppShellBridge"
 export type {
   MessagesChatPreviewReport,
   MessagesChatPreviewRequest,
@@ -49,16 +61,7 @@ export type {
   PrivacySettingsRequest
 } from "./nativePrivacyBridge"
 export type { CodexAuthStatus, CodexProviderAuthReadiness } from "./providerAuthBridge"
-
-const nativeAppShellStateSchema = z.object({
-  mode: z.union([z.literal("scanning"), z.literal("paused"), z.literal("error")]),
-  errorMessage: z.preprocess(
-    (value) => (value === null ? undefined : value),
-    z.string().min(1).optional()
-  ),
-  onboardingComplete: z.boolean(),
-  pendingProposalCount: z.number().int().min(0)
-})
+export type { SyncSchedulerState } from "./syncSchedulerTauriBridge"
 
 const tokenStorageSurfaceSchema = z.literal("keychainBridge")
 
@@ -89,8 +92,6 @@ export type MorrowTokenWriteRequest = MorrowTokenLookupRequest & {
 }
 export type MorrowTokenCommandReceipt = z.infer<typeof tokenCommandReceiptSchema>
 export type MorrowTokenReadResponse = z.infer<typeof tokenReadResponseSchema>
-export type NativeMenuCommand = "sync-now" | "open-settings" | "open-calendar" | "open-reminders"
-
 export type NativeShellBridge = {
   readonly getState: () => Promise<NativeAppShellState | undefined>
   readonly setShellState: (state: NativeAppShellState) => Promise<MenuModel | undefined>
@@ -118,6 +119,10 @@ export type NativeShellBridge = {
     request: MorrowTokenLookupRequest
   ) => Promise<MorrowTokenCommandReceipt | undefined>
   readonly checkProviderAuth: () => Promise<CodexProviderAuthReadiness | undefined>
+  readonly getSyncSchedulerState: () => Promise<SyncSchedulerState | undefined>
+  readonly setSyncSchedulerState: (
+    state: SyncSchedulerState
+  ) => Promise<SyncSchedulerState | undefined>
   readonly deleteMorrowData: (
     request: MorrowDataDeleteRequest
   ) => Promise<MorrowDataDeleteReceipt | undefined>
@@ -128,20 +133,6 @@ export type NativeShellBridge = {
 }
 
 const isTauriRuntime = (): boolean => "__TAURI_INTERNALS__" in window
-
-const nativeMenuCommandEvents: readonly {
-  readonly eventName: string
-  readonly command: NativeMenuCommand
-}[] = [
-  { eventName: "morrow://sync-now", command: "sync-now" },
-  { eventName: "morrow://open-settings", command: "open-settings" },
-  { eventName: "morrow://open-calendar", command: "open-calendar" },
-  { eventName: "morrow://open-reminders", command: "open-reminders" }
-] as const
-
-function parseNativeAppShellState(value: unknown): NativeAppShellState {
-  return nativeAppShellStateSchema.parse(value)
-}
 
 function parseTokenCommandReceipt(value: unknown): MorrowTokenCommandReceipt {
   return tokenCommandReceiptSchema.parse(value)
@@ -157,14 +148,13 @@ export function createNativeShellBridge(): NativeShellBridge {
       if (!isTauriRuntime()) {
         return undefined
       }
-      const state = await invoke<unknown>("get_app_state")
-      return parseNativeAppShellState(state)
+      return getNativeAppShellState()
     },
     setShellState: async (state) => {
       if (!isTauriRuntime()) {
         return undefined
       }
-      return invoke<MenuModel>("set_app_shell_state", { shellState: parseNativeAppShellState(state) })
+      return setNativeAppShellState(state)
     },
     getRuntimeIdentity: async () =>
       isTauriRuntime() ? parseRuntimeIdentity(await invoke<unknown>("get_runtime_identity")) : undefined,
@@ -172,24 +162,13 @@ export function createNativeShellBridge(): NativeShellBridge {
       if (!isTauriRuntime()) {
         return undefined
       }
-      return listen<unknown>("morrow://app-state", (event) => {
-        onState(parseNativeAppShellState(event.payload))
-      })
+      return subscribeNativeAppShellState(onState)
     },
     subscribeMenuCommand: async (onCommand) => {
       if (!isTauriRuntime()) {
         return undefined
       }
-      const unsubscribers = await Promise.all(
-        nativeMenuCommandEvents.map(({ eventName, command }) =>
-          listen(eventName, () => onCommand(command))
-        )
-      )
-      return () => {
-        for (const unsubscribe of unsubscribers) {
-          unsubscribe()
-        }
-      }
+      return subscribeNativeMenuCommand(onCommand)
     },
     reconcileNow: async () => {
       if (!isTauriRuntime()) {
@@ -238,6 +217,10 @@ export function createNativeShellBridge(): NativeShellBridge {
       const readiness = await invoke<unknown>("check_provider_auth")
       return parseCodexProviderAuthReadiness(readiness)
     },
+    getSyncSchedulerState: () =>
+      isTauriRuntime() ? getSyncSchedulerStateInTauri() : Promise.resolve(undefined),
+    setSyncSchedulerState: (state) =>
+      isTauriRuntime() ? setSyncSchedulerStateInTauri(state) : Promise.resolve(undefined),
     deleteMorrowData: async (request) => {
       if (!isTauriRuntime()) {
         return undefined

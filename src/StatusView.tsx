@@ -6,40 +6,17 @@ import {
   Play,
   RefreshCw
 } from "lucide-react"
-import type { ChatPreviewDisclosure } from "./ChatPreviewControls"
 import { ChatDiscoverySetupControls } from "./ChatDiscoverySetupControls"
 import { StatusOnboardingWarnings } from "./StatusOnboardingWarnings"
 import {
-  type AppShellState,
-  type ChatId,
-  type MenuModel,
   type MenuStatusKind,
   type SyncReadinessItem,
   type SyncReadinessItemStatus,
   getSyncReadinessItems
 } from "./domain/appShell"
 import { formatLatestEvalStatus } from "./domain/syncResultCounts"
-import type { RuntimeIdentity } from "./tauriBridge"
-
-type StatusViewProps = {
-  readonly state: AppShellState
-  readonly menu: MenuModel
-  readonly warnings: readonly string[]
-  readonly syncing: boolean
-  readonly syncEnabled: boolean
-  readonly previewDisclosure?: ChatPreviewDisclosure | undefined
-  readonly runtimeIdentity?: RuntimeIdentity | undefined
-  readonly onRevealPreviews?: () => void
-  readonly onHidePreviews?: () => void
-  readonly onPause: () => void
-  readonly onResume: () => void
-  readonly onSyncNow: () => void
-  readonly onRetryChatDiscovery: () => void
-  readonly onOpenFullDiskAccess: () => void
-  readonly onOpenSettings: () => void
-  readonly onToggleChat: (chatId: ChatId) => void
-  readonly onToggleBackfillPrompt: (chatId: ChatId, enabled: boolean) => void
-}
+import { SyncSchedulerControls } from "./SyncSchedulerControls"
+import type { StatusViewProps } from "./StatusView.types"
 
 export function StatusView({
   state,
@@ -49,11 +26,15 @@ export function StatusView({
   syncEnabled,
   previewDisclosure,
   runtimeIdentity,
+  syncScheduler,
+  syncSchedulerNowUnixSeconds,
   onRevealPreviews,
   onHidePreviews,
+  onChangeAutomaticSyncInterval,
   onPause,
   onResume,
   onSyncNow,
+  onToggleAutomaticSync,
   onRetryChatDiscovery,
   onOpenFullDiskAccess,
   onOpenSettings,
@@ -100,6 +81,13 @@ export function StatusView({
       >
         {syncReadinessMessage}
       </p>
+      <SyncSchedulerControls
+        nowUnixSeconds={syncSchedulerNowUnixSeconds}
+        scheduler={syncScheduler}
+        surface="status"
+        onIntervalChange={onChangeAutomaticSyncInterval}
+        onToggle={onToggleAutomaticSync}
+      />
       <dl className="state-grid">
         <Metric label="Sync Now state" testId="status-label" value={menu.statusLabel} />
         <Metric label="Sync Now" testId="sync-state" value={syncEnabled ? "Enabled" : "Disabled"} />
