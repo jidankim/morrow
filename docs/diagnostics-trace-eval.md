@@ -16,7 +16,7 @@ The trace JSONL is the source of truth. Viewer/importer payloads are derived fro
 
 Production Messages-to-Calendar scanning uses the native Messages SQLite source, the local Codex CLI ChatGPT login through `codex exec`, and EventKit proposal replay. Codex provider readiness is a Sync Now prerequisite in the app shell for the production Messages-to-Calendar path.
 
-The trace/eval smoke below remains an offline diagnostics and fixture-eval proof. It does not call Codex, OpenAI, Phoenix, Langfuse, any LLM backend, read the real Messages database, or create EventKit items. Runtime production scan maps to the diagnostics seam through `scan_selected_chats_with_dependencies`: production passes the release provider and EventKit adapter with a noop local trace recorder, while tests can inject a provider and recorder to prove the same decision path is privacy-safe. No runtime trace writer is added for the real provider path in this layer.
+The trace/eval smoke below remains an offline diagnostics and fixture-eval proof. It does not call Codex, OpenAI, Phoenix, Langfuse, any LLM backend, read the real Messages database, or create EventKit items. Runtime production scan maps to the diagnostics seam through `scan_selected_chats_with_dependencies`: production passes the release provider and EventKit adapter with a noop local trace recorder, while tests can inject a provider and recorder to prove the same decision path is privacy-safe. No runtime trace writer is added for the real provider path in this layer unless a later phase implements a production runtime trace sink.
 
 Use the real QA runner only when the host has deliberate Messages, Codex CLI login, and Calendar test setup:
 
@@ -26,7 +26,28 @@ env -u MORROW_REAL_QA_OPENAI_API_KEY scripts/messages-calendar-real-qa.sh
 
 The runner must not require `MORROW_REAL_QA_OPENAI_API_KEY`. Without Codex CLI readiness, the required QA chat variables, or macOS permissions, it records a sanitized `BLOCKED` receipt instead of requiring live secrets for completion.
 
-## Local Smoke
+## Feedback Eval Baseline
+
+The committed feedback/eval DB layer is local-only evidence for scan outcomes. It records a privacy-bounded Feedback Eval Baseline for local scan feedback events, labels, feature snapshots, diagnostics trace linkage, and eval reports. It is not hosted telemetry and does not run live provider benchmarks.
+
+The baseline tables are:
+
+- `feedback_events`: one local feedback event per candidate-visible or quiet-stop outcome. Candidate events use provider scan metadata; quiet-log events map deterministic or provider stop reasons into local event types.
+- `labels`: one or more local label records for the observed route or system outcome. Candidate labels record the detection route; quiet-log labels record mapped quiet/provider failure outcomes.
+- `feature_snapshots`: one local feature snapshot per recorded candidate or quiet log. Snapshots keep route, reason code, confidence where available, participant/tapback metadata, and a bounded excerpt only.
+- `eval_runs` and `eval_results`: local eval report state and per-case comparisons. Reports are generated from the local DB smoke flow and are not a hosted eval requirement.
+
+Feedback rows can carry diagnostics trace linkage copied from a privacy-safe trace record: opaque trace/span ids, optional parent span id, and hashed chat/message identifiers. The feedback/eval validators reject malformed trace ids, malformed hashes, overlong fields, and hidden source excerpts that are not the redacted placeholder.
+
+Run the local feedback/eval DB smoke with:
+
+```bash
+scripts/run-feedback-eval-smoke.sh --out-dir .omo/evidence/phase-0-feedback-eval-baseline/feedback-eval-smoke
+```
+
+That script runs the local reconcile E2E example, verifies `privacy_dataset_ready=true` and `feedback_eval_ready=true`, checks that labels and snapshots were recorded, requires a non-empty metrics report and feedback eval report, and confirms the invalid Delete All path preserves feedback/eval tables.
+
+## Diagnostics Trace/Eval Smoke
 
 Run the complete local flow from existing Morrow fixtures:
 
@@ -91,6 +112,8 @@ Delete All treats diagnostics artifacts and Morrow-owned legacy provider credent
 
 It must not delete unrelated sibling directories such as manual exports outside those subdirectories. Receipts include `diagnosticsArtifactsDeleted` and provider credential cleanup details in `providerCredentialDeletes`. Delete All leaves the user's global Codex CLI login unchanged.
 
+The feedback/eval baseline also has Delete All preservation coverage: the smoke command runs the storage test that verifies an invalid Delete All transaction does not drop or corrupt feedback/eval tables.
+
 ## Viewer/Importer Commands
 
 Phoenix is optional, downstream, CLI-only, and dev-only:
@@ -149,6 +172,8 @@ The trace schema reserves lifecycle, correction, and replay operation names for 
 
 These names are schema vocabulary only in this layer.
 
+The full Messages -> Calendar -> approval trajectory eval remains future work. Current local diagnostics and feedback/eval receipts prove the local baseline substrate, not an end-to-end approval lifecycle benchmark.
+
 ## Non-Goals
 
 - No live SetFit, MiniLM, CatBoost, embedding, OOD, or LLM cascade.
@@ -157,3 +182,5 @@ These names are schema vocabulary only in this layer.
 - No agent-native control-plane CLI.
 - No human correction UI or correction-training loop.
 - No calendar write workflow, dry-run/commit state machine, or approval-bypassing mutation path.
+- No production runtime trace writing for provider scans in this layer; production still uses the noop local trace recorder until a later phase adds a runtime trace sink.
+- No trajectory-level Messages -> Calendar -> approval eval is complete in this layer.
