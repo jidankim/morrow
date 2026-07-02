@@ -120,7 +120,7 @@ fn suppresses_edited_pending_and_manual_change_proposals_without_overwriting(
         .suppressions
         .contains(&Suppression::EditedPendingNoOverwrite));
 
-    let update = visible_lifecycle(CandidateKind::EventReschedule, CandidateState::Queued);
+    let update = visible_lifecycle(CandidateKind::EventUpdate, CandidateState::Queued);
     let update_plan = reconcile_candidate(&update, &ExternalItemObservation::Pending)?;
 
     assert!(update_plan

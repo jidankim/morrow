@@ -21,6 +21,12 @@ pub enum LifecycleReason {
     ExternalCreationFailed,
     /// An update, reschedule, or cancellation proposal is informational only.
     ManualChangeProposalOnly,
+    /// An older pending Morrow candidate was replaced by a newer same-anchor candidate.
+    CandidateSuperseded,
+    /// A reschedule proposal is manual-only in Phase 3.
+    CandidateRescheduled,
+    /// A cancellation proposal is manual-only in Phase 3.
+    CandidateCancelled,
     /// A queued candidate is starting external proposal creation.
     CreatingExternalProposal,
 }
@@ -38,6 +44,9 @@ impl LifecycleReason {
             Self::PartialWriteRecovered => "partial_write_recovered",
             Self::ExternalCreationFailed => "external_creation_failed",
             Self::ManualChangeProposalOnly => "manual_change_proposal_only",
+            Self::CandidateSuperseded => "candidate_superseded",
+            Self::CandidateRescheduled => "candidate_rescheduled",
+            Self::CandidateCancelled => "candidate_cancelled",
             Self::CreatingExternalProposal => "creating_external_proposal",
         }
     }

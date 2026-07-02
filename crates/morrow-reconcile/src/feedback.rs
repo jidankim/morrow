@@ -99,6 +99,9 @@ fn record_reason_feedback(
         LifecycleReason::CompletedClosure
         | LifecycleReason::PartialWriteRecovered
         | LifecycleReason::ManualChangeProposalOnly
+        | LifecycleReason::CandidateSuperseded
+        | LifecycleReason::CandidateRescheduled
+        | LifecycleReason::CandidateCancelled
         | LifecycleReason::CreatingExternalProposal => Ok(()),
     }
 }
@@ -116,6 +119,9 @@ const fn reason_feedback_event(reason: LifecycleReason) -> Option<FeedbackEventT
         LifecycleReason::CompletedClosure
         | LifecycleReason::PartialWriteRecovered
         | LifecycleReason::ManualChangeProposalOnly
+        | LifecycleReason::CandidateSuperseded
+        | LifecycleReason::CandidateRescheduled
+        | LifecycleReason::CandidateCancelled
         | LifecycleReason::CreatingExternalProposal => None,
     }
 }

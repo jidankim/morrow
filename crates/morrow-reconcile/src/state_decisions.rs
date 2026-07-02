@@ -1,6 +1,6 @@
 use morrow_storage::{CandidateKind, CandidateState};
 
-use super::kind::source_for_kind;
+use super::kind::{manual_change_reason, source_for_kind};
 use crate::{
     CandidateLifecycle, DisappearanceEvidence, ExternalItemObservation, ExternalMappingUpdate,
     LifecycleAction, LifecycleReason, PendingEditFeedback, ReconciliationPlan, Suppression,
@@ -170,15 +170,12 @@ pub(super) fn reconcile_manual_change(
     candidate: &CandidateLifecycle,
     plan: &mut ReconciliationPlan,
 ) {
+    let reason = manual_change_reason(candidate.kind);
     plan.suppressions
         .push(Suppression::ManualChangeProposalOnly);
     match candidate.state {
         CandidateState::Queued | CandidateState::CreatingExternal | CandidateState::Visible => {
-            plan.push_transition(
-                CandidateState::Suppressed,
-                LifecycleReason::ManualChangeProposalOnly,
-                candidate.observed_at,
-            );
+            plan.push_transition(CandidateState::Suppressed, reason, candidate.observed_at);
         }
         CandidateState::Approved => plan
             .suppressions

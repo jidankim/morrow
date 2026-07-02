@@ -8,8 +8,10 @@ mod kind;
 #[path = "state_decisions.rs"]
 mod state_decisions;
 
-use crate::{ExternalItemObservation, ReconcileError, ReconciliationPlan, Suppression};
-use kind::is_manual_change;
+use crate::{
+    ExternalItemObservation, LifecycleReason, ReconcileError, ReconciliationPlan, Suppression,
+};
+use kind::{is_manual_change, source_for_kind};
 use state_decisions::{
     reconcile_approved, reconcile_creating_external, reconcile_manual_change, reconcile_queued,
     reconcile_visible,
@@ -60,6 +62,45 @@ pub fn reconcile_candidate(
     }
 
     Ok(plan)
+}
+
+/// Builds deterministic supersede plans for candidates returned by a same-anchor lookup.
+pub fn reconcile_same_anchor_supersede_candidates(
+    newer_candidate: &CandidateLifecycle,
+    older_same_anchor_candidates: &[CandidateLifecycle],
+) -> Vec<ReconciliationPlan> {
+    older_same_anchor_candidates
+        .iter()
+        .filter(|candidate| candidate.candidate_id != newer_candidate.candidate_id)
+        .filter(|candidate| {
+            source_for_kind(candidate.kind) == source_for_kind(newer_candidate.kind)
+        })
+        .map(|candidate| {
+            let mut plan = ReconciliationPlan::new(candidate.candidate_id.clone());
+            match candidate.state {
+                CandidateState::Queued
+                | CandidateState::CreatingExternal
+                | CandidateState::Visible => {
+                    plan.push_transition(
+                        CandidateState::Suppressed,
+                        LifecycleReason::CandidateSuperseded,
+                        newer_candidate.observed_at,
+                    );
+                }
+                CandidateState::Approved => {
+                    plan.suppressions
+                        .push(Suppression::ApprovedMutationSuppressed);
+                }
+                CandidateState::Completed
+                | CandidateState::Rejected
+                | CandidateState::Expired
+                | CandidateState::Suppressed
+                | CandidateState::Unknown
+                | CandidateState::Failed => plan.suppressions.push(Suppression::ClosedCandidate),
+            }
+            plan
+        })
+        .collect()
 }
 
 fn validate_mapping_owner(candidate: &CandidateLifecycle) -> Result<(), ReconcileError> {

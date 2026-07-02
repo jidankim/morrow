@@ -2,9 +2,9 @@
 
 use morrow_reconcile::{
     apply_reconciliation, reconcile_candidate, CandidateLifecycle, DisappearanceEvidence,
-    ExternalItemObservation,
+    ExternalItemObservation, LifecycleReason,
 };
-use morrow_storage::{CandidateKind, CandidateState, ExternalSource, Store};
+use morrow_storage::{CandidateId, CandidateKind, CandidateState, ExternalSource, Store};
 use std::process::Command;
 
 /// Shared lifecycle test fixtures.
@@ -112,16 +112,26 @@ fn lifecycle_feedback_labels_records_observed_outcomes_once() -> Result<(), Test
     apply_reconciliation(&store, &failed_plan)?;
 
     assert_feedback_event_count(&db_path, "approved_by_move", 1)?;
+    assert_audit_reason_count(&store, &moved, LifecycleReason::ApprovedByMove, 1)?;
     assert_feedback_label_count(&db_path, "proposal_outcome", "accepted", 2)?;
     assert_feedback_event_count(&db_path, "approved_by_copy", 1)?;
+    assert_audit_reason_count(&store, &copied, LifecycleReason::ApprovedByCopyCleanup, 1)?;
     assert_feedback_event_count(&db_path, "rejected_by_delete", 1)?;
+    assert_audit_reason_count(&store, &deleted, LifecycleReason::RejectedByDelete, 1)?;
     assert_feedback_label_count(&db_path, "proposal_outcome", "rejected_observed", 2)?;
     assert_feedback_event_count(&db_path, "proposed_reminder_completed_resolved", 1)?;
+    assert_audit_reason_count(
+        &store,
+        &completed,
+        LifecycleReason::ProposedReminderCompletedResolved,
+        1,
+    )?;
     assert_feedback_event_count(&db_path, "pending_edited", 1)?;
     assert_feedback_label_count(&db_path, "proposal_outcome", "pending_edited", 1)?;
     assert_feedback_label_count(&db_path, "field_quality", "title_edited", 1)?;
     assert_feedback_label_count(&db_path, "field_quality", "time_edited", 1)?;
     assert_feedback_event_count(&db_path, "external_creation_failed", 1)?;
+    assert_audit_reason_count(&store, &failed, LifecycleReason::ExternalCreationFailed, 1)?;
     assert_feedback_label_count(&db_path, "system_outcome", "failed_external_creation", 1)?;
 
     Ok(())
@@ -149,9 +159,30 @@ fn lifecycle_feedback_unknown_disappearance_label() -> Result<(), TestError> {
     apply_reconciliation(&store, &unknown_plan)?;
 
     assert_feedback_event_count(&db_path, "unknown_disappearance", 1)?;
+    assert_audit_reason_count(&store, &unknown, LifecycleReason::UnknownDisappearance, 1)?;
     assert_feedback_label_count(&db_path, "proposal_outcome", "unknown", 1)?;
     assert_feedback_label_count(&db_path, "proposal_outcome", "accepted", 0)?;
     assert_feedback_label_count(&db_path, "proposal_outcome", "false_positive", 0)?;
+    Ok(())
+}
+
+fn assert_audit_reason_count(
+    store: &Store,
+    candidate_id: &CandidateId,
+    reason: LifecycleReason,
+    expected: usize,
+) -> Result<(), TestError> {
+    let actual = store
+        .audit_entries(candidate_id)?
+        .iter()
+        .filter(|entry| entry.reason == reason.as_str())
+        .count();
+    if actual != expected {
+        return Err(TestError::Command(format!(
+            "expected audit reason {} count {expected}, got {actual}",
+            reason.as_str()
+        )));
+    }
     Ok(())
 }
 

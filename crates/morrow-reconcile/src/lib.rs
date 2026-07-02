@@ -13,6 +13,8 @@ pub use actions::{
     ReconciliationPlan, Suppression,
 };
 pub use apply::apply_reconciliation;
-pub use decision::{reconcile_candidate, CandidateLifecycle};
+pub use decision::{
+    reconcile_candidate, reconcile_same_anchor_supersede_candidates, CandidateLifecycle,
+};
 pub use error::ReconcileError;
 pub use observations::{DisappearanceEvidence, ExternalItemObservation};
