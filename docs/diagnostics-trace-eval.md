@@ -16,7 +16,7 @@ The trace JSONL is the source of truth. Viewer/importer payloads are derived fro
 
 Production Messages-to-Calendar scanning uses the native Messages SQLite source, the local Codex CLI ChatGPT login through `codex exec`, and EventKit proposal replay. Codex provider readiness is a Sync Now prerequisite in the app shell for the production Messages-to-Calendar path.
 
-The trace/eval smoke below remains an offline diagnostics and fixture-eval proof. It does not call Codex, OpenAI, Phoenix, Langfuse, any LLM backend, read the real Messages database, or create EventKit items. Runtime production scan maps to the diagnostics seam through `scan_selected_chats_with_dependencies`: production passes the release provider and EventKit adapter with a noop local trace recorder, while tests can inject a provider and recorder to prove the same decision path is privacy-safe. No runtime trace writer is added for the real provider path in this layer unless a later phase implements a production runtime trace sink.
+The trace/eval smoke below remains an offline diagnostics and fixture-eval proof. It does not call Codex, OpenAI, Phoenix, Langfuse, any LLM backend, read the real Messages database, or create EventKit items. Runtime production scan maps to the diagnostics seam through `scan_selected_chats_with_dependencies`: production passes the release provider and EventKit adapter, and Phase 1 adds the local production trace sink behind `localDiagnosticsEnabled`. The Phase 1 smoke uses the native fake Codex production fixture to prove the provider path writes sanitized local JSONL without live backends.
 
 Use the real QA runner only when the host has deliberate Messages, Codex CLI login, and Calendar test setup:
 
@@ -25,6 +25,30 @@ env -u MORROW_REAL_QA_OPENAI_API_KEY scripts/messages-calendar-real-qa.sh
 ```
 
 The runner must not require `MORROW_REAL_QA_OPENAI_API_KEY`. Without Codex CLI readiness, the required QA chat variables, or macOS permissions, it records a sanitized `BLOCKED` receipt instead of requiring live secrets for completion.
+
+## Phase 1 Production Provider Trace Sink Smoke
+
+Run the production trace sink smoke with the local fake Codex fixture:
+
+```bash
+scripts/run-production-trace-sink-smoke.sh --out-dir .omo/evidence/phase-1-production-provider-trace-sink/final-smoke
+```
+
+Expected artifacts:
+
+- `.omo/evidence/phase-1-production-provider-trace-sink/final-smoke/trace.jsonl`
+- `.omo/evidence/phase-1-production-provider-trace-sink/final-smoke/privacy-inspect.txt`
+- `.omo/evidence/phase-1-production-provider-trace-sink/final-smoke/summary.txt`
+- `.omo/evidence/phase-1-production-provider-trace-sink/final-smoke/cleanup-receipt.txt`
+- `.omo/evidence/phase-1-production-provider-trace-sink/final-smoke/cargo-test.txt`
+
+Run the production trace sink canary rejection proof:
+
+```bash
+scripts/run-production-trace-sink-smoke.sh --out-dir .omo/evidence/phase-1-production-provider-trace-sink/final-smoke --assert-canary-rejection
+```
+
+That mode injects `MORROW_PRIVACY_CANARY_RAW_TEXT` into a synthetic diagnostics surface before sanitization and passes only when `scripts/privacy-inspect.sh` rejects it. The smoke does not call live Codex, OpenAI, network, calendar, Messages, Phoenix, Langfuse, or vendor backends.
 
 ## Feedback Eval Baseline
 
@@ -172,7 +196,7 @@ The trace schema reserves lifecycle, correction, and replay operation names for 
 
 These names are schema vocabulary only in this layer.
 
-The full Messages -> Calendar -> approval trajectory eval remains future work. Current local diagnostics and feedback/eval receipts prove the local baseline substrate, not an end-to-end approval lifecycle benchmark.
+The full Messages -> Calendar -> approval trajectory eval remains future work. Current local diagnostics, Phase 1 production trace sink, and feedback/eval receipts prove the local trace substrate, not an end-to-end approval lifecycle benchmark.
 
 ## Non-Goals
 
@@ -182,5 +206,7 @@ The full Messages -> Calendar -> approval trajectory eval remains future work. C
 - No agent-native control-plane CLI.
 - No human correction UI or correction-training loop.
 - No calendar write workflow, dry-run/commit state machine, or approval-bypassing mutation path.
-- No production runtime trace writing for provider scans in this layer; production still uses the noop local trace recorder until a later phase adds a runtime trace sink.
+- No Phase 2 product correlation from durable traces back to candidate and decision surfaces.
+- No Phase 3 lifecycle coverage for supersede, reschedule, cancel, dry-run, commit, or replay paths.
+- No Phase 4 human approval/correction loop.
 - No trajectory-level Messages -> Calendar -> approval eval is complete in this layer.

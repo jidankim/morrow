@@ -84,6 +84,9 @@ fn run() -> Result<Vec<String>, &'static str> {
         "referenceTimezone": "Asia/Seoul",
         "backfillPromptChatIds": [chat_id],
         "sourceExcerptsEnabled": false,
+        "feedbackTextSnapshotsEnabled": false,
+        "localDiagnosticsEnabled": false,
+        "localDiagnosticsRetentionDays": 30,
         "capPolicy": { "mode": "refillForPending", "maxVisible": 1, "pendingCount": 0 }
     });
     let request: ScanSelectedChatsRequest =
