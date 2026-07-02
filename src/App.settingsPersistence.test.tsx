@@ -111,11 +111,20 @@ describe("App settings persistence", () => {
       window.location.hash = "#settings"
       window.dispatchEvent(new HashChangeEvent("hashchange"))
     })
-    fireEvent.change(screen.getByLabelText("Automatic Sync interval"), { target: { value: "900" } })
-    await waitFor(() => expect(bridgeMock.getSchedulerState()).toMatchObject({ interval_seconds: 900 }))
+    const intervalInput = screen.getByLabelText("Automatic Sync interval")
+    expect(intervalInput).toHaveValue(30)
 
-    fireEvent.change(screen.getByLabelText("Automatic Sync interval"), { target: { value: "3600" } })
-    await waitFor(() => expect(bridgeMock.getSchedulerState()).toMatchObject({ interval_seconds: 3_600 }))
+    fireEvent.change(intervalInput, { target: { value: "7" } })
+    await waitFor(() => expect(bridgeMock.getSchedulerState()).toMatchObject({ interval_seconds: 420 }))
+    expect(intervalInput).toHaveValue(7)
+
+    fireEvent.change(intervalInput, { target: { value: "1" } })
+    await waitFor(() => expect(bridgeMock.getSchedulerState()).toMatchObject({ interval_seconds: 60 }))
+
+    fireEvent.change(intervalInput, { target: { value: "0" } })
+    expect(bridgeMock.getSchedulerState()).toMatchObject({ interval_seconds: 60 })
+    fireEvent.blur(intervalInput)
+    expect(intervalInput).toHaveValue(1)
   })
 
   it("shows automatic cooldown without disabling manual Sync Now", async () => {

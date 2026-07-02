@@ -28,6 +28,11 @@ pub(crate) const MIGRATIONS: &[Migration] = &[
         name: "sync_scheduler_state",
         sql: include_str!("../migrations/0004_sync_scheduler_state.sql"),
     },
+    Migration {
+        version: 5,
+        name: "sync_scheduler_custom_interval",
+        sql: include_str!("../migrations/0005_sync_scheduler_custom_interval.sql"),
+    },
 ];
 
 pub(crate) fn record_migration_sql(migration: &Migration) -> Result<String, StorageError> {

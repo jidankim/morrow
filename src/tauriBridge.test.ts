@@ -140,11 +140,11 @@ describe("createNativeShellBridge scan command", () => {
     // Given
     const schedulerState = {
       enabled: true,
-      interval_seconds: 1800,
+      interval_seconds: 420,
       status: "scheduled",
       last_started_at: 1_783_000_000,
       last_finished_at: 1_783_000_030,
-      next_run_at: 1_783_001_800,
+      next_run_at: 1_783_000_420,
       next_eligible_at: undefined,
       last_result: "success",
       retry_attempt: 0,
@@ -168,12 +168,19 @@ describe("createNativeShellBridge scan command", () => {
     })
   })
 
-  it("rejects malformed native sync scheduler status and retry attempt", async () => {
+  it("rejects malformed native sync scheduler status interval and retry attempt", async () => {
     // Given
     const malformedStatus = {
       enabled: true,
       interval_seconds: 1800,
       status: "stuck",
+      retry_attempt: 0,
+      updated_at: 1_783_000_030
+    }
+    const malformedInterval = {
+      enabled: true,
+      interval_seconds: 59,
+      status: "scheduled",
       retry_attempt: 0,
       updated_at: 1_783_000_030
     }
@@ -184,11 +191,15 @@ describe("createNativeShellBridge scan command", () => {
       retry_attempt: -1,
       updated_at: 1_783_000_030
     }
-    tauriMock.invoke.mockResolvedValueOnce(malformedStatus).mockResolvedValueOnce(malformedRetryAttempt)
+    tauriMock.invoke
+      .mockResolvedValueOnce(malformedStatus)
+      .mockResolvedValueOnce(malformedInterval)
+      .mockResolvedValueOnce(malformedRetryAttempt)
     const { createNativeShellBridge } = await import("./tauriBridge")
     const bridge = createNativeShellBridge()
 
     // When / Then
+    await expect(bridge.getSyncSchedulerState()).rejects.toThrow()
     await expect(bridge.getSyncSchedulerState()).rejects.toThrow()
     await expect(bridge.getSyncSchedulerState()).rejects.toThrow()
   })

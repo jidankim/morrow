@@ -4,6 +4,7 @@ use crate::StorageError;
 pub struct SyncSchedulerIntervalSeconds(i64);
 
 impl SyncSchedulerIntervalSeconds {
+    pub const ONE_MINUTE: Self = Self(60);
     pub const FIFTEEN_MINUTES: Self = Self(900);
     pub const THIRTY_MINUTES: Self = Self(1_800);
     pub const SIXTY_MINUTES: Self = Self(3_600);
@@ -13,15 +14,19 @@ impl SyncSchedulerIntervalSeconds {
     }
 
     pub fn parse(raw: i64) -> Result<Self, StorageError> {
-        match raw {
-            900 => Ok(Self::FIFTEEN_MINUTES),
-            1_800 => Ok(Self::THIRTY_MINUTES),
-            3_600 => Ok(Self::SIXTY_MINUTES),
-            other => Err(StorageError::InvalidInput {
+        if raw < Self::ONE_MINUTE.as_i64() {
+            return Err(StorageError::InvalidInput {
                 field: "interval_seconds",
-                reason: format!("unsupported interval {other}"),
-            }),
+                reason: format!("interval {raw} is shorter than one minute"),
+            });
         }
+        if raw % Self::ONE_MINUTE.as_i64() != 0 {
+            return Err(StorageError::InvalidInput {
+                field: "interval_seconds",
+                reason: format!("interval {raw} is not a whole number of minutes"),
+            });
+        }
+        Ok(Self(raw))
     }
 }
 

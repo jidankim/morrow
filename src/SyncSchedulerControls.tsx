@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react"
 import {
   Clock3,
   PauseCircle,
@@ -8,11 +9,12 @@ import {
   TriangleAlert
 } from "lucide-react"
 import {
-  SYNC_SCHEDULER_INTERVAL_OPTIONS,
+  MIN_SYNC_SCHEDULER_INTERVAL_MINUTES,
   formatSyncSchedulerCooldownReason,
   formatSyncSchedulerLastResult,
   formatSyncSchedulerNextRun,
-  parseSyncSchedulerIntervalSeconds,
+  parseSyncSchedulerIntervalMinutes,
+  syncSchedulerIntervalMinutes,
   type SyncSchedulerIntervalSeconds,
   type SyncSchedulerState,
   type SyncSchedulerStatus
@@ -37,6 +39,22 @@ export function SyncSchedulerControls({
   const toggleLabel = scheduler.enabled ? "Turn automatic sync off" : "Turn automatic sync on"
   const sectionClassName =
     surface === "settings" ? "settings-section sync-scheduler-section" : "sync-scheduler-section"
+  const [intervalMinutesDraft, setIntervalMinutesDraft] = useState(() =>
+    automaticSyncIntervalInputValue(scheduler.interval_seconds)
+  )
+
+  useEffect(() => {
+    setIntervalMinutesDraft(automaticSyncIntervalInputValue(scheduler.interval_seconds))
+  }, [scheduler.interval_seconds])
+
+  const handleIntervalMinutesChange = (nextValue: string): void => {
+    setIntervalMinutesDraft(nextValue)
+    const trimmedValue = nextValue.trim()
+    if (trimmedValue.length === 0) return
+    const intervalMinutes = Number(trimmedValue)
+    if (!Number.isInteger(intervalMinutes) || intervalMinutes < MIN_SYNC_SCHEDULER_INTERVAL_MINUTES) return
+    onIntervalChange(parseSyncSchedulerIntervalMinutes(intervalMinutes))
+  }
 
   return (
     <section className={sectionClassName} aria-labelledby={`${surface}-automatic-sync-heading`}>
@@ -61,19 +79,19 @@ export function SyncSchedulerControls({
         </button>
         <label className="field sync-scheduler-interval">
           <span>Interval</span>
-          <select
-            aria-label="Automatic Sync interval"
-            value={scheduler.interval_seconds}
-            onChange={(event) =>
-              onIntervalChange(parseSyncSchedulerIntervalSeconds(Number(event.currentTarget.value)))
-            }
-          >
-            {SYNC_SCHEDULER_INTERVAL_OPTIONS.map((intervalSeconds) => (
-              <option key={intervalSeconds} value={intervalSeconds}>
-                {automaticSyncIntervalLabel(intervalSeconds)}
-              </option>
-            ))}
-          </select>
+          <span className="sync-scheduler-interval-field">
+            <input
+              aria-label="Automatic Sync interval"
+              inputMode="numeric"
+              min={MIN_SYNC_SCHEDULER_INTERVAL_MINUTES}
+              step={1}
+              type="number"
+              value={intervalMinutesDraft}
+              onBlur={() => setIntervalMinutesDraft(automaticSyncIntervalInputValue(scheduler.interval_seconds))}
+              onChange={(event) => handleIntervalMinutesChange(event.currentTarget.value)}
+            />
+            <span aria-hidden="true">min</span>
+          </span>
         </label>
       </div>
       <dl className="sync-scheduler-details">
@@ -96,17 +114,8 @@ export function SyncSchedulerControls({
   )
 }
 
-function automaticSyncIntervalLabel(intervalSeconds: SyncSchedulerIntervalSeconds): string {
-  switch (intervalSeconds) {
-    case 900:
-      return "15 min"
-    case 1_800:
-      return "30 min"
-    case 3_600:
-      return "60 min"
-    default:
-      return assertNever(intervalSeconds)
-  }
+function automaticSyncIntervalInputValue(intervalSeconds: SyncSchedulerIntervalSeconds): string {
+  return String(syncSchedulerIntervalMinutes(intervalSeconds))
 }
 
 function automaticSyncStatusLabel(status: SyncSchedulerStatus): string {

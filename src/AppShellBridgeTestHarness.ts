@@ -20,7 +20,7 @@ type NativeMenuCommandForTest =
 
 type NativeSyncSchedulerStateForTest = {
   readonly enabled: boolean
-  readonly interval_seconds: 900 | 1_800 | 3_600
+  readonly interval_seconds: number
   readonly status: "disabled" | "scheduled" | "running" | "cooldown" | "blocked"
   readonly last_started_at?: number | undefined
   readonly last_finished_at?: number | undefined

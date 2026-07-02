@@ -96,16 +96,16 @@ fn sync_scheduler_default_row_is_created_when_opening_fresh_database() {
 }
 
 #[test]
-fn sync_scheduler_save_accepts_allowed_interval_values() {
+fn sync_scheduler_save_accepts_custom_whole_minute_interval_values() {
     // Given: a fresh scheduler row.
     let (_dir, _db_path, store) = fresh_store("sync-scheduler-intervals.sqlite");
 
     for interval_seconds in [
-        SyncSchedulerIntervalSeconds::FIFTEEN_MINUTES,
+        SyncSchedulerIntervalSeconds::ONE_MINUTE,
         SyncSchedulerIntervalSeconds::THIRTY_MINUTES,
-        SyncSchedulerIntervalSeconds::SIXTY_MINUTES,
+        SyncSchedulerIntervalSeconds::parse(420).expect("custom seven minute interval"),
     ] {
-        // When: a state using an allowed scheduler interval is saved.
+        // When: a state using a custom whole-minute scheduler interval is saved.
         store
             .save_sync_scheduler_state(&SyncSchedulerState {
                 enabled: true,
@@ -122,7 +122,7 @@ fn sync_scheduler_save_accepts_allowed_interval_values() {
             })
             .expect("save allowed interval state");
 
-        // Then: the typed API returns the exact allowed interval.
+        // Then: the typed API returns the exact whole-minute interval.
         let persisted = store
             .load_sync_scheduler_state()
             .expect("reload interval state");
@@ -168,10 +168,15 @@ fn sync_scheduler_sqlite_constraints_reject_malformed_input() {
     // Given: a migrated scheduler table with the singleton row.
     let (_dir, db_path, _store) = fresh_store("sync-scheduler-constraints.sqlite");
 
-    // When/Then: malformed_input writes rejected by SQLite include bad intervals and statuses.
+    // When/Then: malformed_input writes rejected by SQLite include below-minimum intervals,
+    // sub-minute intervals, and statuses.
     assert_sqlite_rejects(
         &db_path,
-        "UPDATE sync_scheduler_state SET interval_seconds = 1 WHERE id = 1;",
+        "UPDATE sync_scheduler_state SET interval_seconds = 59 WHERE id = 1;",
+    );
+    assert_sqlite_rejects(
+        &db_path,
+        "UPDATE sync_scheduler_state SET interval_seconds = 61 WHERE id = 1;",
     );
     assert_sqlite_rejects(
         &db_path,

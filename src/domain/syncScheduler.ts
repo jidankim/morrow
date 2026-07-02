@@ -1,8 +1,21 @@
 import { z } from "zod"
+import {
+  DEFAULT_SYNC_SCHEDULER_INTERVAL_SECONDS,
+  syncSchedulerIntervalSecondsSchema,
+  type SyncSchedulerIntervalSeconds
+} from "./syncSchedulerInterval"
 
-export const SYNC_SCHEDULER_INTERVAL_OPTIONS = [900, 1_800, 3_600] as const
+export {
+  DEFAULT_SYNC_SCHEDULER_INTERVAL_SECONDS,
+  InvalidSyncSchedulerIntervalError,
+  MIN_SYNC_SCHEDULER_INTERVAL_MINUTES,
+  MIN_SYNC_SCHEDULER_INTERVAL_SECONDS,
+  parseSyncSchedulerIntervalMinutes,
+  parseSyncSchedulerIntervalSeconds,
+  syncSchedulerIntervalMinutes,
+  type SyncSchedulerIntervalSeconds
+} from "./syncSchedulerInterval"
 
-export type SyncSchedulerIntervalSeconds = (typeof SYNC_SCHEDULER_INTERVAL_OPTIONS)[number]
 export type SyncSchedulerStatus = "disabled" | "scheduled" | "running" | "cooldown" | "blocked"
 export type SyncSchedulerLastResult = "success" | "retryable_failure" | "blocked" | "manual_disabled"
 
@@ -25,12 +38,11 @@ type IntervalTransition = TimestampedTransition & { readonly intervalSeconds: Sy
 type ReasonTransition = TimestampedTransition & { readonly reason: string }
 type RetryableFailureTransition = ReasonTransition & { readonly randomUnit: number }
 
-const syncSchedulerIntervalSchema = z.union([z.literal(900), z.literal(1_800), z.literal(3_600)])
 const syncSchedulerStatusSchema = z.union([z.literal("disabled"), z.literal("scheduled"), z.literal("running"), z.literal("cooldown"), z.literal("blocked")])
 const syncSchedulerLastResultSchema = z.union([z.literal("success"), z.literal("retryable_failure"), z.literal("blocked"), z.literal("manual_disabled")])
 const syncSchedulerStateSchema = z.object({
   enabled: z.boolean(),
-  interval_seconds: syncSchedulerIntervalSchema,
+  interval_seconds: syncSchedulerIntervalSecondsSchema,
   status: syncSchedulerStatusSchema,
   last_started_at: z.number().int().nonnegative().optional(),
   last_finished_at: z.number().int().nonnegative().optional(),
@@ -43,13 +55,7 @@ const syncSchedulerStateSchema = z.object({
 })
 
 export function createDefaultSyncSchedulerState(nowUnixSeconds: number): SyncSchedulerState {
-  return { enabled: false, interval_seconds: 1_800, status: "disabled", retry_attempt: 0, updated_at: nowUnixSeconds }
-}
-
-export function parseSyncSchedulerIntervalSeconds(value: unknown): SyncSchedulerIntervalSeconds {
-  const parsed = syncSchedulerIntervalSchema.safeParse(value)
-  if (parsed.success) return parsed.data
-  throw new InvalidSyncSchedulerIntervalError(value)
+  return { enabled: false, interval_seconds: DEFAULT_SYNC_SCHEDULER_INTERVAL_SECONDS, status: "disabled", retry_attempt: 0, updated_at: nowUnixSeconds }
 }
 
 export function parseSyncSchedulerState(value: unknown): SyncSchedulerState {
@@ -253,13 +259,6 @@ function formatDurationSeconds(seconds: number): string {
 
 function assertNever(value: never): never {
   throw new UnhandledSyncSchedulerVariantError(String(value))
-}
-
-export class InvalidSyncSchedulerIntervalError extends Error {
-  readonly name = "InvalidSyncSchedulerIntervalError"
-  constructor(readonly value: unknown) {
-    super("Invalid sync scheduler interval")
-  }
 }
 
 export class InvalidSyncSchedulerStateError extends Error {

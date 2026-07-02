@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import {
-  SYNC_SCHEDULER_INTERVAL_OPTIONS,
+  DEFAULT_SYNC_SCHEDULER_INTERVAL_SECONDS,
+  MIN_SYNC_SCHEDULER_INTERVAL_MINUTES,
   changeSyncSchedulerInterval,
   createDefaultSyncSchedulerState,
   disableSyncScheduler,
@@ -14,9 +15,11 @@ import {
   markSyncSchedulerRetryableFailure,
   markSyncSchedulerRunning,
   markSyncSchedulerSuccess,
+  parseSyncSchedulerIntervalMinutes,
   parseSyncSchedulerIntervalSeconds,
   parseSyncSchedulerState,
   recoverHydratedSyncSchedulerState,
+  syncSchedulerIntervalMinutes,
   type SyncSchedulerState
 } from "./syncScheduler"
 
@@ -33,23 +36,23 @@ describe("sync scheduler", () => {
     // Then
     expect(state).toEqual({
       enabled: false,
-      interval_seconds: 1_800,
+      interval_seconds: DEFAULT_SYNC_SCHEDULER_INTERVAL_SECONDS,
       status: "disabled",
       retry_attempt: 0,
       updated_at: nowUnixSeconds
     })
-    expect(SYNC_SCHEDULER_INTERVAL_OPTIONS).toEqual([900, 1_800, 3_600])
+    expect(syncSchedulerIntervalMinutes(state.interval_seconds)).toBe(30)
     expect(isSyncSchedulerDue(state, nowUnixSeconds + 3_600)).toBe(false)
     expect(formatSyncSchedulerNextRun(state, nowUnixSeconds)).toBe("Automatic sync is off.")
     expect(formatSyncSchedulerLastResult(state)).toBe("No automatic sync has run yet.")
   })
 
-  it("validates interval options before changing scheduler state", () => {
+  it("validates custom whole-minute intervals before changing scheduler state", () => {
     // Given
     const disabled = createDefaultSyncSchedulerState(NOW)
 
     // When
-    const interval = parseSyncSchedulerIntervalSeconds(900)
+    const interval = parseSyncSchedulerIntervalMinutes(7)
     const enabled = enableSyncScheduler(disabled, NOW)
     const changed = changeSyncSchedulerInterval(enabled, {
       intervalSeconds: interval,
@@ -57,11 +60,16 @@ describe("sync scheduler", () => {
     })
 
     // Then
-    expect(changed.interval_seconds).toBe(900)
+    expect(changed.interval_seconds).toBe(420)
     expect(changed.retry_attempt).toBe(0)
     expect(changed.status).toBe("scheduled")
-    expect(changed.next_run_at).toBe(NOW + 905)
-    expect(() => parseSyncSchedulerIntervalSeconds(1)).toThrow("Invalid sync scheduler interval")
+    expect(changed.next_run_at).toBe(NOW + 425)
+    expect(syncSchedulerIntervalMinutes(changed.interval_seconds)).toBe(7)
+    expect(parseSyncSchedulerIntervalMinutes(MIN_SYNC_SCHEDULER_INTERVAL_MINUTES)).toBe(60)
+    expect(() => parseSyncSchedulerIntervalMinutes(0)).toThrow("Invalid sync scheduler interval")
+    expect(() => parseSyncSchedulerIntervalMinutes(1.5)).toThrow("Invalid sync scheduler interval")
+    expect(() => parseSyncSchedulerIntervalSeconds(59)).toThrow("Invalid sync scheduler interval")
+    expect(() => parseSyncSchedulerIntervalSeconds(61)).toThrow("Invalid sync scheduler interval")
   })
 
   it("calculates scheduled and cooldown due states from explicit timestamps", () => {
@@ -273,7 +281,7 @@ describe("sync scheduler", () => {
     const valid = enableSyncScheduler(createDefaultSyncSchedulerState(NOW), NOW)
 
     // When / Then
-    expect(() => parseSyncSchedulerState({ ...valid, interval_seconds: 1 })).toThrow(
+    expect(() => parseSyncSchedulerState({ ...valid, interval_seconds: 59 })).toThrow(
       "Invalid sync scheduler state"
     )
     expect(() => parseSyncSchedulerState({ ...valid, status: "bogus" })).toThrow(

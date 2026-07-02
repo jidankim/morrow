@@ -66,6 +66,7 @@ pub fn assert_feedback_eval_schema(
             vec!["2".to_owned(), "feedback_eval".to_owned()],
             vec!["3".to_owned(), "provider_route_outcomes".to_owned(),],
             vec!["4".to_owned(), "sync_scheduler_state".to_owned(),],
+            vec!["5".to_owned(), "sync_scheduler_custom_interval".to_owned(),],
         ]
     );
 

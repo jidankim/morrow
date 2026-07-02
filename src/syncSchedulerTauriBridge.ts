@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core"
 import { z } from "zod"
+import { syncSchedulerIntervalSecondsSchema } from "./domain/syncSchedulerInterval"
 
 const syncSchedulerStatusSchema = z.union([
   z.literal("disabled"),
@@ -18,7 +19,7 @@ const syncSchedulerLastResultSchema = z.union([
 
 const syncSchedulerStateSchema = z.object({
   enabled: z.boolean(),
-  interval_seconds: z.union([z.literal(900), z.literal(1800), z.literal(3600)]),
+  interval_seconds: syncSchedulerIntervalSecondsSchema,
   status: syncSchedulerStatusSchema,
   last_started_at: z.preprocess(
     (value) => (value === null ? undefined : value),

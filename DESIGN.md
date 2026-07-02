@@ -103,11 +103,11 @@ All spacing derives from 4px.
 
 ### Automatic Sync Control
 
-- **Structure**: compact status header, command toggle, interval field, and three metadata rows.
+- **Structure**: compact status header, command toggle, whole-minute interval number field, and three metadata rows.
 - **Variants**: off, enabled, running, cooling down, needs action.
 - **Spacing**: --space-3 control gap, --space-4 metadata gap, --space-5 section padding.
-- **States**: toggle and interval changes persist durable scheduler configuration.
-- **Accessibility**: native button, native select, status exposed with role=status.
+- **States**: toggle and valid interval changes persist durable scheduler configuration; invalid interval drafts reset on blur.
+- **Accessibility**: native button, native number input with minimum 1 minute, status exposed with role=status.
 - **Motion**: button transform and color transitions only.
 
 ## 6. Motion & Interaction

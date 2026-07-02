@@ -122,6 +122,19 @@ select:focus-visible {
   color: var(--text-primary);
 }
 
+.sync-scheduler-interval-field {
+  display: grid;
+  grid-template-columns: minmax(84px, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.sync-scheduler-interval-field span {
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+}
+
 .check-row {
   grid-template-columns: auto 1fr;
   align-items: center;
