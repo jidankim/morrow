@@ -1,7 +1,7 @@
 use crate::app_shell::{menu_model, sync_now_event_allowed, AppShellState, AppState};
 use tauri::{
-    menu::{MenuBuilder, MenuItem, SubmenuBuilder},
-    AppHandle, Emitter, Manager,
+    menu::{Menu, MenuBuilder, MenuItem, Submenu, SubmenuBuilder},
+    AppHandle, Emitter, Manager, Runtime,
 };
 
 const MENU_PAUSE_RESUME_ID: &str = "morrow_pause_resume";
@@ -14,7 +14,41 @@ const MENU_OPEN_REMINDERS_ID: &str = "morrow_open_reminders";
 const MENU_TOGGLE_AUTOMATIC_SYNC_ID: &str = "morrow_toggle_automatic_sync";
 const MENU_QUIT_ID: &str = "morrow_quit";
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum NativeMenuSection {
+    Morrow,
+    Edit,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum StandardEditMenuItem {
+    Undo,
+    Redo,
+    Separator,
+    Cut,
+    Copy,
+    Paste,
+    SelectAll,
+}
+
+const NATIVE_MENU_SECTIONS: [NativeMenuSection; 2] =
+    [NativeMenuSection::Morrow, NativeMenuSection::Edit];
+const STANDARD_EDIT_MENU_ITEMS: [StandardEditMenuItem; 7] = [
+    StandardEditMenuItem::Undo,
+    StandardEditMenuItem::Redo,
+    StandardEditMenuItem::Separator,
+    StandardEditMenuItem::Cut,
+    StandardEditMenuItem::Copy,
+    StandardEditMenuItem::Paste,
+    StandardEditMenuItem::SelectAll,
+];
+
 pub fn install_menu(app: &AppHandle, state: &AppShellState) -> tauri::Result<()> {
+    let app_menu = build_app_menu(app, state)?;
+    app.set_menu(app_menu).map(|_| ())
+}
+
+fn build_app_menu<R: Runtime>(app: &AppHandle<R>, state: &AppShellState) -> tauri::Result<Menu<R>> {
     let menu = menu_model(state);
     let status = MenuItem::with_id(app, MENU_STATUS_ID, menu.status_label, false, None::<&str>)?;
     let pending = MenuItem::with_id(
@@ -87,8 +121,49 @@ pub fn install_menu(app: &AppHandle, state: &AppShellState) -> tauri::Result<()>
         .separator()
         .item(&quit)
         .build()?;
-    let app_menu = MenuBuilder::new(app).item(&morrow_menu).build()?;
-    app.set_menu(app_menu).map(|_| ())
+    let mut app_menu = MenuBuilder::new(app);
+    for section in NATIVE_MENU_SECTIONS {
+        match section {
+            NativeMenuSection::Morrow => {
+                app_menu = app_menu.item(&morrow_menu);
+            }
+            NativeMenuSection::Edit => {
+                let edit_menu = build_standard_edit_menu(app)?;
+                app_menu = app_menu.item(&edit_menu);
+            }
+        }
+    }
+    app_menu.build()
+}
+
+fn build_standard_edit_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> {
+    let mut edit_menu = SubmenuBuilder::new(app, "Edit");
+    for item in STANDARD_EDIT_MENU_ITEMS {
+        match item {
+            StandardEditMenuItem::Undo => {
+                edit_menu = edit_menu.undo();
+            }
+            StandardEditMenuItem::Redo => {
+                edit_menu = edit_menu.redo();
+            }
+            StandardEditMenuItem::Separator => {
+                edit_menu = edit_menu.separator();
+            }
+            StandardEditMenuItem::Cut => {
+                edit_menu = edit_menu.cut();
+            }
+            StandardEditMenuItem::Copy => {
+                edit_menu = edit_menu.copy();
+            }
+            StandardEditMenuItem::Paste => {
+                edit_menu = edit_menu.paste();
+            }
+            StandardEditMenuItem::SelectAll => {
+                edit_menu = edit_menu.select_all();
+            }
+        }
+    }
+    edit_menu.build()
 }
 
 pub fn register_menu_events(app: &mut tauri::App) {
@@ -128,4 +203,23 @@ pub fn register_menu_events(app: &mut tauri::App) {
         }
         _ => {}
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        NativeMenuSection, StandardEditMenuItem, NATIVE_MENU_SECTIONS, STANDARD_EDIT_MENU_ITEMS,
+    };
+
+    #[test]
+    fn native_menu_keeps_standard_copy_command_available() {
+        assert!(
+            NATIVE_MENU_SECTIONS.contains(&NativeMenuSection::Edit),
+            "native menu should include the standard Edit submenu so Cmd+C dispatches Copy"
+        );
+        assert!(
+            STANDARD_EDIT_MENU_ITEMS.contains(&StandardEditMenuItem::Copy),
+            "standard Edit menu items should include Copy"
+        );
+    }
 }
