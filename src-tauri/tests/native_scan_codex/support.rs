@@ -113,6 +113,10 @@ impl ScanFixture {
         &self.app_data_dir
     }
 
+    pub fn store_path(&self) -> &Path {
+        &self.store_path
+    }
+
     pub fn eval_cases(&self) -> Result<Vec<EvalCase>, String> {
         Store::open(&self.store_path)
             .and_then(|store| store.eval_cases())

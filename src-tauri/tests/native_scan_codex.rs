@@ -2,6 +2,14 @@ use morrow_lib::native_bridge::{
     CodexAuthStatus, CodexProviderAuthReadiness, MORROW_PROVIDER_TOKEN_KIND,
 };
 
+#[path = "native_scan_codex/decision_evidence.rs"]
+mod decision_evidence;
+#[path = "native_scan_codex/decision_evidence_focus.rs"]
+mod decision_evidence_focus;
+#[path = "native_scan_codex/decision_evidence_retention.rs"]
+mod decision_evidence_retention;
+#[path = "native_scan_codex/decision_evidence_states.rs"]
+mod decision_evidence_states;
 #[path = "native_scan_codex/support.rs"]
 mod support;
 #[path = "native_scan_codex/trace_linkage.rs"]

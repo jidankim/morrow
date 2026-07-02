@@ -1,6 +1,7 @@
 mod codex_auth;
 mod codex_provider;
 mod crash_log;
+mod decision_evidence;
 mod delete_all;
 mod delete_all_protocol;
 mod delete_provider_credentials;
@@ -38,6 +39,11 @@ pub use codex_provider::{
 pub use crash_log::{
     __cmd__record_crash_log, __tauri_command_name_record_crash_log, record_crash_log,
     CrashLogReceipt, CrashLogRequest,
+};
+pub use decision_evidence::{
+    load_decision_evidence_at, DecisionEvidenceItem, DecisionEvidenceReport,
+    DecisionEvidenceTraceRetention, DecisionTraceStep, LoadDecisionEvidenceRequest,
+    NativeDecisionEvidenceSubjectType,
 };
 pub use delete_all_protocol::{
     DeleteCleanupAction, DeleteCleanupPlan, DeleteMorrowDataError, DeleteMorrowDataRequest,
@@ -155,6 +161,16 @@ pub fn scan_selected_chats(
             &app_data_dir,
         )
         .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn load_decision_evidence(
+    app: AppHandle,
+    request: LoadDecisionEvidenceRequest,
+) -> Result<DecisionEvidenceReport, String> {
+    let store_path = morrow_store_path(&app)?;
+    let app_data_dir = app_data_dir(&app)?;
+    decision_evidence::load_decision_evidence_at(&store_path, &app_data_dir, request)
 }
 
 #[tauri::command]
