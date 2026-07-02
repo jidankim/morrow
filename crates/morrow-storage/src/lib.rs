@@ -42,8 +42,9 @@ pub use sync_scheduler::{
 };
 pub use types::{
     AuditEntry, CalendarProposalPayload, CandidateDraft, CandidateFeedbackContext, CandidateKind,
-    CandidateState, ExternalObjectMapping, ExternalSource, PrivacySummary, ProviderRouteCandidate,
-    ProviderRouteLedgerRow, ProviderRouteOutcome, ProviderRouteOutcomeDraft,
-    ProviderRouteOutcomeKind, ProviderRouteRecordStatus, ProviderRouteSourceExcerptPolicy,
-    ProviderRouteStoredOutcome, QuietLogDraft, ReplayStream, PROVIDER_ROUTE_NATIVE_CANDIDATE_TITLE,
+    CandidateLifecycleReadback, CandidateState, ExternalObjectMapping, ExternalSource,
+    PrivacySummary, ProviderRouteCandidate, ProviderRouteLedgerRow, ProviderRouteOutcome,
+    ProviderRouteOutcomeDraft, ProviderRouteOutcomeKind, ProviderRouteRecordStatus,
+    ProviderRouteSourceExcerptPolicy, ProviderRouteStoredOutcome, QuietLogDraft, ReplayStream,
+    PROVIDER_ROUTE_NATIVE_CANDIDATE_TITLE,
 };

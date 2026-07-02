@@ -141,6 +141,14 @@ pub struct CandidateFeedbackContext {
     pub anchor_message_guid: String,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CandidateLifecycleReadback {
+    pub candidate_id: CandidateId,
+    pub kind: CandidateKind,
+    pub state: CandidateState,
+    pub current_reason: String,
+}
+
 #[derive(Debug, Clone)]
 pub struct QuietLogDraft {
     pub chat_guid: String,

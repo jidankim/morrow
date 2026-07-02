@@ -13,7 +13,10 @@ pub(crate) fn transition_allowed(from_state: CandidateState, to_state: Candidate
                 | CandidateState::Failed
         ),
         CandidateState::CreatingExternal => {
-            matches!(to_state, CandidateState::Visible | CandidateState::Failed)
+            matches!(
+                to_state,
+                CandidateState::Visible | CandidateState::Suppressed | CandidateState::Failed
+            )
         }
         CandidateState::Visible => matches!(
             to_state,
