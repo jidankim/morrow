@@ -12,6 +12,42 @@ Diagnostics live beside the app data store:
 
 The trace JSONL is the source of truth. Viewer/importer payloads are derived from it.
 
+## Phase 2 Product Correlation Smoke
+
+Phase 2 product correlation is implemented for local candidate and quiet summaries, including retained and deleted diagnostics states. It correlates durable local feedback/eval rows and retained sanitized diagnostics traces back to the product decision-evidence surface without introducing cloud telemetry or a second canonical trace store.
+
+Run the Phase 2 smoke with local fake fixtures:
+
+```bash
+scripts/run-trace-candidate-correlation-smoke.sh --out-dir .omo/evidence/phase-2-trace-candidate-correlation/final-smoke --assert-canary-rejection
+```
+
+Expected artifacts:
+
+- `.omo/evidence/phase-2-trace-candidate-correlation/final-smoke/summary.txt`
+- `.omo/evidence/phase-2-trace-candidate-correlation/final-smoke/decision-evidence.json`
+- `.omo/evidence/phase-2-trace-candidate-correlation/final-smoke/privacy-inspect.txt`
+- `.omo/evidence/phase-2-trace-candidate-correlation/final-smoke/canary-rejection.txt`
+- `.omo/evidence/phase-2-trace-candidate-correlation/final-smoke/cargo-decision-evidence.txt`
+- `.omo/evidence/phase-2-trace-candidate-correlation/final-smoke/npm-decision-evidence.txt`
+- `.omo/evidence/phase-2-trace-candidate-correlation/final-smoke/cleanup-receipt.txt`
+
+The evidence receipt for the completed smoke is `.omo/evidence/phase-2-trace-candidate-correlation/final-smoke/summary.txt`.
+
+Privacy rules for this phase:
+
+- Correlation remains local-only and privacy-safe for candidate/quiet summaries and retained/deleted diagnostics states.
+- No raw content leaves the device.
+- No raw prompt text, raw source content, provider JSON, native identifiers, or app-data paths are exposed in docs, UI, reports, logs, traces, exports, or evidence.
+- Deleted, disabled, expired, missing, or unavailable diagnostics remain nonfatal trace-retention states rather than sync failures.
+
+Remaining gaps:
+
+- Phase 3 lifecycle coverage remains future work for supersede, reschedule, cancel, dry-run, commit, and replay paths.
+- Phase 4 human approval/correction remains future work, including risk gates, correction capture, and auditable approval outcomes.
+- Phase 5 trajectory-level eval hardening remains future work for multi-step Messages-to-Calendar approval paths, collateral-damage checks, and replay scoring.
+- Cloud telemetry rollout remains future work; Phase 2 does not upload diagnostics or require Phoenix, Langfuse, LangSmith, Braintrust, LiteLLM, Helicone, or any vendor backend.
+
 ## Provider-Backed Messages-to-Calendar Flow
 
 Production Messages-to-Calendar scanning uses the native Messages SQLite source, the local Codex CLI ChatGPT login through `codex exec`, and EventKit proposal replay. Codex provider readiness is a Sync Now prerequisite in the app shell for the production Messages-to-Calendar path.
@@ -48,7 +84,7 @@ Run the production trace sink canary rejection proof:
 scripts/run-production-trace-sink-smoke.sh --out-dir .omo/evidence/phase-1-production-provider-trace-sink/final-smoke --assert-canary-rejection
 ```
 
-That mode injects `MORROW_PRIVACY_CANARY_RAW_TEXT` into a synthetic diagnostics surface before sanitization and passes only when `scripts/privacy-inspect.sh` rejects it. The smoke does not call live Codex, OpenAI, network, calendar, Messages, Phoenix, Langfuse, or vendor backends.
+That mode injects `[privacy canary literal]` into a synthetic diagnostics surface before sanitization and passes only when `scripts/privacy-inspect.sh` rejects it. The smoke does not call live Codex, OpenAI, network, calendar, Messages, Phoenix, Langfuse, or vendor backends.
 
 ## Feedback Eval Baseline
 
@@ -94,7 +130,7 @@ Run the privacy canary rejection proof:
 scripts/run-diagnostics-trace-eval-smoke.sh --out-dir .omo/evidence/task-12-final-flow --assert-canary-rejection
 ```
 
-That mode injects `MORROW_PRIVACY_CANARY_RAW_TEXT` into synthetic diagnostics before sanitization and passes only when `scripts/privacy-inspect.sh` rejects it.
+That mode injects `[privacy canary literal]` into synthetic diagnostics before sanitization and passes only when `scripts/privacy-inspect.sh` rejects it.
 
 ## Eval Command
 
@@ -196,7 +232,7 @@ The trace schema reserves lifecycle, correction, and replay operation names for 
 
 These names are schema vocabulary only in this layer.
 
-The full Messages -> Calendar -> approval trajectory eval remains future work. Current local diagnostics, Phase 1 production trace sink, and feedback/eval receipts prove the local trace substrate, not an end-to-end approval lifecycle benchmark.
+The full Messages -> Calendar -> approval trajectory eval remains future work. Current local diagnostics, Phase 1 production trace sink, Phase 2 product correlation, and feedback/eval receipts prove the local trace substrate plus local candidate/quiet correlation, not an end-to-end approval lifecycle benchmark.
 
 ## Non-Goals
 
@@ -206,7 +242,7 @@ The full Messages -> Calendar -> approval trajectory eval remains future work. C
 - No agent-native control-plane CLI.
 - No human correction UI or correction-training loop.
 - No calendar write workflow, dry-run/commit state machine, or approval-bypassing mutation path.
-- No Phase 2 product correlation from durable traces back to candidate and decision surfaces.
 - No Phase 3 lifecycle coverage for supersede, reschedule, cancel, dry-run, commit, or replay paths.
 - No Phase 4 human approval/correction loop.
-- No trajectory-level Messages -> Calendar -> approval eval is complete in this layer.
+- No completed trajectory-level Messages -> Calendar -> approval eval in this layer.
+- No cloud telemetry rollout.
