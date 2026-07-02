@@ -8,6 +8,7 @@ use schema_assertions::{
     assert_table_has_no_prohibited_columns, assert_unique_not_null_key,
 };
 
+pub mod decision_evidence;
 mod schema_assertions;
 
 const FIELD_SEPARATOR: &str = "\u{1f}";

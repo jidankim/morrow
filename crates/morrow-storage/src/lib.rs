@@ -1,5 +1,7 @@
 mod calendar_payload;
 mod caps;
+#[path = "store/decision_evidence.rs"]
+mod decision_evidence;
 mod delete_all;
 mod error;
 mod external_mapping;
@@ -18,6 +20,9 @@ mod validation;
 mod visibility;
 
 pub use caps::{plan_visibility, CapPlan, CapPolicy, QueuedProposal};
+pub use decision_evidence::{
+    DecisionEvidenceSubjectType, DecisionEvidenceSummary, DecisionEvidenceTraceRetention,
+};
 pub use delete_all::{
     delete_all_at, DeleteAllConfirmation, DeleteAllReceipt, DELETE_ALL_CONFIRMATION_TEXT,
 };
