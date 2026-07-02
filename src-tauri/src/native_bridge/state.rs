@@ -3,14 +3,13 @@ use std::path::Path;
 use morrow_messages::{MessagesDiscoveryDataSource, MessagesDiscoveryReport, MessagesError};
 
 use super::{
-    codex_auth, delete_all, eventkit_cleanup, eventkit_proposal, map_permission_status,
-    messages_sqlite, scan, scheduler, CodexExecRunner, CodexProvider, CodexProviderAuthReadiness,
-    DeleteMorrowDataError, DeleteMorrowDataRequest, FakeNativeBridge, KeychainBridgeError,
-    MessagesPreviewCommandReport, MessagesPreviewRequest, MorrowDataDeleteReceipt,
-    MorrowTokenVault, PermissionKind, PermissionState, PermissionStatus, ProcessCodexExecRunner,
-    ProposalReplayAdapter, ScanSelectedChatsError, ScanSelectedChatsRequest,
-    ScanSelectedChatsResult, SyncSchedulerStateCommand, TokenCommandReceipt, TokenLookupRequest,
-    TokenReadResponse, TokenWriteRequest,
+    delete_all, eventkit_cleanup, map_permission_status, messages_sqlite, production_scan, scan,
+    scheduler, CodexExecRunner, DeleteMorrowDataError, DeleteMorrowDataRequest, FakeNativeBridge,
+    KeychainBridgeError, MessagesPreviewCommandReport, MessagesPreviewRequest,
+    MorrowDataDeleteReceipt, MorrowTokenVault, PermissionKind, PermissionState, PermissionStatus,
+    ProductionScanCodexDependencies, ProposalReplayAdapter, ScanSelectedChatsError,
+    ScanSelectedChatsRequest, ScanSelectedChatsResult, SyncSchedulerStateCommand,
+    TokenCommandReceipt, TokenLookupRequest, TokenReadResponse, TokenWriteRequest,
 };
 
 #[derive(Debug)]
@@ -27,12 +26,6 @@ enum NativeBridgeBackend {
 #[derive(Debug, Default)]
 struct ProductionNativeBridge {
     token_vault: MorrowTokenVault,
-}
-
-pub struct ProductionScanCodexDependencies<'a, R, A> {
-    pub auth_readiness: CodexProviderAuthReadiness,
-    pub codex_runner: &'a R,
-    pub proposal_adapter: &'a A,
 }
 
 impl Default for NativeBridgeState {
@@ -143,17 +136,28 @@ impl NativeBridgeState {
     ) -> Result<ScanSelectedChatsResult, ScanSelectedChatsError> {
         match &self.bridge {
             NativeBridgeBackend::Production(_) => {
-                let proposal_adapter = eventkit_proposal::EventKitProposalBridge;
-                let codex_runner = ProcessCodexExecRunner;
-                self.scan_selected_chats_at_with_codex_dependencies(
+                production_scan::scan_selected_chats_at(request, store_path, messages_db_path)
+            }
+            NativeBridgeBackend::Fake(bridge) => {
+                scan::scan_selected_chats_with_source(request, store_path, bridge)
+            }
+        }
+    }
+
+    pub fn scan_selected_chats_at_with_app_data_dir(
+        &self,
+        request: ScanSelectedChatsRequest,
+        store_path: &Path,
+        messages_db_path: &Path,
+        app_data_dir: &Path,
+    ) -> Result<ScanSelectedChatsResult, ScanSelectedChatsError> {
+        match &self.bridge {
+            NativeBridgeBackend::Production(_) => {
+                production_scan::scan_selected_chats_at_with_app_data_dir(
                     request,
                     store_path,
                     messages_db_path,
-                    ProductionScanCodexDependencies {
-                        auth_readiness: codex_auth::probe_codex_provider_auth(),
-                        codex_runner: &codex_runner,
-                        proposal_adapter: &proposal_adapter,
-                    },
+                    app_data_dir,
                 )
             }
             NativeBridgeBackend::Fake(bridge) => {
@@ -189,12 +193,42 @@ impl NativeBridgeState {
         A: ProposalReplayAdapter,
     {
         match &self.bridge {
-            NativeBridgeBackend::Production(_) => scan_selected_chats_at_with_provider_mode(
-                request,
-                store_path,
-                messages_db_path,
-                dependencies,
-            ),
+            NativeBridgeBackend::Production(_) => {
+                production_scan::scan_selected_chats_at_with_codex_dependencies(
+                    request,
+                    store_path,
+                    messages_db_path,
+                    dependencies,
+                )
+            }
+            NativeBridgeBackend::Fake(bridge) => {
+                scan::scan_selected_chats_with_source(request, store_path, bridge)
+            }
+        }
+    }
+
+    pub fn scan_selected_chats_at_with_codex_dependencies_and_app_data_dir<R, A>(
+        &self,
+        request: ScanSelectedChatsRequest,
+        store_path: &Path,
+        messages_db_path: &Path,
+        app_data_dir: &Path,
+        dependencies: ProductionScanCodexDependencies<'_, R, A>,
+    ) -> Result<ScanSelectedChatsResult, ScanSelectedChatsError>
+    where
+        R: CodexExecRunner,
+        A: ProposalReplayAdapter,
+    {
+        match &self.bridge {
+            NativeBridgeBackend::Production(_) => {
+                production_scan::scan_selected_chats_at_with_codex_dependencies_and_app_data_dir(
+                    request,
+                    store_path,
+                    messages_db_path,
+                    app_data_dir,
+                    dependencies,
+                )
+            }
             NativeBridgeBackend::Fake(bridge) => {
                 scan::scan_selected_chats_with_source(request, store_path, bridge)
             }
@@ -225,34 +259,5 @@ impl NativeBridgeState {
             }
             NativeBridgeBackend::Fake(bridge) => bridge.load_messages_chat_previews(request),
         }
-    }
-}
-
-fn scan_selected_chats_at_with_provider_mode<R, A>(
-    request: ScanSelectedChatsRequest,
-    store_path: &Path,
-    messages_db_path: &Path,
-    dependencies: ProductionScanCodexDependencies<'_, R, A>,
-) -> Result<ScanSelectedChatsResult, ScanSelectedChatsError>
-where
-    R: CodexExecRunner,
-    A: ProposalReplayAdapter,
-{
-    if dependencies.auth_readiness.ready {
-        let provider = CodexProvider::new(dependencies.codex_runner);
-        scan::scan_selected_chats_at_with_dependencies(
-            request,
-            store_path,
-            messages_db_path,
-            &provider,
-            dependencies.proposal_adapter,
-        )
-    } else {
-        scan::scan_selected_chats_at_with_unavailable_provider(
-            request,
-            store_path,
-            messages_db_path,
-            dependencies.proposal_adapter,
-        )
     }
 }

@@ -209,6 +209,8 @@ fn provider_route_request_with_options(
         "backfillPromptChatIds": [],
         "sourceExcerptsEnabled": source_excerpts_enabled,
         "feedbackTextSnapshotsEnabled": false,
+        "localDiagnosticsEnabled": false,
+        "localDiagnosticsRetentionDays": 30,
         "capPolicy": {
             "mode": "refillForPending",
             "maxVisible": 1,

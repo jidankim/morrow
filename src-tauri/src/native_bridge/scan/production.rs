@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::{path::Path, time::Duration};
 
 use super::dependencies::UnavailableProvider;
 use super::{
@@ -8,8 +8,14 @@ use super::{
 };
 use crate::native_bridge::messages_sqlite::MessagesSqliteAdapter;
 use morrow_detection::AiProvider;
-use morrow_diagnostics::NoopTraceRecorder;
+use morrow_diagnostics::{
+    JsonlTraceSink, JsonlTraceSinkConfig, NoopTraceRecorder, TraceRecord, TraceRecorder,
+    TraceRecorderError,
+};
 use morrow_messages::ChatGuid;
+
+const TRACE_ROTATION_BYTES: u64 = 10 * 1024 * 1024;
+const SECONDS_PER_DAY: u64 = 86_400;
 
 pub fn scan_selected_chats_at_with_unavailable_provider<A>(
     request: ScanSelectedChatsRequest,
@@ -30,6 +36,27 @@ where
     )
 }
 
+pub fn scan_selected_chats_at_with_unavailable_provider_and_app_data_dir<A>(
+    request: ScanSelectedChatsRequest,
+    store_path: &Path,
+    messages_db_path: &Path,
+    app_data_dir: &Path,
+    proposal_adapter: &A,
+) -> Result<ScanSelectedChatsResult, ScanSelectedChatsError>
+where
+    A: ProposalReplayAdapter,
+{
+    let provider = UnavailableProvider;
+    scan_selected_chats_at_with_dependencies_and_app_data_dir(
+        request,
+        store_path,
+        messages_db_path,
+        app_data_dir,
+        &provider,
+        proposal_adapter,
+    )
+}
+
 pub fn scan_selected_chats_at_with_dependencies<P, A>(
     request: ScanSelectedChatsRequest,
     store_path: &Path,
@@ -41,10 +68,58 @@ where
     P: AiProvider,
     A: ProposalReplayAdapter,
 {
+    request.validate_local_diagnostics_retention()?;
+    let recorder = NoopTraceRecorder;
+    scan_selected_chats_at_with_recorder(
+        request,
+        store_path,
+        messages_db_path,
+        provider,
+        proposal_adapter,
+        &recorder,
+    )
+}
+
+pub fn scan_selected_chats_at_with_dependencies_and_app_data_dir<P, A>(
+    request: ScanSelectedChatsRequest,
+    store_path: &Path,
+    messages_db_path: &Path,
+    app_data_dir: &Path,
+    provider: &P,
+    proposal_adapter: &A,
+) -> Result<ScanSelectedChatsResult, ScanSelectedChatsError>
+where
+    P: AiProvider,
+    A: ProposalReplayAdapter,
+{
+    request.validate_local_diagnostics_retention()?;
+    let recorder = select_production_trace_recorder(&request, app_data_dir);
+    scan_selected_chats_at_with_recorder(
+        request,
+        store_path,
+        messages_db_path,
+        provider,
+        proposal_adapter,
+        &recorder,
+    )
+}
+
+fn scan_selected_chats_at_with_recorder<P, A, R>(
+    request: ScanSelectedChatsRequest,
+    store_path: &Path,
+    messages_db_path: &Path,
+    provider: &P,
+    proposal_adapter: &A,
+    trace_recorder: &R,
+) -> Result<ScanSelectedChatsResult, ScanSelectedChatsError>
+where
+    P: AiProvider,
+    A: ProposalReplayAdapter,
+    R: TraceRecorder + ?Sized,
+{
     let source = MessagesSqliteAdapter::new(messages_db_path.to_path_buf());
     let resolved_request =
         resolve_production_scan_request(request, &source).map_err(messages_error)?;
-    let recorder = NoopTraceRecorder;
     scan_selected_chats_with_dependencies(
         resolved_request,
         store_path,
@@ -52,9 +127,41 @@ where
             source: &source,
             provider,
             proposal_adapter,
-            trace_recorder: &recorder,
+            trace_recorder,
         },
     )
+}
+
+enum ProductionTraceRecorder {
+    Noop(NoopTraceRecorder),
+    Jsonl(JsonlTraceSink),
+}
+
+impl TraceRecorder for ProductionTraceRecorder {
+    fn record(&self, record: &TraceRecord) -> Result<(), TraceRecorderError> {
+        match self {
+            Self::Noop(recorder) => recorder.record(record),
+            Self::Jsonl(recorder) => recorder.record(record),
+        }
+    }
+}
+
+fn select_production_trace_recorder(
+    request: &ScanSelectedChatsRequest,
+    app_data_dir: &Path,
+) -> ProductionTraceRecorder {
+    if request.local_diagnostics_enabled {
+        let retention = Duration::from_secs(
+            u64::from(request.local_diagnostics_retention_days) * SECONDS_PER_DAY,
+        );
+        let config = JsonlTraceSinkConfig::new(retention, TRACE_ROTATION_BYTES);
+        match JsonlTraceSink::with_config(app_data_dir, config) {
+            Ok(sink) => ProductionTraceRecorder::Jsonl(sink),
+            Err(_error) => ProductionTraceRecorder::Noop(NoopTraceRecorder),
+        }
+    } else {
+        ProductionTraceRecorder::Noop(NoopTraceRecorder)
+    }
 }
 
 fn resolve_production_scan_request(

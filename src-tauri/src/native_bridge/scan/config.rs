@@ -10,6 +10,8 @@ use super::{ScanSelectedChatsError, ScanSelectedChatsRequest};
 
 const SUPPORTED_REFERENCE_TIMEZONES: &[&str] =
     &["Asia/Seoul", "America/New_York", "Europe/London", "UTC"];
+const MIN_LOCAL_DIAGNOSTICS_RETENTION_DAYS: u16 = 1;
+const MAX_LOCAL_DIAGNOSTICS_RETENTION_DAYS: u16 = 365;
 
 pub(super) struct ScanConfig {
     pub detection: DetectionConfig,
@@ -52,6 +54,20 @@ pub(super) fn scan_config(
         feedback_text_snapshots_enabled: request.source_excerpts_enabled
             && request.feedback_text_snapshots_enabled,
     })
+}
+
+pub(super) fn validate_local_diagnostics_retention(
+    request: &ScanSelectedChatsRequest,
+) -> Result<(), ScanSelectedChatsError> {
+    if (MIN_LOCAL_DIAGNOSTICS_RETENTION_DAYS..=MAX_LOCAL_DIAGNOSTICS_RETENTION_DAYS)
+        .contains(&request.local_diagnostics_retention_days)
+    {
+        Ok(())
+    } else {
+        Err(ScanSelectedChatsError::Detection(
+            "local diagnostics retention days must be between 1 and 365".to_owned(),
+        ))
+    }
 }
 
 const fn source_excerpt_policy(enabled: bool) -> SourceExcerptPolicy {

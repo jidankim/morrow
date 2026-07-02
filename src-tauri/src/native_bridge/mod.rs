@@ -13,6 +13,7 @@ mod openai_provider;
 mod paths;
 mod permissions;
 mod preview;
+mod production_scan;
 mod provider_contract;
 mod public_chat_id;
 mod runtime_identity;
@@ -22,7 +23,7 @@ mod scheduler;
 mod state;
 mod store_probe;
 
-use paths::{messages_database_path, morrow_store_path};
+use paths::{app_data_dir, messages_database_path, morrow_store_path};
 use tauri::{AppHandle, State};
 
 pub use codex_auth::{
@@ -60,6 +61,7 @@ pub use permissions::{
 pub use preview::{
     MessagesPreviewCommandChat, MessagesPreviewCommandReport, MessagesPreviewRequest,
 };
+pub use production_scan::ProductionScanCodexDependencies;
 pub use runtime_identity::{
     __cmd__get_runtime_identity, __tauri_command_name_get_runtime_identity, get_runtime_identity,
     runtime_identity_from_executable_path, RuntimeIdentity, RuntimeKind,
@@ -72,7 +74,7 @@ pub use scan::{
 pub use scheduler::{
     SyncSchedulerLastResultCommand, SyncSchedulerStateCommand, SyncSchedulerStatusCommand,
 };
-pub use state::{NativeBridgeState, ProductionScanCodexDependencies};
+pub use state::NativeBridgeState;
 
 const MESSAGES_PREVIEW_UNAVAILABLE_ERROR: &str =
     "Messages previews are unavailable. Grant Full Disk Access or try again.";
@@ -139,10 +141,19 @@ pub fn scan_selected_chats(
     state: State<'_, NativeBridgeState>,
     request: ScanSelectedChatsRequest,
 ) -> Result<ScanSelectedChatsResult, String> {
+    request
+        .validate_local_diagnostics_retention()
+        .map_err(|error| error.to_string())?;
     let store_path = morrow_store_path(&app)?;
+    let app_data_dir = app_data_dir(&app)?;
     let messages_db_path = messages_database_path()?;
     state
-        .scan_selected_chats_at(request, &store_path, &messages_db_path)
+        .scan_selected_chats_at_with_app_data_dir(
+            request,
+            &store_path,
+            &messages_db_path,
+            &app_data_dir,
+        )
         .map_err(|error| error.to_string())
 }
 

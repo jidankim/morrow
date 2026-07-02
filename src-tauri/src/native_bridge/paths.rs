@@ -9,8 +9,9 @@ pub fn messages_database_path() -> Result<PathBuf, String> {
 }
 
 pub fn morrow_store_path(app: &AppHandle) -> Result<PathBuf, String> {
-    app.path()
-        .app_data_dir()
-        .map(|path| path.join("morrow.sqlite"))
-        .map_err(|error| error.to_string())
+    app_data_dir(app).map(|path| path.join("morrow.sqlite"))
+}
+
+pub fn app_data_dir(app: &AppHandle) -> Result<PathBuf, String> {
+    app.path().app_data_dir().map_err(|error| error.to_string())
 }

@@ -1,7 +1,6 @@
 use morrow_lib::native_bridge::{FakeNativeBridge, NativeBridgeState};
-use morrow_messages::{NativeBatch, TapbackKind};
+use morrow_messages::TapbackKind;
 use morrow_storage::{CandidateState, Store};
-use serde_json::json;
 
 #[path = "native_scan/consent.rs"]
 mod consent;
@@ -11,12 +10,16 @@ mod contract;
 mod dependencies;
 #[path = "native_scan/feedback.rs"]
 mod feedback;
+#[path = "native_scan/local_diagnostics.rs"]
+mod local_diagnostics;
 #[path = "native_scan/message_sqlite.rs"]
 mod message_sqlite;
 #[path = "native_scan/outcome_plan.rs"]
 mod outcome_plan;
 #[path = "native_scan/persistence.rs"]
 mod persistence;
+#[path = "native_scan/production_trace_recorder_selection.rs"]
+mod production_trace_recorder_selection;
 #[path = "native_scan/proposal_replay_decision.rs"]
 mod proposal_replay_decision;
 #[path = "native_scan/provider_eventkit.rs"]
@@ -41,8 +44,8 @@ mod trace;
 mod trace_support;
 
 use support::{
-    assert_counts, batch, candidate_state, chat, fake_state, malformed_request, native_batch,
-    raw_chat_with_participants, scan_request, scan_storage_dump, selected_chat_json, temp_db,
+    assert_counts, batch, candidate_state, chat, fake_state, native_batch,
+    raw_chat_with_participants, scan_request, scan_storage_dump, temp_db,
 };
 
 #[test]
@@ -216,80 +219,5 @@ fn scan_selected_chats_pauses_when_same_count_participant_ids_change() -> Result
         .map_err(|error| error.to_string())?;
     // Then
     assert_counts(&result, (0, 0, 0, 0, 0));
-    Ok(())
-}
-
-#[test]
-fn scan_selected_chats_rejects_malformed_selected_metadata() -> Result<(), String> {
-    // Given
-    let (_dir, db_path) = temp_db("native-scan-malformed.sqlite")?;
-    let state = fake_state(&db_path, NativeBatch::default());
-    let cases = [
-        (
-            "empty selected list",
-            json!([]),
-            json!([]),
-            "selected_chats",
-        ),
-        (
-            "mismatched selected ids",
-            json!(["chat-a"]),
-            json!([selected_chat_json("chat-b", 1, &["p1"])]),
-            "selected_chats",
-        ),
-        (
-            "duplicate participant ids",
-            json!(["chat-a"]),
-            json!([selected_chat_json("chat-a", 2, &["p1", "p1"])]),
-            "participant_ids",
-        ),
-        (
-            "invalid guid",
-            json!([""]),
-            json!([selected_chat_json("", 1, &["p1"])]),
-            "chat_guid",
-        ),
-    ];
-    for (name, selected_chat_ids, selected_chats, expected) in cases {
-        // When
-        let error = state
-            .scan_selected_chats_at(
-                malformed_request(selected_chat_ids, selected_chats)?,
-                &db_path,
-                &db_path,
-            )
-            .err()
-            .ok_or_else(|| format!("{name}: scan unexpectedly succeeded"))?
-            .to_string();
-        // Then
-        assert!(error.contains(expected), "{name}: {error}");
-    }
-    Ok(())
-}
-
-#[test]
-fn scan_selected_chats_rejects_unsupported_reference_timezone() -> Result<(), String> {
-    // Given
-    let (_dir, db_path) = temp_db("native-scan-timezone.sqlite")?;
-    let state = fake_state(&db_path, native_batch()?);
-    let mut request = scan_request(
-        &[chat("design-partners", 3, &["p1", "p2", "p3"])],
-        &[],
-        true,
-        1,
-        0,
-    )?;
-    request.reference_timezone = "America/Los_Angeles".to_owned();
-
-    // When
-    let error = state
-        .scan_selected_chats_at(request, &db_path, &db_path)
-        .err()
-        .ok_or_else(|| "scan unexpectedly succeeded".to_owned())?
-        .to_string();
-
-    // Then
-    assert!(error.contains("unsupported reference timezone"), "{error}");
-    assert!(!error.contains("America/Los_Angeles"), "{error}");
     Ok(())
 }

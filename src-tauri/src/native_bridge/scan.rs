@@ -28,7 +28,10 @@ use persistence::{
     ScanPersistenceFeedback, ScanPersistenceRequest,
 };
 pub use production::{
-    scan_selected_chats_at_with_dependencies, scan_selected_chats_at_with_unavailable_provider,
+    scan_selected_chats_at_with_dependencies,
+    scan_selected_chats_at_with_dependencies_and_app_data_dir,
+    scan_selected_chats_at_with_unavailable_provider,
+    scan_selected_chats_at_with_unavailable_provider_and_app_data_dir,
 };
 use proposal_replay::replay_external_proposals;
 pub(in crate::native_bridge) use proposal_replay::LocalProposalAdapter;
@@ -53,6 +56,8 @@ pub struct ScanSelectedChatsRequest {
     pub backfill_prompt_chat_ids: Vec<String>,
     pub source_excerpts_enabled: bool,
     pub feedback_text_snapshots_enabled: bool,
+    pub local_diagnostics_enabled: bool,
+    pub local_diagnostics_retention_days: u16,
     pub cap_policy: CapPolicyRequest,
 }
 
@@ -106,6 +111,7 @@ where
     A: ProposalReplayAdapter,
     R: TraceRecorder + ?Sized,
 {
+    request.validate_local_diagnostics_retention()?;
     let store = Store::open(store_path).map_err(storage_error)?;
     let pipeline = DetectionPipeline::new(dependencies.provider);
     let reference_unix_seconds = reference_unix_seconds(&request)?;
@@ -215,6 +221,14 @@ where
         latest_eval_status: LatestEvalStatus::from(feedback_eval_counts.latest_eval_status),
         created_candidate_ids: candidate_ids_for_response(&persistence.created_candidate_ids),
     })
+}
+
+impl ScanSelectedChatsRequest {
+    pub(in crate::native_bridge) fn validate_local_diagnostics_retention(
+        &self,
+    ) -> Result<(), ScanSelectedChatsError> {
+        config::validate_local_diagnostics_retention(self)
+    }
 }
 
 impl From<CapPolicyRequest> for CapPolicy {

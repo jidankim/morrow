@@ -206,6 +206,8 @@ fn request_value(
         "backfillPromptChatIds": backfill_prompt_chat_ids,
         "sourceExcerptsEnabled": source_excerpts_enabled,
         "feedbackTextSnapshotsEnabled": feedback_text_snapshots_enabled,
+        "localDiagnosticsEnabled": false,
+        "localDiagnosticsRetentionDays": 30,
         "capPolicy": {
             "mode": "refillForPending",
             "maxVisible": max_visible,

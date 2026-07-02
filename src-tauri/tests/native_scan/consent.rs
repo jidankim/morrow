@@ -93,6 +93,8 @@ fn native_scan_rejects_missing_feedback_text_snapshot_consent() {
         "referenceUnixSeconds": 1_782_352_400,
         "backfillPromptChatIds": [],
         "sourceExcerptsEnabled": true,
+        "localDiagnosticsEnabled": false,
+        "localDiagnosticsRetentionDays": 30,
         "capPolicy": {
             "mode": "refillForPending",
             "maxVisible": 1,
@@ -148,6 +150,8 @@ fn native_scan_rejects_malformed_feedback_text_snapshot_consent() {
         "backfillPromptChatIds": [],
         "sourceExcerptsEnabled": true,
         "feedbackTextSnapshotsEnabled": -1,
+        "localDiagnosticsEnabled": false,
+        "localDiagnosticsRetentionDays": 30,
         "capPolicy": {
             "mode": "refillForPending",
             "maxVisible": 1,
