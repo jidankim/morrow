@@ -4,6 +4,10 @@ use morrow_lib::native_bridge::{
 
 #[path = "native_scan_codex/support.rs"]
 mod support;
+#[path = "native_scan_codex/trace_linkage.rs"]
+mod trace_linkage;
+#[path = "native_scan_codex/trace_sink.rs"]
+mod trace_sink;
 
 use support::{
     assert_counts, auth_readiness, candidate_json, candidate_json_at, scan_request_at,

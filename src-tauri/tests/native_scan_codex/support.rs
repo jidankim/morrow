@@ -1,4 +1,4 @@
-use std::{cell::RefCell, fs, path::Path, process::Command};
+use std::{cell::RefCell, fs, path::Path};
 
 use morrow_calendar::ProposedEvent;
 use morrow_lib::native_bridge::{
@@ -7,8 +7,15 @@ use morrow_lib::native_bridge::{
     ProductionScanCodexDependencies, ProposalReplayAdapter, ScanSelectedChatsError,
     ScanSelectedChatsRequest, ScanSelectedChatsResult,
 };
-use morrow_storage::{ExternalObjectMapping, QueuedProposal};
+use morrow_storage::{EvalCase, ExternalObjectMapping, QueuedProposal, Store};
 use serde_json::json;
+
+mod messages_fixture;
+
+use messages_fixture::create_messages_fixture;
+pub use messages_fixture::{
+    FIXTURE_MESSAGE_TEXT, NATIVE_CHAT_ID, NATIVE_MESSAGE_ID, PRIVACY_CANARY,
+};
 
 #[derive(Debug)]
 pub struct RecordingCodexRunner {
@@ -80,6 +87,7 @@ pub struct ScanFixture {
     _dir: tempfile::TempDir,
     store_path: std::path::PathBuf,
     messages_db_path: std::path::PathBuf,
+    app_data_dir: std::path::PathBuf,
 }
 
 impl ScanFixture {
@@ -91,12 +99,24 @@ impl ScanFixture {
         let dir = tempfile::tempdir().map_err(|error| error.to_string())?;
         let store_path = dir.path().join(format!("{name}-morrow.sqlite"));
         let messages_db_path = dir.path().join(format!("{name}-chat.db"));
+        let app_data_dir = dir.path().join("app-data");
         create_messages_fixture(&messages_db_path, message_unix_seconds)?;
         Ok(Self {
             _dir: dir,
             store_path,
             messages_db_path,
+            app_data_dir,
         })
+    }
+
+    pub fn app_data_dir(&self) -> &Path {
+        &self.app_data_dir
+    }
+
+    pub fn eval_cases(&self) -> Result<Vec<EvalCase>, String> {
+        Store::open(&self.store_path)
+            .and_then(|store| store.eval_cases())
+            .map_err(|error| error.to_string())
     }
 
     pub fn scan_with(
@@ -120,6 +140,28 @@ impl ScanFixture {
                 request,
                 &self.store_path,
                 &self.messages_db_path,
+                ProductionScanCodexDependencies {
+                    auth_readiness,
+                    codex_runner: runner,
+                    proposal_adapter: adapter,
+                },
+            )
+            .map_err(|error| error.to_string())
+    }
+
+    pub fn scan_with_request_and_app_data_dir(
+        &self,
+        request: ScanSelectedChatsRequest,
+        auth_readiness: CodexProviderAuthReadiness,
+        runner: &RecordingCodexRunner,
+        adapter: &RejectingProposalAdapter,
+    ) -> Result<ScanSelectedChatsResult, String> {
+        NativeBridgeState::default()
+            .scan_selected_chats_at_with_codex_dependencies_and_app_data_dir(
+                request,
+                &self.store_path,
+                &self.messages_db_path,
+                &self.app_data_dir,
                 ProductionScanCodexDependencies {
                     auth_readiness,
                     codex_runner: runner,
@@ -156,6 +198,20 @@ pub fn assert_counts(
     );
 }
 
+pub fn scan_result_counts(
+    result: &ScanSelectedChatsResult,
+) -> (usize, usize, usize, usize, usize, usize, usize) {
+    (
+        result.pending_proposal_count,
+        result.created_candidate_count,
+        result.quiet_log_count,
+        result.cap_visible_count,
+        result.cap_deferred_count,
+        result.created_external_proposal_count,
+        result.failed_external_proposal_count,
+    )
+}
+
 fn scan_request() -> Result<ScanSelectedChatsRequest, String> {
     scan_request_at(1_782_352_400)
 }
@@ -177,6 +233,8 @@ pub fn scan_request_at(reference_unix_seconds: i64) -> Result<ScanSelectedChatsR
         "backfillPromptChatIds": [],
         "sourceExcerptsEnabled": true,
         "feedbackTextSnapshotsEnabled": false,
+        "localDiagnosticsEnabled": false,
+        "localDiagnosticsRetentionDays": 30,
         "capPolicy": {
             "mode": "refillForPending",
             "maxVisible": 0,
@@ -200,49 +258,4 @@ pub fn candidate_json_at(normalized_time: &str) -> String {
         "evidence_ids": ["evidence://selected/0"],
     })
     .to_string()
-}
-
-fn create_messages_fixture(db_path: &Path, message_unix_seconds: i64) -> Result<(), String> {
-    let sql = format!(
-        "
-        CREATE TABLE chat (ROWID INTEGER PRIMARY KEY, guid TEXT NOT NULL, display_name TEXT);
-        CREATE TABLE handle (ROWID INTEGER PRIMARY KEY, id TEXT NOT NULL);
-        CREATE TABLE message (
-            ROWID INTEGER PRIMARY KEY,
-            guid TEXT NOT NULL,
-            date INTEGER NOT NULL,
-            text TEXT,
-            attributedBody BLOB,
-            handle_id INTEGER
-        );
-        CREATE TABLE chat_message_join (chat_id INTEGER NOT NULL, message_id INTEGER NOT NULL);
-        CREATE TABLE chat_handle_join (chat_id INTEGER NOT NULL, handle_id INTEGER NOT NULL);
-        INSERT INTO chat (ROWID, guid, display_name)
-            VALUES (1, 'iMessage;-;+15555550103', 'Messages chat');
-        INSERT INTO handle (ROWID, id) VALUES (3, '+15555550103');
-        INSERT INTO chat_handle_join (chat_id, handle_id) VALUES (1, 3);
-        INSERT INTO message (ROWID, guid, date, text, attributedBody, handle_id)
-            VALUES (1, 'beta-provider-route', {}, 'Maybe meet tomorrow?', NULL, 3);
-        INSERT INTO chat_message_join (chat_id, message_id) VALUES (1, 1);
-        ",
-        apple_nanoseconds(message_unix_seconds)
-    );
-    run_sqlite(db_path, &sql)
-}
-
-fn run_sqlite(db_path: &Path, sql: &str) -> Result<(), String> {
-    let output = Command::new("sqlite3")
-        .arg(db_path)
-        .arg(sql)
-        .output()
-        .map_err(|error| error.to_string())?;
-    if output.status.success() {
-        Ok(())
-    } else {
-        Err(String::from_utf8_lossy(&output.stderr).trim().to_owned())
-    }
-}
-
-const fn apple_nanoseconds(unix_seconds: i64) -> i64 {
-    (unix_seconds - 978_307_200) * 1_000_000_000
 }
