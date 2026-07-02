@@ -37,16 +37,75 @@ The evidence receipt for the completed smoke is `.omo/evidence/phase-2-trace-can
 Privacy rules for this phase:
 
 - Correlation remains local-only and privacy-safe for candidate/quiet summaries and retained/deleted diagnostics states.
-- No raw content leaves the device.
+- Raw private content is not exported by the local diagnostics evidence flow.
 - No raw prompt text, raw source content, provider JSON, native identifiers, or app-data paths are exposed in docs, UI, reports, logs, traces, exports, or evidence.
 - Deleted, disabled, expired, missing, or unavailable diagnostics remain nonfatal trace-retention states rather than sync failures.
 
 Remaining gaps:
 
-- Phase 3 lifecycle coverage remains future work for supersede, reschedule, cancel, dry-run, commit, and replay paths.
 - Phase 4 human approval/correction remains future work, including risk gates, correction capture, and auditable approval outcomes.
 - Phase 5 trajectory-level eval hardening remains future work for multi-step Messages-to-Calendar approval paths, collateral-damage checks, and replay scoring.
 - Cloud telemetry rollout remains future work; Phase 2 does not upload diagnostics or require Phoenix, Langfuse, LangSmith, Braintrust, LiteLLM, Helicone, or any vendor backend.
+
+## Phase 3 Lifecycle Replay Coverage Smoke
+
+Phase 3 lifecycle coverage is now backed by local smoke artifacts and real-surface PASS/BLOCKED receipts. It covers deterministic local evidence for superseded, rescheduled, cancelled, dry-run, commit-idempotent, and replay-run outcomes. The full Calendar write workflow is not claimed. A human approval workflow is not claimed. Cloud telemetry is not claimed. Trajectory-level Messages-to-Calendar approval eval remains future work.
+
+Run the Phase 3 local smoke with:
+
+```bash
+scripts/run-lifecycle-replay-coverage-smoke.sh --out-dir .omo/evidence/phase-3-lifecycle-replay-coverage/final-smoke --assert-canary-rejection
+```
+
+Expected smoke artifacts:
+
+- `.omo/evidence/phase-3-lifecycle-replay-coverage/final-smoke/summary.txt`
+- `.omo/evidence/phase-3-lifecycle-replay-coverage/final-smoke/lifecycle-report.json`
+- `.omo/evidence/phase-3-lifecycle-replay-coverage/final-smoke/trace.jsonl`
+- `.omo/evidence/phase-3-lifecycle-replay-coverage/final-smoke/storage-readback.json`
+- `.omo/evidence/phase-3-lifecycle-replay-coverage/final-smoke/storage-readback-source.json`
+- `.omo/evidence/phase-3-lifecycle-replay-coverage/final-smoke/storage-readback.sqlite`
+- `.omo/evidence/phase-3-lifecycle-replay-coverage/final-smoke/privacy-inspect.txt`
+- `.omo/evidence/phase-3-lifecycle-replay-coverage/final-smoke/canary-rejection.txt`
+- `.omo/evidence/phase-3-lifecycle-replay-coverage/final-smoke/cleanup-receipt.txt`
+- `.omo/evidence/phase-3-lifecycle-replay-coverage/final-smoke/command-log-pass-counts.txt`
+- `.omo/evidence/phase-3-lifecycle-replay-coverage/final-smoke/command-logs/`
+
+The recorded smoke receipt reports `result: PASS`, local fixture/fake execution only, no live backend, no live vendor, and no live network. The trace artifact contains the six Phase 3 operation names: `candidate_superseded`, `candidate_rescheduled`, `candidate_cancelled`, `calendar_dry_run`, `calendar_commit_idempotency`, and `replay_run`.
+
+Run the bounded real-surface QA wrapper with:
+
+```bash
+scripts/run-lifecycle-real-surface-qa.sh --out-dir .omo/evidence/phase-3-lifecycle-replay-coverage/real-surface
+```
+
+Expected real-surface artifacts:
+
+- `.omo/evidence/phase-3-lifecycle-replay-coverage/real-surface/summary.txt`
+- `.omo/evidence/phase-3-lifecycle-replay-coverage/real-surface/calendar-status.txt`
+- `.omo/evidence/phase-3-lifecycle-replay-coverage/real-surface/reminders-status.txt`
+- `.omo/evidence/phase-3-lifecycle-replay-coverage/real-surface/cleanup-receipt.txt`
+
+Real-surface status semantics:
+
+- `PASS`: the underlying Calendar or Reminders runner proved write/read/cleanup behavior for that surface.
+- `BLOCKED`: OS permission or tooling stopped the run before mutation, or cleanup is complete; the receipt names the required user action and rerun command.
+- `FAIL`: the surface was runnable and behavior or cleanup proof failed. Any `FAIL` exits nonzero.
+
+The current receipts record `PASS or BLOCKED per surface exits 0; any FAIL exits nonzero`. Calendar and Reminders are both `BLOCKED` by host permissions, with blocked-before-mutation proof in their receipts. No full real-surface pass is claimed because at least one surface is BLOCKED. Reminders real-surface acceptance is create/read/delete QA only; reschedule/cancel lifecycle coverage is not claimed by that wrapper.
+
+Privacy rules for Phase 3:
+
+- No raw prompt text, raw message bodies, provider JSON, native identifiers, app-data paths, or unredacted candidate titles are exposed in traces, storage readbacks, lifecycle reports, logs, docs, screenshots, or evidence.
+- The smoke uses local fixtures/fakes and synthetic privacy surfaces; it does not call live Codex, OpenAI, EventKit, network, or vendor backends.
+- Privacy inspection passes only when forbidden content is absent, and canary rejection passes only when the injected raw canary is rejected before sanitization.
+
+Remaining gaps:
+
+- Phase 4 human approval/correction loop remains future work, including risk gates, correction capture, and auditable approval outcomes.
+- Phase 5 trajectory eval hardening remains future work for multi-step Messages-to-Calendar approval paths, collateral-damage checks, and replay scoring.
+- The full Messages -> Calendar -> approval trajectory eval remains future work.
+- Cloud telemetry remains future work; Phase 3 does not upload diagnostics or require Phoenix, Langfuse, LangSmith, Braintrust, LiteLLM, Helicone, or any vendor backend.
 
 ## Provider-Backed Messages-to-Calendar Flow
 
@@ -216,13 +275,10 @@ Benchmark inspiration is used for fixture design, not as a required corpus:
 - LangSmith hosted/enterprise workflow is deferred.
 - Braintrust is an eval workflow reference for datasets, scorers, and experiments, not a dependency.
 
-## Reserved Trace Operations
+## Lifecycle And Reserved Trace Operations
 
-The trace schema reserves lifecycle, correction, and replay operation names for future work:
+The trace schema now exercises the Phase 3 lifecycle/replay operation names locally while reserving correction vocabulary for future approval/correction work:
 
-- `poll_empty`
-- `cursor_advanced`
-- `user_correction`
 - `candidate_superseded`
 - `candidate_rescheduled`
 - `candidate_cancelled`
@@ -230,9 +286,13 @@ The trace schema reserves lifecycle, correction, and replay operation names for 
 - `calendar_commit_idempotency`
 - `replay_run`
 
-These names are schema vocabulary only in this layer.
+Additional reserved names remain schema vocabulary only in this layer:
 
-The full Messages -> Calendar -> approval trajectory eval remains future work. Current local diagnostics, Phase 1 production trace sink, Phase 2 product correlation, and feedback/eval receipts prove the local trace substrate plus local candidate/quiet correlation, not an end-to-end approval lifecycle benchmark.
+- `poll_empty`
+- `cursor_advanced`
+- `user_correction`
+
+The full Messages -> Calendar -> approval trajectory eval remains future work. Current local diagnostics, Phase 1 production trace sink, Phase 2 product correlation, Phase 3 lifecycle replay smoke, and feedback/eval receipts prove the local trace substrate plus local candidate/quiet/lifecycle correlation, not an end-to-end approval lifecycle benchmark.
 
 ## Non-Goals
 
@@ -241,8 +301,8 @@ The full Messages -> Calendar -> approval trajectory eval remains future work. C
 - No raw prompt, raw message, provider JSON, embeddings, model responses, or unredacted candidate titles in traces, evals, exports, logs, or screenshots.
 - No agent-native control-plane CLI.
 - No human correction UI or correction-training loop.
-- No calendar write workflow, dry-run/commit state machine, or approval-bypassing mutation path.
-- No Phase 3 lifecycle coverage for supersede, reschedule, cancel, dry-run, commit, or replay paths.
+- The full Calendar write workflow is not claimed; Phase 3 dry-run and commit-idempotency evidence is local/fake or bounded by explicit real-surface PASS/BLOCKED receipts.
+- No approval-bypassing mutation path.
 - No Phase 4 human approval/correction loop.
 - No completed trajectory-level Messages -> Calendar -> approval eval in this layer.
 - No cloud telemetry rollout.
