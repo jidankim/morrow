@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { App } from "./App"
-import { APP_SHELL_STATE_KEY, createDefaultAppShellState } from "./domain/appShell"
+import { APP_SHELL_STATE_KEY, createBrowserShellStorage, createDefaultAppShellState, loadAppShellState } from "./domain/appShell"
 
 type NativeSyncSchedulerStateForTest = {
   readonly enabled: boolean
@@ -156,6 +156,46 @@ describe("App settings persistence", () => {
     })
     expect(screen.getByLabelText("Reference timezone")).toHaveValue("America/New_York")
     expect(screen.getByLabelText("Open Morrow at login")).toBeChecked()
+  })
+
+  it("persists opt-in local diagnostics settings without remote telemetry controls", async () => {
+    seedReadyState()
+    render(<App />)
+
+    act(() => {
+      window.location.hash = "#settings"
+      window.dispatchEvent(new HashChangeEvent("hashchange"))
+    })
+
+    expect(screen.getByText(/private local files on this Mac/i)).toBeInTheDocument()
+    expect(screen.getByText(/not uploads/i)).toBeInTheDocument()
+    expect(screen.getByText(/Delete All deletes these files/i)).toBeInTheDocument()
+    expect(screen.queryByLabelText(/telemetry/i)).not.toBeInTheDocument()
+
+    const diagnosticsToggle = screen.getByRole("checkbox", {
+      name: "Write private local diagnostics files"
+    })
+    const retentionInput = screen.getByLabelText("Local diagnostics retention (days)")
+    expect(diagnosticsToggle).not.toBeChecked()
+    expect(retentionInput).toHaveValue(30)
+
+    fireEvent.click(diagnosticsToggle)
+    fireEvent.change(retentionInput, { target: { value: "14" } })
+
+    await waitFor(() => {
+      const reloaded = loadAppShellState(createBrowserShellStorage(window.localStorage))
+      expect(reloaded.config.localDiagnosticsEnabled).toBe(true)
+      expect(reloaded.config.localDiagnosticsRetentionDays).toBe(14)
+      expect(reloaded.config.telemetryEnabled).toBe(false)
+    })
+
+    fireEvent.change(retentionInput, { target: { value: "0" } })
+    fireEvent.change(retentionInput, { target: { value: "366" } })
+    fireEvent.change(retentionInput, { target: { value: "abc" } })
+
+    const reloaded = loadAppShellState(createBrowserShellStorage(window.localStorage))
+    expect(reloaded.config.localDiagnosticsRetentionDays).toBe(14)
+    expect(reloaded.config.telemetryEnabled).toBe(false)
   })
 
   it("persists automatic sync changes from Status and Settings controls", async () => {

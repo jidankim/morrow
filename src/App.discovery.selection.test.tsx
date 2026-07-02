@@ -151,6 +151,8 @@ describe("App Messages chat discovery selection and sync", () => {
       backfillPromptChatIds: [discoveredChat.id],
       sourceExcerptsEnabled: true,
       feedbackTextSnapshotsEnabled: false,
+      localDiagnosticsEnabled: false,
+      localDiagnosticsRetentionDays: 30,
       capPolicy: { mode: "refillForPending", maxVisible: 10, pendingCount: 0 }
     })
   })

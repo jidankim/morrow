@@ -113,8 +113,10 @@ export function SettingsView({
         onCheckProviderCredential={onCheckProviderCredential}
       />
       <SettingsPrivacyControls
+        config={config}
         deleteAllState={deleteAllState}
         runtimeIdentity={runtimeIdentity}
+        onChange={onChange}
         onDeleteAll={onDeleteAll}
         onOpenPrivacySettings={onOpenPrivacySettings}
       />

@@ -62,6 +62,33 @@ describe("app shell persisted privacy boundary", () => {
     expect(() => loadAppShellState(storage)).toThrow()
   })
 
+  it("rejects malformed local diagnostics retention in persisted settings", () => {
+    for (const localDiagnosticsRetentionDays of [0, 366, "30"]) {
+      const storage = new Map<string, string>([
+        [
+          APP_SHELL_STATE_KEY,
+          JSON.stringify({
+            mode: "scanning",
+            config: {
+              referenceTimezone: "Asia/Seoul",
+              calendarSource: "apple-calendar",
+              permissionsGranted: true,
+              launchAtLogin: false,
+              sourceExcerptsEnabled: true,
+              firstProposalGuidanceEnabled: true,
+              localDiagnosticsEnabled: true,
+              localDiagnosticsRetentionDays
+            },
+            selectedChats: [],
+            pendingProposalCount: 0
+          })
+        ]
+      ])
+
+      expect(() => loadAppShellState(storage)).toThrow()
+    }
+  })
+
   it("rejects persisted ICS feed calendar source at the local configuration boundary", () => {
     const storage = new Map<string, string>([
       [

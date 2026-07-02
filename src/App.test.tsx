@@ -90,6 +90,8 @@ describe("App native shell bridge", () => {
       backfillPromptChatIds: ["messages-chat-11111111111111111111111111111111"],
       sourceExcerptsEnabled: true,
       feedbackTextSnapshotsEnabled: false,
+      localDiagnosticsEnabled: false,
+      localDiagnosticsRetentionDays: 30,
       capPolicy: {
         mode: "refillForPending",
         maxVisible: 10,

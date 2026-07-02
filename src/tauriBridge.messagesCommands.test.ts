@@ -39,6 +39,8 @@ describe("messagesTauriCommands boundary parsing", () => {
       backfillPromptChatIds: [selectedChat.id],
       sourceExcerptsEnabled: false,
       feedbackTextSnapshotsEnabled: true,
+      localDiagnosticsEnabled: true,
+      localDiagnosticsRetentionDays: 45,
       capPolicy: { mode: "refillForPending", maxVisible: 10, pendingCount: 0 }
     } as const
     const discoveryReport = {
@@ -107,6 +109,8 @@ describe("messagesTauriCommands boundary parsing", () => {
       backfillPromptChatIds: [selectedChat.id],
       sourceExcerptsEnabled: false,
       feedbackTextSnapshotsEnabled: true,
+      localDiagnosticsEnabled: false,
+      localDiagnosticsRetentionDays: 30,
       capPolicy: { mode: "refillForPending", maxVisible: 10, pendingCount: 0 }
     } as const
     const previewRequest = { chatIds: [selectedChat.id] } as const
