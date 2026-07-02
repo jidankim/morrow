@@ -58,7 +58,10 @@ describe("messagesTauriCommands boundary parsing", () => {
     const previewRequest = { chatIds: [selectedChat.id] } as const
     const previewReport = { chats: [{ chatId: selectedChat.id, preview: "" }] } as const
     tauriMock.invoke
-      .mockResolvedValueOnce({ pendingProposalCount: 4 })
+      .mockResolvedValueOnce({
+        pendingProposalCount: 4,
+        createdCandidateIds: ["candidate-alpha", "candidate-beta"]
+      })
       .mockResolvedValueOnce(discoveryReport)
       .mockResolvedValueOnce(previewReport)
 
@@ -76,7 +79,8 @@ describe("messagesTauriCommands boundary parsing", () => {
       failedExternalProposalCount: 0,
       feedbackLabelCount: 0,
       featureSnapshotCount: 0,
-      latestEvalStatus: "never_run"
+      latestEvalStatus: "never_run",
+      createdCandidateIds: ["candidate-alpha", "candidate-beta"]
     })
     expect(discoveredChats).toEqual(discoveryReport)
     expect(previewRows).toEqual(previewReport)

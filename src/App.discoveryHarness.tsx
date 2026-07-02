@@ -93,6 +93,11 @@ const bridgeMock = vi.hoisted(() => {
       featureSnapshotCount: 4,
       latestEvalStatus: "passed"
     })),
+    loadDecisionEvidence: vi.fn(async () => ({
+      items: [],
+      skippedTraceLineCount: 0,
+      latestEvalStatus: "never_run"
+    })),
     getSyncSchedulerState: vi.fn(async () => defaultSchedulerState),
     setSyncSchedulerState: vi.fn(async (state: SyncSchedulerState) => state),
     loadMessagesChatPreviews: vi.fn(async (): Promise<NativePreviewReportForTest> => ({
@@ -131,6 +136,7 @@ export function resetDiscoveryAppTestState(): void {
   bridgeMock.getRuntimeIdentity.mockResolvedValue(undefined)
   bridgeMock.reconcileNow.mockClear()
   bridgeMock.scanSelectedChats.mockClear()
+  bridgeMock.loadDecisionEvidence.mockClear()
   bridgeMock.getSyncSchedulerState.mockClear()
   bridgeMock.setSyncSchedulerState.mockClear()
   bridgeMock.loadMessagesChatPreviews.mockClear()

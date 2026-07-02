@@ -1,7 +1,12 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { App } from "./App"
-import { APP_SHELL_STATE_KEY, createDefaultAppShellState } from "./domain/appShell"
+import {
+  APP_SHELL_STATE_KEY,
+  createDefaultAppShellState,
+  saveAppShellState,
+  type ShellStorage
+} from "./domain/appShell"
 
 const discoveredChat = {
   id: "messages-chat-11111111111111111111111111111111",
@@ -47,7 +52,13 @@ const bridgeMock = vi.hoisted(() => {
     createdCandidateCount: 4,
     quietLogCount: 2,
     createdExternalProposalCount: 3,
-    failedExternalProposalCount: 1
+    failedExternalProposalCount: 1,
+    createdCandidateIds: ["candidate-alpha"]
+  })),
+  loadDecisionEvidence: vi.fn(async () => ({
+    items: [],
+    skippedTraceLineCount: 0,
+    latestEvalStatus: "never_run"
   })),
   checkProviderAuth: vi.fn(async () => ({
     status: "loggedInUsingChatGpt",
@@ -107,6 +118,7 @@ describe("App Sync Now result counts", () => {
     bridgeMock.subscribeMenuCommand.mockClear()
     bridgeMock.reconcileNow.mockClear()
     bridgeMock.scanSelectedChats.mockClear()
+    bridgeMock.loadDecisionEvidence.mockClear()
     bridgeMock.getSyncSchedulerState.mockClear()
     bridgeMock.setSyncSchedulerState.mockClear()
     bridgeMock.readMorrowToken.mockClear()
@@ -133,5 +145,55 @@ describe("App Sync Now result counts", () => {
     expect(screen.getByTestId("sync-result-counts")).toHaveTextContent(
       "Candidates 4 · Quiet logs 2 · External proposals 3 created / 1 failed"
     )
+  })
+
+  it("keeps decision evidence out of persisted app shell state so Delete All resets to empty evidence", () => {
+    // Given
+    let storedState = ""
+    const storage = {
+      get: () => storedState,
+      set: (_key: string, value: string): void => {
+        storedState = value
+      }
+    } satisfies ShellStorage
+    const stateWithEvidence = {
+      ...createDefaultAppShellState("Asia/Seoul"),
+      decisionEvidence: {
+        items: [
+          {
+            subjectType: "candidate",
+            candidateId: "candidate-alpha",
+            candidateState: "draft",
+            candidateKind: "calendar_event",
+            route: "provider",
+            reasonCode: "accepted",
+            confidenceMillis: 830,
+            labelType: "candidate",
+            labelValue: "created",
+            sourceExcerptPolicy: "disabled",
+            privacyTier: "safe",
+            hasDiagnosticsHashes: true,
+            createdAt: 1_783_000_010,
+            traceRetention: "retained",
+            traceSequence: []
+          }
+        ],
+        skippedTraceLineCount: 0,
+        latestEvalStatus: "passed"
+      }
+    } as const
+
+    // When
+    saveAppShellState(stateWithEvidence, storage)
+    const resetState = createDefaultAppShellState("Asia/Seoul")
+
+    // Then
+    expect(storedState).not.toContain("decisionEvidence")
+    expect(storedState).not.toContain("candidate-alpha")
+    expect(resetState.decisionEvidence).toEqual({
+      items: [],
+      skippedTraceLineCount: 0,
+      latestEvalStatus: "never_run"
+    })
   })
 })

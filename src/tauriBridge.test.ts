@@ -64,7 +64,8 @@ describe("createNativeShellBridge scan command", () => {
       failedExternalProposalCount: 0,
       feedbackLabelCount: 0,
       featureSnapshotCount: 0,
-      latestEvalStatus: "never_run"
+      latestEvalStatus: "never_run",
+      createdCandidateIds: []
     })
     expect(tauriMock.invoke).toHaveBeenCalledWith("scan_selected_chats", { request })
   })

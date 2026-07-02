@@ -24,6 +24,11 @@ const bridgeMock = vi.hoisted(() => {
     subscribeMenuCommand: vi.fn(async () => vi.fn()),
     reconcileNow: vi.fn(async () => undefined),
     scanSelectedChats: vi.fn(async () => ({ pendingProposalCount: 12 })),
+    loadDecisionEvidence: vi.fn(async () => ({
+      items: [],
+      skippedTraceLineCount: 0,
+      latestEvalStatus: "never_run"
+    })),
     getSyncSchedulerState: vi.fn(async () => defaultSchedulerState),
     setSyncSchedulerState: vi.fn(async (state: SyncSchedulerState) => state),
     checkProviderAuth: vi.fn(async () => ({

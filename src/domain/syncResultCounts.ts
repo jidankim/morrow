@@ -1,7 +1,7 @@
 import { z } from "zod"
 
 const syncResultCountSchema = z.number().int().min(0)
-const latestEvalStatusSchema = z
+export const latestEvalStatusSchema = z
   .union([
     z.literal("never_run"),
     z.literal("passed"),

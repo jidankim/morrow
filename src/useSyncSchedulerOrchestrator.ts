@@ -11,6 +11,7 @@ import {
   type SyncSchedulerState
 } from "./domain/syncScheduler"
 import { syncResultCountsFrom } from "./domain/syncResultCounts"
+import { emptyDecisionEvidenceReport } from "./domain/decisionEvidence"
 import { syncScanRequestFromState } from "./messagesDiscoveryBridge"
 import { nativeErrorMessage } from "./nativeErrors"
 import {
@@ -25,6 +26,8 @@ import type {
   SyncTrigger
 } from "./useSyncSchedulerOrchestrator.types"
 import { useSyncSchedulerTimer } from "./useSyncSchedulerTimer"
+
+const DECISION_EVIDENCE_RECENT_LIMIT = 20
 
 export function useSyncSchedulerOrchestrator({
   nativeBridge,
@@ -126,6 +129,7 @@ export function useSyncSchedulerOrchestrator({
 
       syncInFlight.current = true
       setSyncing(true)
+      setState((current) => reduceAppShellState(current, { type: "clearDecisionEvidence" }))
 
       try {
         if (trigger === "automatic") {
@@ -144,9 +148,17 @@ export function useSyncSchedulerOrchestrator({
         await nativeBridge.reconcileNow()
         const result = await nativeBridge.scanSelectedChats(syncScanRequestFromState(syncState))
         const counts = syncResultCountsFrom(result)
+        const decisionEvidence =
+          result === undefined
+            ? emptyDecisionEvidenceReport
+            : (await nativeBridge.loadDecisionEvidence({
+                createdCandidateIds: result.createdCandidateIds,
+                limit: DECISION_EVIDENCE_RECENT_LIMIT
+              })) ?? emptyDecisionEvidenceReport
         setState((current) =>
           reduceAppShellState(current, {
             type: "syncCompleted",
+            decisionEvidence,
             ...counts
           })
         )

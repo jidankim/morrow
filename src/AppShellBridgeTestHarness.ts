@@ -100,8 +100,23 @@ const hoistedBridgeMock = vi.hoisted(() => {
     }),
     scanSelectedChats: vi.fn(async () => {
       syncCalls.push("scan")
-      return { pendingProposalCount: 12 }
+      return {
+        pendingProposalCount: 12,
+        createdCandidateCount: 0,
+        quietLogCount: 0,
+        createdExternalProposalCount: 0,
+        failedExternalProposalCount: 0,
+        feedbackLabelCount: 0,
+        featureSnapshotCount: 0,
+        latestEvalStatus: "never_run",
+        createdCandidateIds: []
+      }
     }),
+    loadDecisionEvidence: vi.fn(async () => ({
+      items: [],
+      skippedTraceLineCount: 0,
+      latestEvalStatus: "never_run"
+    })),
     getSyncSchedulerState: vi.fn(async () => schedulerState),
     setSyncSchedulerState: vi.fn(async (state: NativeSyncSchedulerStateForTest) => {
       schedulerState = state
@@ -169,6 +184,7 @@ export const resetAppShellBridgeTestHarness = (): void => {
   bridgeMock.subscribeMenuCommand.mockClear()
   bridgeMock.reconcileNow.mockClear()
   bridgeMock.scanSelectedChats.mockClear()
+  bridgeMock.loadDecisionEvidence.mockClear()
   bridgeMock.getSyncSchedulerState.mockClear()
   bridgeMock.setSyncSchedulerState.mockClear()
   bridgeMock.resetSchedulerState()
@@ -191,6 +207,7 @@ vi.mock("./tauriBridge", () => ({
     subscribeMenuCommand: bridgeMock.subscribeMenuCommand,
     reconcileNow: bridgeMock.reconcileNow,
     scanSelectedChats: bridgeMock.scanSelectedChats,
+    loadDecisionEvidence: bridgeMock.loadDecisionEvidence,
     getSyncSchedulerState: bridgeMock.getSyncSchedulerState,
     setSyncSchedulerState: bridgeMock.setSyncSchedulerState,
     checkProviderAuth: bridgeMock.checkProviderAuth,

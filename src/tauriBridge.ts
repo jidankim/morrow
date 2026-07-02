@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core"
 import { z } from "zod"
+import type { DecisionEvidenceLoadRequest, DecisionEvidenceReport } from "./domain/decisionEvidence"
 import type { MenuModel, NativeAppShellState } from "./domain/appShell"
 import {
   type MessagesChatPreviewReport,
@@ -22,6 +23,7 @@ import {
 } from "./nativeAppShellBridge"
 import { parseNativePermissionStatuses, type NativePermissionStatus } from "./nativePermissionBridge"
 import { parseRuntimeIdentity, type RuntimeIdentity } from "./nativeRuntimeBridge"
+import { loadDecisionEvidenceInTauri } from "./nativeDecisionEvidenceBridge"
 import {
   parseCrashLogReceipt,
   parseMorrowDataDeleteReceipt,
@@ -51,6 +53,7 @@ export type {
   SyncScanRequest
 } from "./messagesDiscoveryBridge"
 export type { SyncScanResult } from "./messagesTauriCommands"
+export type { DecisionEvidenceLoadRequest, DecisionEvidenceReport } from "./domain/decisionEvidence"
 export type {
   CrashLogReceipt,
   CrashLogRequest,
@@ -92,6 +95,7 @@ export type MorrowTokenWriteRequest = MorrowTokenLookupRequest & {
 }
 export type MorrowTokenCommandReceipt = z.infer<typeof tokenCommandReceiptSchema>
 export type MorrowTokenReadResponse = z.infer<typeof tokenReadResponseSchema>
+
 export type NativeShellBridge = {
   readonly getState: () => Promise<NativeAppShellState | undefined>
   readonly setShellState: (state: NativeAppShellState) => Promise<MenuModel | undefined>
@@ -104,6 +108,9 @@ export type NativeShellBridge = {
   ) => Promise<(() => void) | undefined>
   readonly reconcileNow: () => Promise<void>
   readonly scanSelectedChats: (request: SyncScanRequest) => Promise<SyncScanResult | undefined>
+  readonly loadDecisionEvidence: (
+    request: DecisionEvidenceLoadRequest
+  ) => Promise<DecisionEvidenceReport | undefined>
   readonly discoverMessagesChats: () => Promise<MessagesDiscoveryReport | undefined>
   readonly loadMessagesChatPreviews: (
     request: MessagesChatPreviewRequest
@@ -178,6 +185,8 @@ export function createNativeShellBridge(): NativeShellBridge {
     },
     scanSelectedChats: (request) =>
       isTauriRuntime() ? scanSelectedChatsInTauri(request) : Promise.resolve(undefined),
+    loadDecisionEvidence: (request) =>
+      isTauriRuntime() ? loadDecisionEvidenceInTauri(request) : Promise.resolve(undefined),
     discoverMessagesChats: () =>
       isTauriRuntime() ? discoverMessagesChatsInTauri() : Promise.resolve(undefined),
     loadMessagesChatPreviews: (request) =>
@@ -200,8 +209,8 @@ export function createNativeShellBridge(): NativeShellBridge {
       if (!isTauriRuntime()) {
         return undefined
       }
-      const response = await invoke<unknown>("read_morrow_token", { request })
-      return parseTokenReadResponse(response)
+      const tokenReadResult = await invoke<unknown>("read_morrow_token", { request })
+      return parseTokenReadResponse(tokenReadResult)
     },
     deleteMorrowToken: async (request) => {
       if (!isTauriRuntime()) {

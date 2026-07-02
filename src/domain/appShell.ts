@@ -1,10 +1,7 @@
-import { z } from "zod"
 import { UnhandledAppShellVariantError } from "./appShellErrors"
 import {
-  chatDiscoverySchema,
   defaultChatDiscovery,
   reconcileSelectedChats,
-  selectedChatSchema,
   setChatBackfillPromptSelection,
   toggleSelectedChatSelection,
   type ChatDiscovery,
@@ -12,11 +9,19 @@ import {
   type DiscoveredChat,
   type SelectedChat
 } from "./chatDiscovery"
-import { appConfigSchema, createDefaultAppConfig, type AppConfig } from "./appConfig"
+import { createDefaultAppConfig, type AppConfig } from "./appConfig"
+import {
+  emptyDecisionEvidenceReport,
+  type DecisionEvidenceReport
+} from "./decisionEvidence"
+import {
+  loadPersistedAppShellState,
+  savePersistedAppShellState,
+  type ShellStorage
+} from "./appShellStorage"
 import {
   emptySyncResultCounts,
   syncResultCountsFrom,
-  syncResultCountsSchema,
   type PartialSyncResultCounts,
   type SyncResultCounts
 } from "./syncResultCounts"
@@ -37,7 +42,8 @@ export {
   type MenuStatusKind
 } from "./appMenuModel"
 
-export const APP_SHELL_STATE_KEY = "morrow.appShellState.v1"
+export { APP_SHELL_STATE_KEY, createBrowserShellStorage } from "./appShellStorage"
+export type { ShellStorage } from "./appShellStorage"
 
 export type AppMode = "scanning" | "paused" | "error"
 export type AutomaticSyncStatusLabel = "Off" | "On" | "Cooling Down" | "Needs Action"
@@ -60,6 +66,7 @@ export type AppShellState = SyncResultCounts & {
   readonly providerCredentialStatus: ProviderCredentialStatus
   readonly discovery: ChatDiscovery
   readonly selectedChats: readonly SelectedChat[]
+  readonly decisionEvidence: DecisionEvidenceReport
 }
 
 export type NativeAppShellState = {
@@ -102,41 +109,8 @@ export type AppShellEvent =
       readonly chatId: ChatId
       readonly enabled: boolean
     }
-  | ({ readonly type: "syncCompleted" } & PartialSyncResultCounts)
-
-export type ShellStorage = {
-  readonly get: (key: string) => string | undefined
-  readonly set: (key: string, value: string) => void
-}
-
-const appModeSchema = z.union([
-  z.literal("scanning"),
-  z.literal("paused"),
-  z.literal("error")
-])
-const providerCredentialStatusSchema = z.union([
-  z.literal("unchecked"),
-  z.literal("configured"),
-  z.literal("missing")
-])
-
-const appShellStateSchema = z
-  .object({
-    mode: appModeSchema,
-    errorMessage: z.preprocess((value) => (value === null ? undefined : value), z.string().min(1).optional()),
-    config: appConfigSchema,
-    providerCredentialStatus: providerCredentialStatusSchema.default("unchecked"),
-    discovery: chatDiscoverySchema.default({ status: "unverified", chats: [] }),
-    selectedChats: z.array(selectedChatSchema)
-  })
-  .and(syncResultCountsSchema)
-
-export function createBrowserShellStorage(storage: Storage): ShellStorage {
-  return {
-    get: (key) => storage.getItem(key) ?? undefined,
-    set: (key, value) => storage.setItem(key, value)
-  }
-}
+  | { readonly type: "clearDecisionEvidence" }
+  | ({ readonly type: "syncCompleted"; readonly decisionEvidence?: DecisionEvidenceReport } & PartialSyncResultCounts)
 
 export function createDefaultAppShellState(
   browserTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone
@@ -147,6 +121,7 @@ export function createDefaultAppShellState(
     providerCredentialStatus: "unchecked",
     discovery: defaultChatDiscovery,
     selectedChats: [],
+    decisionEvidence: emptyDecisionEvidenceReport,
     ...emptySyncResultCounts
   }
 }
@@ -212,10 +187,16 @@ export function reduceAppShellState(state: AppShellState, event: AppShellEvent):
           event.enabled
         )
       }
+    case "clearDecisionEvidence":
+      return {
+        ...state,
+        decisionEvidence: emptyDecisionEvidenceReport
+      }
     case "syncCompleted":
       return {
         ...state,
-        ...syncResultCountsFrom(event)
+        ...syncResultCountsFrom(event),
+        decisionEvidence: event.decisionEvidence ?? state.decisionEvidence
       }
     default:
       return assertNever(event)
@@ -242,21 +223,20 @@ export function applyNativeAppShellState(
 }
 
 export function loadAppShellState(storage: ShellStorage): AppShellState {
-  const stored = storage.get(APP_SHELL_STATE_KEY)
-  if (stored === undefined) {
+  const persisted = loadPersistedAppShellState(storage)
+  if (persisted === undefined) {
     return createDefaultAppShellState()
   }
-
-  const parsedJson: unknown = JSON.parse(stored)
-  const reloaded: AppShellState = { ...appShellStateSchema.parse(parsedJson), providerCredentialStatus: "unchecked" }
+  const reloaded: AppShellState = {
+    ...persisted,
+    providerCredentialStatus: "unchecked",
+    decisionEvidence: emptyDecisionEvidenceReport
+  }
   return reloaded.mode === "error" ? { ...reloaded, mode: "scanning", errorMessage: undefined } : reloaded
 }
 
 export function saveAppShellState(state: AppShellState, storage: ShellStorage): void {
-  storage.set(
-    APP_SHELL_STATE_KEY,
-    JSON.stringify(appShellStateSchema.parse({ ...state, providerCredentialStatus: "unchecked" }))
-  )
+  savePersistedAppShellState(state, storage)
 }
 
 function assertNever(value: never): never {

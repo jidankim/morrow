@@ -56,7 +56,8 @@ describe("createNativeShellBridge sync result counts", () => {
       failedExternalProposalCount: 1,
       feedbackLabelCount: 8,
       featureSnapshotCount: 6,
-      latestEvalStatus: "needs_review"
+      latestEvalStatus: "needs_review",
+      createdCandidateIds: []
     })
     const { createNativeShellBridge } = await import("./tauriBridge")
 
@@ -72,7 +73,8 @@ describe("createNativeShellBridge sync result counts", () => {
       failedExternalProposalCount: 1,
       feedbackLabelCount: 8,
       featureSnapshotCount: 6,
-      latestEvalStatus: "needs_review"
+      latestEvalStatus: "needs_review",
+      createdCandidateIds: []
     })
   })
 
@@ -92,7 +94,8 @@ describe("createNativeShellBridge sync result counts", () => {
       failedExternalProposalCount: 0,
       feedbackLabelCount: 0,
       featureSnapshotCount: 0,
-      latestEvalStatus: "never_run"
+      latestEvalStatus: "never_run",
+      createdCandidateIds: []
     })
   })
 

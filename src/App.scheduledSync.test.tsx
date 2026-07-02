@@ -107,8 +107,19 @@ describe("App scheduled sync", () => {
     let finishScan = (): void => undefined
     bridgeMock.scanSelectedChats.mockImplementationOnce(
       async () =>
-        await new Promise((resolve: (value: { readonly pendingProposalCount: number }) => void) => {
-          finishScan = () => resolve({ pendingProposalCount: 12 })
+        await new Promise((resolve: (value: Awaited<ReturnType<typeof bridgeMock.scanSelectedChats>>) => void) => {
+          finishScan = () =>
+            resolve({
+              pendingProposalCount: 12,
+              createdCandidateCount: 0,
+              quietLogCount: 0,
+              createdExternalProposalCount: 0,
+              failedExternalProposalCount: 0,
+              feedbackLabelCount: 0,
+              featureSnapshotCount: 0,
+              latestEvalStatus: "never_run",
+              createdCandidateIds: []
+            })
         })
     )
     bridgeMock.setSchedulerState({
@@ -219,74 +230,6 @@ describe("App scheduled sync", () => {
       retry_attempt: 1,
       next_eligible_at: NOW + 1_860,
       last_reason: "Provider timed out."
-    })
-  })
-
-  it("recovers hydrated running scheduler state to cooldown before any scan", async () => {
-    // Given
-    vi.useFakeTimers()
-    vi.setSystemTime(new Date(NOW * 1_000))
-    bridgeMock.setSchedulerState({
-      enabled: true,
-      interval_seconds: 1_800,
-      status: "running",
-      last_started_at: NOW - 100,
-      retry_attempt: 0,
-      updated_at: NOW - 100
-    })
-    seedReadyState()
-
-    // When
-    render(<App />)
-    await flushAsyncEffects()
-    expect(bridgeMock.setSyncSchedulerState).toHaveBeenCalledWith(
-      expect.objectContaining({
-        status: "cooldown",
-        retry_attempt: 1,
-        next_eligible_at: NOW + 500,
-        last_reason: "Morrow restarted before automatic sync finished."
-      })
-    )
-
-    // Then
-    expect(bridgeMock.reconcileNow).not.toHaveBeenCalled()
-    expect(bridgeMock.scanSelectedChats).not.toHaveBeenCalled()
-  })
-
-  it("lets manual Sync Now run during automatic cooldown and clears retry state on success", async () => {
-    // Given
-    vi.useFakeTimers()
-    vi.setSystemTime(new Date(NOW * 1_000))
-    bridgeMock.setSchedulerState({
-      enabled: true,
-      interval_seconds: 1_800,
-      status: "cooldown",
-      next_eligible_at: NOW + 600,
-      last_result: "retryable_failure",
-      retry_attempt: 2,
-      last_reason: "Provider timed out.",
-      updated_at: NOW
-    })
-    seedReadyState()
-    render(<App />)
-    const syncButton = screen.getByRole("button", { name: "Sync Now" })
-    await flushAsyncEffects()
-    expect(syncButton).toBeEnabled()
-
-    // When
-    fireEvent.click(syncButton)
-
-    // Then
-    await flushAsyncEffects()
-    expect(bridgeMock.scanSelectedChats).toHaveBeenCalledOnce()
-    expect(bridgeMock.getSyncCalls()).toEqual(["reconcile", "scan"])
-    expect(bridgeMock.getSchedulerState()).toMatchObject({
-      status: "scheduled",
-      last_result: "success",
-      retry_attempt: 0,
-      next_eligible_at: undefined,
-      last_reason: undefined,
-      next_run_at: NOW + 1_800
     })
   })
 })

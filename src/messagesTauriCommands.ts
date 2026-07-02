@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core"
+import { z } from "zod"
 import { syncResultCountsSchema, type SyncResultCounts } from "./domain/syncResultCounts"
 import {
   parseMessagesChatPreviewReport,
@@ -11,10 +12,16 @@ import {
   type SyncScanRequest
 } from "./messagesDiscoveryBridge"
 
-export type SyncScanResult = SyncResultCounts
+export type SyncScanResult = SyncResultCounts & {
+  readonly createdCandidateIds: readonly string[]
+}
+
+const syncScanResultSchema = syncResultCountsSchema.extend({
+  createdCandidateIds: z.array(z.string().min(1)).default([])
+})
 
 function parseSyncScanResult(value: unknown): SyncScanResult {
-  return syncResultCountsSchema.parse(value)
+  return syncScanResultSchema.parse(value)
 }
 
 export async function scanSelectedChatsInTauri(
