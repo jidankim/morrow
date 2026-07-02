@@ -15,6 +15,7 @@ import {
   getSyncReadinessItems
 } from "./domain/appShell"
 import { formatLatestEvalStatus } from "./domain/syncResultCounts"
+import { StatusDecisionEvidence } from "./StatusDecisionEvidence"
 import { SyncSchedulerControls } from "./SyncSchedulerControls"
 import type { StatusViewProps } from "./StatusView.types"
 
@@ -97,6 +98,11 @@ export function StatusView({
         <Metric label="Eval snapshots" testId="feature-snapshot-count" value={String(state.featureSnapshotCount)} />
         <Metric label="Latest eval" testId="latest-eval-status" value={formatLatestEvalStatus(state.latestEvalStatus)} />
       </dl>
+      <StatusDecisionEvidence
+        items={state.decisionEvidence.items}
+        latestEvalStatus={state.decisionEvidence.latestEvalStatus}
+        loading={syncing}
+      />
       <section className="setup-section" aria-labelledby="setup-heading">
         <h3 id="setup-heading">Setup readiness</h3>
         <ul className="readiness-list" aria-label="Sync Now setup checklist">

@@ -102,6 +102,61 @@ function createVisualSyncSchedulerAppState(): AppShellState {
   return {
     ...state,
     config: { ...state.config, permissionsGranted: true },
+    decisionEvidence: {
+      items: [
+        {
+          subjectType: "candidate",
+          candidateId: "candidate-visual-opaque-id-with-long-suffix-0123456789abcdef",
+          candidateState: "draft",
+          candidateKind: "calendar_event",
+          route: "provider",
+          reasonCode: "accepted_for_calendar",
+          confidenceMillis: 842,
+          labelType: "candidate",
+          labelValue: "created",
+          sourceExcerptPolicy: "disabled",
+          privacyTier: "safe",
+          hasDiagnosticsHashes: true,
+          createdAt: NOW,
+          traceRetention: "retained",
+          traceSequence: [
+            {
+              component: "scan",
+              operation: "classify",
+              decision: "candidate",
+              outcome: "accepted"
+            },
+            {
+              component: "proposal",
+              operation: "create",
+              outcome: "queued"
+            }
+          ]
+        },
+        {
+          subjectType: "quietLog",
+          route: "provider",
+          reasonCode: "no_actionable_time",
+          labelType: "quiet",
+          labelValue: "rejected",
+          sourceExcerptPolicy: "disabled",
+          privacyTier: "safe",
+          hasDiagnosticsHashes: false,
+          createdAt: NOW - 30,
+          traceRetention: "traceMissing",
+          traceSequence: [
+            {
+              component: "scan",
+              operation: "classify",
+              decision: "quiet",
+              outcome: "not actionable"
+            }
+          ]
+        }
+      ],
+      skippedTraceLineCount: 0,
+      latestEvalStatus: "needs_review"
+    },
     discovery: { status: "ready", chats: [visualChat] },
     providerCredentialStatus,
     selectedChats: [selectedVisualChat]
