@@ -2,6 +2,8 @@ use std::io::Read as _;
 
 use sha2::{Digest, Sha256};
 
+mod lifecycle;
+
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct TraceRecord {
@@ -17,6 +19,10 @@ impl TraceRecord {
             trace: TraceIds::sample_v1(),
             span: TraceSpan::sample_v1(),
         }
+    }
+
+    pub fn sample_lifecycle_replay_v1(operation: TraceOperation) -> Option<Self> {
+        lifecycle::sample_lifecycle_replay_v1(operation)
     }
 }
 
