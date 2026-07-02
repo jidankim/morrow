@@ -2,13 +2,16 @@ use std::cell::RefCell;
 
 use morrow_calendar::ProposedEvent;
 use morrow_storage::{
-    CalendarProposalPayload, CandidateDraft, CandidateId as StorageCandidateId, ExternalSource,
+    CalendarProposalPayload, CandidateDraft, CandidateId as StorageCandidateId, CandidateState,
+    ExternalSource,
 };
 
 use super::calendar::{
     calendar_mapping_from_payload, proposed_event_from_payload, CalendarProposalReceipt,
 };
 use super::*;
+
+mod replay_modes;
 
 const CANDIDATE_ID: &str = "morrow_0000000000000001";
 
@@ -174,7 +177,9 @@ fn replay_external_proposals_records_adapter_failure_detail() {
     )
     .expect("queued proposal");
     let adapter = FakeProposalAdapter::failing_calendar(
-        "Calendar source unavailable: no writable calendar source",
+        "Calendar source unavailable: no writable calendar source. Retry failed after a long \
+         sanitized diagnostic that must be bounded before it is persisted to candidate audit \
+         history so replay failure evidence cannot overflow the storage reason contract.",
     );
 
     // When
@@ -188,8 +193,17 @@ fn replay_external_proposals_records_adapter_failure_detail() {
         CandidateState::Failed
     );
     let audit = store.audit_entries(&candidate_id).expect("audit");
-    assert!(audit.iter().any(|entry| entry.reason
-        == "external_proposal_creation_failed: Calendar source unavailable: no writable calendar source"));
+    let failure_reason = audit
+        .iter()
+        .find(|entry| {
+            entry
+                .reason
+                .starts_with("external_proposal_creation_failed: Calendar source unavailable")
+        })
+        .expect("bounded failure audit")
+        .reason
+        .as_str();
+    assert!(failure_reason.len() <= 240, "{failure_reason}");
 }
 
 #[derive(Default)]
