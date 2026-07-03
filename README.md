@@ -49,6 +49,30 @@ SDKROOT=/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk
 RUSTFLAGS="-C linker=/Library/Developer/CommandLineTools/usr/bin/cc"
 ```
 
+### Build and run the packaged app locally
+
+Use this when a technical tester is building Morrow from source on their own Mac. This is different from sharing a downloaded beta or diagnostic artifact: the tester must have Node, Rust, and Xcode/Command Line Tools installed.
+
+Build the app bundle:
+
+```bash
+npm run tauri:build
+```
+
+Open the built app bundle:
+
+```bash
+open -n -F src-tauri/target/release/bundle/macos/Morrow.app
+```
+
+If the bundle path changes, locate it with:
+
+```bash
+find src-tauri/target/release -name Morrow.app -print
+```
+
+For real Messages-to-Calendar QA, grant Full Disk Access and Calendar access to the built `Morrow.app`. If you are validating provider-backed `Sync Now`, install Codex CLI and run `codex login` before opening Morrow.
+
 macOS permissions needed for real-surface QA:
 
 - Full Disk Access for the app when reading Messages.
@@ -164,7 +188,7 @@ This path must use the local Codex CLI session and must not require an OpenAI AP
 
 ## Manual QA Flow Once Production Wiring Exists
 
-1. For packaged beta QA, open the installed `Morrow.app`. For maintainer/source-build only debugging, start the app with `npm run tauri:dev`.
+1. For packaged beta QA, open the installed `Morrow.app`. For local source-build QA, run `npm run tauri:build` and open `src-tauri/target/release/bundle/macos/Morrow.app`. For unbundled maintainer debugging, start the app with `npm run tauri:dev`.
 2. Grant Full Disk Access and Calendar access to the app.
 3. Complete onboarding: choose Calendar source, set reference timezone, confirm Codex provider readiness, and select exactly one test chat.
 4. Send a scheduling-shaped message in that selected chat, for example a future meeting with a concrete time.
