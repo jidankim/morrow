@@ -1,6 +1,6 @@
 import { DatabaseZap, MessageSquare, RefreshCw } from "lucide-react"
 import type { ChatDiscovery, ChatId, DiscoveredChat, SelectedChat } from "./domain/appShell"
-import { chatDisplayMetadata } from "./chatDisplay"
+import { chatDisplayMetadata, currentChatDisplaySystemTimeZone } from "./chatDisplay"
 import { ChatPreviewControls, type ChatPreviewDisclosure } from "./ChatPreviewControls"
 import { FullDiskAccessRecoveryGuide } from "./FullDiskAccessRecoveryGuide"
 import type { RuntimeIdentity } from "./tauriBridge"
@@ -184,7 +184,7 @@ function ChatChoice({
   onToggleChat,
   onToggleBackfillPrompt
 }: ChatChoiceProps): JSX.Element {
-  const display = chatDisplayMetadata(chat, referenceTimezone)
+  const display = chatDisplayMetadata(chat, referenceTimezone, currentChatDisplaySystemTimeZone())
   const previewAccessibleText =
     previewText === undefined ? "" : `, Latest preview: ${previewText}`
 

@@ -10,6 +10,26 @@ const selectedChat = {
   backfillPromptEnabled: true
 } as const
 
+function syncScanRequestState(referenceTimezone: string) {
+  return {
+    config: {
+      referenceTimezone,
+      calendarSource: "apple-calendar",
+      permissionsGranted: true,
+      launchAtLogin: false,
+      sourceExcerptsEnabled: false,
+      feedbackTextSnapshotsEnabled: true,
+      firstProposalGuidanceEnabled: true,
+      telemetryEnabled: false,
+      crashLogExcerptsEnabled: false,
+      localDiagnosticsEnabled: false,
+      localDiagnosticsRetentionDays: 30
+    },
+    pendingProposalCount: 0,
+    selectedChats: [selectedChat]
+  } as const
+}
+
 describe("syncScanRequestFromState", () => {
   afterEach(() => {
     vi.useRealTimers()
@@ -72,6 +92,28 @@ describe("syncScanRequestFromState", () => {
     expect(request.localDiagnosticsRetentionDays).toBe(45)
     expect(config.telemetryEnabled).toBe(false)
     expect(config.crashLogExcerptsEnabled).toBe(false)
+  })
+
+  it("resolves system timezone preference before native scan requests", () => {
+    // Given
+    const state = syncScanRequestState("system")
+
+    // When
+    const request = syncScanRequestFromState(state, "America/Los_Angeles")
+
+    // Then
+    expect(request.referenceTimezone).toBe("America/Los_Angeles")
+  })
+
+  it("preserves explicit timezone preference for native scan requests", () => {
+    // Given
+    const state = syncScanRequestState("Asia/Tokyo")
+
+    // When
+    const request = syncScanRequestFromState(state, "America/Los_Angeles")
+
+    // Then
+    expect(request.referenceTimezone).toBe("Asia/Tokyo")
   })
 
   it("rejects missing or malformed feedback text snapshot consent", () => {

@@ -12,7 +12,7 @@ import {
 } from "./domain/syncScheduler"
 import { syncResultCountsFrom } from "./domain/syncResultCounts"
 import { emptyDecisionEvidenceReport } from "./domain/decisionEvidence"
-import { syncScanRequestFromState } from "./messagesDiscoveryBridge"
+import { currentSystemReferenceTimeZone, syncScanRequestFromState } from "./messagesDiscoveryBridge"
 import { nativeErrorMessage } from "./nativeErrors"
 import {
   currentUnixSeconds,
@@ -146,7 +146,9 @@ export function useSyncSchedulerOrchestrator({
         }
 
         await nativeBridge.reconcileNow()
-        const result = await nativeBridge.scanSelectedChats(syncScanRequestFromState(syncState))
+        const result = await nativeBridge.scanSelectedChats(
+          syncScanRequestFromState(syncState, currentSystemReferenceTimeZone())
+        )
         const counts = syncResultCountsFrom(result)
         const decisionEvidence =
           result === undefined

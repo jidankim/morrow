@@ -1,4 +1,5 @@
 import { isRawHandleLike, type DiscoveredChat } from "./domain/chatDiscovery"
+import { resolveReferenceTimeZonePreference } from "./domain/timeZone"
 
 const DEFAULT_CHAT_LABEL = "Messages chat"
 
@@ -10,12 +11,20 @@ export type ChatDisplayMetadata = {
 
 export function chatDisplayMetadata(
   chat: DiscoveredChat,
-  referenceTimezone: string
+  referenceTimezone: string,
+  systemTimeZone = currentChatDisplaySystemTimeZone()
 ): ChatDisplayMetadata {
+  const resolvedReferenceTimezone = resolveReferenceTimeZonePreference(
+    referenceTimezone,
+    systemTimeZone
+  )
   return {
     label: displaySafeChatLabel(chat.label),
     participantCountText: formatParticipantCount(chat.participantCount),
-    latestActivityText: formatLatestActivityTimestamp(chat.latestActivityTimestamp, referenceTimezone)
+    latestActivityText: formatLatestActivityTimestamp(
+      chat.latestActivityTimestamp,
+      resolvedReferenceTimezone
+    )
   }
 }
 
@@ -30,11 +39,16 @@ export function formatParticipantCount(participantCount: number): string {
 
 export function formatLatestActivityTimestamp(
   latestActivityTimestamp: number,
-  referenceTimezone: string
+  referenceTimezone: string,
+  systemTimeZone = currentChatDisplaySystemTimeZone()
 ): string {
+  const resolvedReferenceTimezone = resolveReferenceTimeZonePreference(
+    referenceTimezone,
+    systemTimeZone
+  )
   const latestActivityDate = new Date(latestActivityTimestamp * 1000)
   const formattedTimestamp = new Intl.DateTimeFormat("en-US", {
-    timeZone: referenceTimezone,
+    timeZone: resolvedReferenceTimezone,
     month: "short",
     day: "numeric",
     year: "numeric",
@@ -42,4 +56,8 @@ export function formatLatestActivityTimestamp(
     minute: "2-digit"
   }).format(latestActivityDate)
   return `Last active ${formattedTimestamp}`
+}
+
+export function currentChatDisplaySystemTimeZone(): string | undefined {
+  return Intl.DateTimeFormat().resolvedOptions().timeZone
 }

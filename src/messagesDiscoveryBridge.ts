@@ -10,6 +10,7 @@ import {
   type DiscoveredChat
 } from "./domain/chatDiscovery"
 import type { AppShellState } from "./domain/appShell"
+import { resolveReferenceTimeZonePreference } from "./domain/timeZone"
 
 const chatIdSchema = z
   .string()
@@ -132,11 +133,21 @@ export type SyncScanRequestState = Pick<
   "config" | "pendingProposalCount" | "selectedChats"
 >
 
-export function syncScanRequestFromState(state: SyncScanRequestState): SyncScanRequest {
+export function currentSystemReferenceTimeZone(): string | undefined {
+  return Intl.DateTimeFormat().resolvedOptions().timeZone
+}
+
+export function syncScanRequestFromState(
+  state: SyncScanRequestState,
+  systemTimeZone = currentSystemReferenceTimeZone()
+): SyncScanRequest {
   return {
     selectedChatIds: state.selectedChats.map((chat) => chat.id),
     selectedChats: scanSelectedChatMetadata(state.selectedChats),
-    referenceTimezone: state.config.referenceTimezone,
+    referenceTimezone: resolveReferenceTimeZonePreference(
+      state.config.referenceTimezone,
+      systemTimeZone
+    ),
     referenceUnixSeconds: Math.floor(Date.now() / 1000),
     backfillPromptChatIds: state.selectedChats
       .filter((chat) => chat.backfillPromptEnabled)
