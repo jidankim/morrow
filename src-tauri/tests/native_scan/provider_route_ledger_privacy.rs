@@ -32,6 +32,7 @@ fn provider_route_ledger_privacy() -> Result<(), String> {
     let dump = provider_route_outcome_dump(&fixture.store_path)?;
     println!("provider_route_ledger_privacy_dump={dump}");
     assert_eq!(provider.calls(), 1);
+    assert_eq!(adapter.created_titles(), ["Provider supplied title"]);
     assert_eq!(provider_route_outcome_count(&fixture.store_path)?, 1);
     for forbidden in [
         "+15555550103",

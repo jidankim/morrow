@@ -22,6 +22,7 @@ use metadata::{route_metadata, NativeProviderRouteCacheError};
 pub(super) const PROVIDER_ROUTE_LEDGER_CONTRACT_VERSION: &str = "provider-route-ledger-v1";
 const PROVIDER_ROUTE_LEDGER_HIDDEN_EXCERPT: &str =
     "Source excerpt hidden by provider-route ledger.";
+const PROVIDER_ROUTE_NATIVE_CANDIDATE_TITLE: &str = "Messages event candidate";
 
 pub(super) struct NativeProviderRouteCache<'a> {
     store: &'a Store,
@@ -141,7 +142,7 @@ fn candidate_draft(
         write_intent,
         ProviderRouteOutcome::Candidate(ProviderRouteCandidate {
             kind: candidate.kind,
-            title: candidate.title.clone(),
+            title: PROVIDER_ROUTE_NATIVE_CANDIDATE_TITLE.to_owned(),
             confidence_millis: candidate.confidence_millis,
             normalized_time: candidate.normalized_time.clone(),
             evidence_excerpt: PROVIDER_ROUTE_LEDGER_HIDDEN_EXCERPT.to_owned(),

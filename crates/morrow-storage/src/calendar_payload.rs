@@ -71,22 +71,28 @@ fn title_has_private_marker(title: &str) -> bool {
         || title.contains('+')
         || lowered.contains("private")
         || lowered.contains("raw-")
-        || has_digit_run(title, 7)
+        || has_phone_like_digit_sequence(title, 7)
 }
 
-fn has_digit_run(value: &str, threshold: usize) -> bool {
-    let mut run = 0;
+fn has_phone_like_digit_sequence(value: &str, threshold: usize) -> bool {
+    let mut digits = 0;
     for ch in value.chars() {
         if ch.is_ascii_digit() {
-            run += 1;
-            if run >= threshold {
+            digits += 1;
+            if digits >= threshold {
                 return true;
             }
+        } else if is_phone_title_char(ch) {
+            continue;
         } else {
-            run = 0;
+            digits = 0;
         }
     }
     false
+}
+
+fn is_phone_title_char(ch: char) -> bool {
+    matches!(ch, '+' | '-' | '(' | ')' | '.' | ' ')
 }
 
 fn is_normalized_calendar_time(value: &str) -> bool {

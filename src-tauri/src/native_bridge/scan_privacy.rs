@@ -14,11 +14,50 @@ pub(super) fn privacy_safe_candidate(
     candidate.chat_guid =
         public_chat_id(&ChatGuid::parse(&candidate.chat_guid).map_err(messages_error)?);
     candidate.anchor_message_guid = public_message_id(&candidate.anchor_message_guid);
-    candidate.title = NATIVE_CANDIDATE_TITLE.to_owned();
+    candidate.title = privacy_safe_candidate_title(&candidate.title);
     if source_excerpts == SourceExcerptPolicy::Hide {
         candidate.evidence_excerpt = HIDDEN_SOURCE_EXCERPT.to_owned();
     }
     Ok(candidate)
+}
+
+fn privacy_safe_candidate_title(raw: &str) -> String {
+    let title = raw.trim();
+    if title.is_empty() || title_has_private_marker(title) {
+        NATIVE_CANDIDATE_TITLE.to_owned()
+    } else {
+        title.to_owned()
+    }
+}
+
+fn title_has_private_marker(title: &str) -> bool {
+    let lowered = title.to_ascii_lowercase();
+    title.contains('@')
+        || title.contains('+')
+        || lowered.contains("private")
+        || lowered.contains("raw-")
+        || has_phone_like_digit_sequence(title, 7)
+}
+
+fn has_phone_like_digit_sequence(value: &str, threshold: usize) -> bool {
+    let mut digits = 0;
+    for ch in value.chars() {
+        if ch.is_ascii_digit() {
+            digits += 1;
+            if digits >= threshold {
+                return true;
+            }
+        } else if is_phone_title_char(ch) {
+            continue;
+        } else {
+            digits = 0;
+        }
+    }
+    false
+}
+
+fn is_phone_title_char(ch: char) -> bool {
+    matches!(ch, '+' | '-' | '(' | ')' | '.' | ' ')
 }
 
 pub(super) fn privacy_safe_quiet_log(

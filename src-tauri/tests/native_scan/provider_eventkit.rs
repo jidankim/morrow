@@ -84,7 +84,7 @@ fn production_scan_uses_provider_and_proposal_adapter_dependencies() -> Result<(
     // Then
     assert_counts(&result, (1, 1, 0, 1, 0));
     assert_eq!(result.created_external_proposal_count, 1);
-    assert_eq!(adapter.created_titles(), ["Messages event candidate"]);
+    assert_eq!(adapter.created_titles(), ["Provider supplied title"]);
     let store = Store::open(&store_path).map_err(|error| error.to_string())?;
     assert_eq!(candidate_state(&store, &result)?, CandidateState::Visible);
     Ok(())
