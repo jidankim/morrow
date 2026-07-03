@@ -64,7 +64,37 @@ pub fn rejection_cases() -> Vec<(
             )),
         ),
         (
-            "raw_suffix_normalized_time",
+            "no_zone_normalized_time",
+            Ok(completed_response(
+                "{\"kind\":\"calendar_event\",\"title\":\"Provider meeting\",\
+                 \"confidence_millis\":800,\
+                 \"normalized_time\":\"2026-06-26T15:00:00\",\
+                 \"anchor_evidence_id\":\"evidence://selected/0\",\
+                 \"evidence_ids\":[\"evidence://selected/0\"]}",
+            )),
+        ),
+        (
+            "offset_zone_normalized_time",
+            Ok(completed_response(
+                "{\"kind\":\"calendar_event\",\"title\":\"Provider meeting\",\
+                 \"confidence_millis\":800,\
+                 \"normalized_time\":\"2026-06-26T15:00:00+09:00\",\
+                 \"anchor_evidence_id\":\"evidence://selected/0\",\
+                 \"evidence_ids\":[\"evidence://selected/0\"]}",
+            )),
+        ),
+        (
+            "variable_width_normalized_time",
+            Ok(completed_response(
+                "{\"kind\":\"calendar_event\",\"title\":\"Provider meeting\",\
+                 \"confidence_millis\":800,\
+                 \"normalized_time\":\"2026-6-26T15:00:00Z\",\
+                 \"anchor_evidence_id\":\"evidence://selected/0\",\
+                 \"evidence_ids\":[\"evidence://selected/0\"]}",
+            )),
+        ),
+        (
+            "raw_private_zone_normalized_time",
             Ok(completed_response(
                 "{\"kind\":\"calendar_event\",\"title\":\"Provider meeting\",\
                  \"confidence_millis\":800,\
@@ -131,8 +161,12 @@ fn unknown_field_case() -> (
 #[test]
 fn openai_provider_rejects_malformed_normalized_time() -> Result<(), String> {
     for normalized_time in [
+        "2026-06-26T15:00:00",
+        "2026-06-26T15:00:00+09:00",
+        "2026-6-26T15:00:00Z",
         "2026-06-26T15:00:00raw-suffix",
         "2026-06-26T15:00:00[private_clinic_visit]",
+        "tomorrow at 3pm",
     ] {
         // Given
         let candidate =
@@ -152,6 +186,9 @@ fn openai_provider_rejects_malformed_normalized_time() -> Result<(), String> {
 
         // Then
         assert!(!error.to_string().contains("sk-secret-never-in-error"));
+        assert!(error
+            .to_string()
+            .contains("candidate normalized_time was invalid"));
     }
     Ok(())
 }

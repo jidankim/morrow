@@ -2,6 +2,7 @@ use morrow_detection::{DetectionOutcome, DetectionPipeline};
 use morrow_lib::native_bridge::{
     OpenAiProvider, OPENAI_MODEL, OPENAI_RESPONSES_URL, OPENAI_TIMEOUT_MS,
 };
+use regex::Regex;
 use serde_json::{json, Value};
 
 mod redaction_cases;
@@ -59,6 +60,40 @@ fn openai_provider_builds_schema_request_and_payload_allowlist() -> Result<(), S
             "evidence_ids"
         ])
     );
+    let normalized_time_schema = &format["schema"]["properties"]["normalized_time"];
+    assert_eq!(normalized_time_schema["type"], "string");
+    let normalized_time_description = normalized_time_schema["description"]
+        .as_str()
+        .ok_or_else(|| "missing normalized_time.description".to_owned())?;
+    assert!(normalized_time_description.contains("YYYY-MM-DDTHH:MM:SS[Area/Location]"));
+    assert!(normalized_time_description.contains("YYYY-MM-DDTHH:MM:SSZ"));
+    assert!(
+        normalized_time_schema.get("examples").is_none(),
+        "OpenAI strict schema must not use unsupported examples keyword"
+    );
+    let normalized_time_pattern = normalized_time_schema["pattern"]
+        .as_str()
+        .ok_or_else(|| "missing normalized_time.pattern".to_owned())?;
+    let normalized_time_regex =
+        Regex::new(normalized_time_pattern).map_err(|error| error.to_string())?;
+    for accepted in ["2026-06-26T15:00:00Z", "2026-06-26T15:00:00[Asia/Seoul]"] {
+        assert!(
+            normalized_time_regex.is_match(accepted),
+            "pattern rejected {accepted}: {normalized_time_pattern}"
+        );
+    }
+    for rejected in [
+        "2026-6-26T15:00:00Z",
+        "2026-06-26T15:00Z",
+        "2026-06-26 15:00:00",
+        "2026-06-26T15:00:00+09:00",
+        "tomorrow at 3pm",
+    ] {
+        assert!(
+            !normalized_time_regex.is_match(rejected),
+            "pattern accepted {rejected}: {normalized_time_pattern}"
+        );
+    }
     let text = request.body["input"][0]["content"][0]["text"]
         .as_str()
         .ok_or_else(|| "missing input text".to_owned())?;

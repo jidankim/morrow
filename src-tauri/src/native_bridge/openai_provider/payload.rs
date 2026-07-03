@@ -63,7 +63,7 @@ fn candidate_schema() -> Value {
             },
             "title": { "type": "string" },
             "confidence_millis": { "type": "integer", "minimum": 0, "maximum": 1000 },
-            "normalized_time": { "type": "string" },
+            "normalized_time": provider_contract::normalized_time_schema(),
             "anchor_evidence_id": { "type": "string" },
             "evidence_ids": {
                 "type": "array",
