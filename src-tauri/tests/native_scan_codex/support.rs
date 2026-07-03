@@ -50,6 +50,7 @@ impl CodexExecRunner for RecordingCodexRunner {
                     )),
                 }
             }
+            Some(FakeCodexOutcome::TimedOut) => CodexExecRun::TimedOut,
             None => CodexExecRun::FailedToStart,
         }
     }
@@ -58,6 +59,7 @@ impl CodexExecRunner for RecordingCodexRunner {
 #[derive(Debug, Clone)]
 pub enum FakeCodexOutcome {
     WriteOutput(String),
+    TimedOut,
 }
 
 #[derive(Debug, Default)]

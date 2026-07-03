@@ -131,6 +131,7 @@ fn record_recent_unrelated_quiet_evidence(store_path: &std::path::Path) -> Resul
             reason: "provider_unavailable".to_owned(),
             excerpt: "Source excerpt hidden by settings.".to_owned(),
             created_at: 1_782_352_900,
+            provider_diagnostic: None,
         })
         .map_err(|error| error.to_string())?;
     let meta = recent_quiet_meta(subject_id);

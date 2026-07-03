@@ -171,6 +171,7 @@ mod scan {
             reason: "no actionable event".to_owned(),
             excerpt: excerpt.to_owned(),
             created_at: 1_782_352_400,
+            provider_diagnostic: None,
         }
     }
 
