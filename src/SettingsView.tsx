@@ -1,6 +1,7 @@
 import type { AppConfig } from "./domain/appShell"
 import type { DeleteAllOptions } from "./domain/privacyControls"
 import type { SyncSchedulerIntervalSeconds, SyncSchedulerState } from "./domain/syncScheduler"
+import { referenceTimeZoneOptions } from "./domain/timeZone"
 import {
   SettingsPrivacyControls,
   type DeleteAllState
@@ -44,6 +45,7 @@ export function SettingsView({
   onOpenPrivacySettings,
   onToggleAutomaticSync
 }: SettingsViewProps): JSX.Element {
+  const timeZoneOptions = referenceTimeZoneOptions(Intl.DateTimeFormat().resolvedOptions().timeZone)
   return (
     <div className="panel">
       <div className="panel-header">
@@ -58,10 +60,11 @@ export function SettingsView({
           value={config.referenceTimezone}
           onChange={(event) => onChange({ ...config, referenceTimezone: event.currentTarget.value })}
         >
-          <option value="Asia/Seoul">Asia/Seoul</option>
-          <option value="America/New_York">America/New_York</option>
-          <option value="Europe/London">Europe/London</option>
-          <option value="UTC">UTC</option>
+          {timeZoneOptions.map((timeZoneOption) => (
+            <option key={timeZoneOption.value} value={timeZoneOption.value}>
+              {timeZoneOption.label}
+            </option>
+          ))}
         </select>
       </label>
       <label className="field">
