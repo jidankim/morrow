@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { isSupportedReferenceTimeZone, normalizeReferenceTimeZone } from "./timeZone"
+import { SYSTEM_REFERENCE_TIME_ZONE, isReferenceTimeZonePreference } from "./timeZone"
 
 export type CalendarSource = "apple-calendar"
 
@@ -19,7 +19,7 @@ export type AppConfig = {
 
 const calendarSourceSchema = z.literal("apple-calendar")
 
-const timeZoneSchema = z.string().refine((value) => isSupportedReferenceTimeZone(value), {
+const timeZoneSchema = z.string().refine((value) => isReferenceTimeZonePreference(value), {
   message: "Reference timezone must be supported by Morrow Calendar replay."
 })
 
@@ -39,7 +39,7 @@ export const appConfigSchema = z.object({
 
 export function createDefaultAppConfig(browserTimeZone: string): AppConfig {
   return {
-    referenceTimezone: normalizeReferenceTimeZone(browserTimeZone),
+    referenceTimezone: SYSTEM_REFERENCE_TIME_ZONE,
     calendarSource: "apple-calendar",
     permissionsGranted: false,
     launchAtLogin: false,

@@ -11,6 +11,11 @@ import {
   reduceAppShellState,
   saveAppShellState
 } from "./appShell"
+import {
+  isReferenceTimeZonePreference,
+  referenceTimeZoneOptions,
+  resolveReferenceTimeZonePreference
+} from "./timeZone"
 
 const discoveredChat = {
   id: "messages-chat-11111111111111111111111111111111",
@@ -25,10 +30,42 @@ const discoveredChat = {
 const selectedChat = { ...discoveredChat, backfillPromptEnabled: true } as const
 
 describe("app shell state", () => {
-  it("defaults unsupported browser timezones to UTC", () => {
+  it("defaults to the system reference timezone preference", () => {
     const initial = createDefaultAppShellState("America/Los_Angeles")
 
-    expect(initial.config.referenceTimezone).toBe("UTC")
+    expect(initial.config.referenceTimezone).toBe("system")
+  })
+
+  it("resolves the system reference timezone preference to a concrete timezone", () => {
+    const resolved = resolveReferenceTimeZonePreference("system", "America/Los_Angeles")
+
+    expect(resolved).toBe("America/Los_Angeles")
+  })
+
+  it("falls back to UTC when the system reference timezone is unavailable or invalid", () => {
+    expect(resolveReferenceTimeZonePreference("system", undefined)).toBe("UTC")
+    expect(resolveReferenceTimeZonePreference("system", "")).toBe("UTC")
+    expect(resolveReferenceTimeZonePreference("system", "Mars/Olympus")).toBe("UTC")
+  })
+
+  it("recognizes system and concrete reference timezone preferences", () => {
+    expect(isReferenceTimeZonePreference("system")).toBe(true)
+    expect(isReferenceTimeZonePreference("America/New_York")).toBe(true)
+    expect(isReferenceTimeZonePreference("")).toBe(false)
+    expect(isReferenceTimeZonePreference("Mars/Olympus")).toBe(false)
+  })
+
+  it("builds reference timezone options with system default first", () => {
+    const options = referenceTimeZoneOptions("America/Los_Angeles")
+
+    expect(options[0]).toEqual({
+      value: "system",
+      label: "System default (America/Los_Angeles)"
+    })
+    expect(options).toContainEqual({
+      value: "America/Los_Angeles",
+      label: "America/Los_Angeles"
+    })
   })
 
   it("persists pause and resume state across reloads", () => {
@@ -177,6 +214,32 @@ describe("app shell state", () => {
 
     expect(reloaded.selectedChats).toEqual([selectedChat])
     expect(storage.get(APP_SHELL_STATE_KEY)).toContain("messages-participant-11111111111111111111111111111111")
+  })
+
+  it("reloads a persisted concrete reference timezone without converting it to system", () => {
+    const storage = new Map<string, string>()
+    const initial = {
+      ...createDefaultAppShellState("America/Los_Angeles"),
+      config: {
+        ...createDefaultAppShellState("America/Los_Angeles").config,
+        referenceTimezone: "America/New_York"
+      }
+    } as const
+
+    saveAppShellState(initial, storage)
+    const reloaded = loadAppShellState(storage)
+
+    expect(reloaded.config.referenceTimezone).toBe("America/New_York")
+  })
+
+  it("reloads a persisted system reference timezone preference", () => {
+    const storage = new Map<string, string>()
+    const initial = createDefaultAppShellState("America/Los_Angeles")
+
+    saveAppShellState(initial, storage)
+    const reloaded = loadAppShellState(storage)
+
+    expect(reloaded.config.referenceTimezone).toBe("system")
   })
 
   it("keeps onboarding incomplete when discovery is not ready despite stale selections", () => {
