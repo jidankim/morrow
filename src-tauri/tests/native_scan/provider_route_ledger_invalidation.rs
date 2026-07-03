@@ -90,6 +90,28 @@ fn provider_route_ledger_invalidation() -> Result<(), String> {
 }
 
 #[test]
+fn provider_route_ledger_records_los_angeles_timezone_reference() -> Result<(), String> {
+    // Given
+    let fixture = ProviderRouteFixture::new()?;
+    let mut request = provider_route_request()?;
+    request.reference_timezone = "America/Los_Angeles".to_owned();
+    let provider = CountingProvider::new(CandidateProvider);
+    let adapter = RecordingProposalAdapter::default();
+    let recorder = morrow_diagnostics::NoopTraceRecorder;
+
+    // When
+    scan_provider_route(&fixture, request, &provider, &adapter, &recorder)?;
+
+    // Then
+    let dump = provider_route_outcome_dump(&fixture.store_path)?;
+    assert!(
+        dump.contains("2026-06-24T18:53:00[America/Los_Angeles]|America/Los_Angeles"),
+        "{dump}"
+    );
+    Ok(())
+}
+
+#[test]
 fn provider_route_ledger_contract_and_schema_mismatch_invalidates() -> Result<(), String> {
     // Given
     let contract_fixture = ProviderRouteFixture::new()?;

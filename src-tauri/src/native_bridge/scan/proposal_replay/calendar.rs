@@ -6,7 +6,11 @@ use morrow_storage::{
     CalendarProposalPayload, CandidateKind, ExternalObjectMapping, ExternalSource, QueuedProposal,
     Store,
 };
-use time::{format_description::well_known::Rfc3339, Date, Month, OffsetDateTime};
+use time::{
+    format_description::well_known::{Iso8601, Rfc3339},
+    OffsetDateTime, PrimitiveDateTime,
+};
+use time_tz::{timezones, OffsetResult, PrimitiveDateTimeExt};
 
 use super::{
     external_proposal_error, storage_error, ProposalReplayAdapter, ScanSelectedChatsError,
@@ -89,115 +93,28 @@ pub(super) fn proposed_event_from_payload(
 }
 
 fn parse_normalized_time(value: &str) -> Result<i64, ScanSelectedChatsError> {
-    let rfc3339 = match value.split_once('[') {
+    match value.split_once('[') {
         Some((local_time, timezone_with_bracket)) => {
             let timezone = timezone_with_bracket
                 .strip_suffix(']')
                 .ok_or_else(|| external_proposal_error("invalid normalized_time timezone"))?;
-            let local_datetime = OffsetDateTime::parse(&format!("{local_time}Z"), &Rfc3339)
-                .map_err(|error| {
+            let local_datetime =
+                PrimitiveDateTime::parse(local_time, &Iso8601::DEFAULT).map_err(|error| {
                     external_proposal_error(format!("invalid normalized_time: {error}"))
                 })?;
-            format!(
-                "{local_time}{}",
-                timezone_offset_designator(local_datetime, timezone)?
-            )
-        }
-        None => value.to_owned(),
-    };
-    OffsetDateTime::parse(&rfc3339, &Rfc3339)
-        .map(OffsetDateTime::unix_timestamp)
-        .map_err(|error| external_proposal_error(format!("invalid normalized_time: {error}")))
-}
-
-fn timezone_offset_designator(
-    local_datetime: OffsetDateTime,
-    timezone: &str,
-) -> Result<&'static str, ScanSelectedChatsError> {
-    match timezone {
-        "UTC" | "Etc/UTC" => Ok("Z"),
-        "Asia/Seoul" => Ok("+09:00"),
-        "America/New_York" => {
-            if is_new_york_daylight_time(local_datetime)? {
-                Ok("-04:00")
-            } else {
-                Ok("-05:00")
+            let timezone = timezones::get_by_name(timezone)
+                .ok_or_else(|| external_proposal_error("unsupported normalized_time timezone"))?;
+            match local_datetime.assume_timezone(timezone) {
+                OffsetResult::Some(datetime) => Ok(datetime.unix_timestamp()),
+                OffsetResult::Ambiguous(_, _) | OffsetResult::None => Err(external_proposal_error(
+                    "ambiguous or invalid normalized_time timezone",
+                )),
             }
         }
-        "Europe/London" => {
-            if is_london_summer_time(local_datetime)? {
-                Ok("+01:00")
-            } else {
-                Ok("Z")
-            }
-        }
-        _other => Err(external_proposal_error(
-            "unsupported normalized_time timezone",
-        )),
+        None => OffsetDateTime::parse(value, &Rfc3339)
+            .map(OffsetDateTime::unix_timestamp)
+            .map_err(|error| external_proposal_error(format!("invalid normalized_time: {error}"))),
     }
-}
-
-fn is_new_york_daylight_time(
-    local_datetime: OffsetDateTime,
-) -> Result<bool, ScanSelectedChatsError> {
-    let day = local_datetime.day();
-    let hour = local_datetime.hour();
-    match local_datetime.month() {
-        Month::April
-        | Month::May
-        | Month::June
-        | Month::July
-        | Month::August
-        | Month::September
-        | Month::October => Ok(true),
-        Month::January | Month::February | Month::December => Ok(false),
-        Month::March => {
-            let boundary = nth_sunday(local_datetime.year(), Month::March, 2)?;
-            Ok(day > boundary || (day == boundary && hour >= 3))
-        }
-        Month::November => {
-            let boundary = nth_sunday(local_datetime.year(), Month::November, 1)?;
-            Ok(day < boundary || (day == boundary && hour < 2))
-        }
-    }
-}
-
-fn is_london_summer_time(local_datetime: OffsetDateTime) -> Result<bool, ScanSelectedChatsError> {
-    let day = local_datetime.day();
-    let hour = local_datetime.hour();
-    match local_datetime.month() {
-        Month::April
-        | Month::May
-        | Month::June
-        | Month::July
-        | Month::August
-        | Month::September => Ok(true),
-        Month::January | Month::February | Month::November | Month::December => Ok(false),
-        Month::March => {
-            let boundary = last_sunday(local_datetime.year(), Month::March)?;
-            Ok(day > boundary || (day == boundary && hour >= 2))
-        }
-        Month::October => {
-            let boundary = last_sunday(local_datetime.year(), Month::October)?;
-            Ok(day < boundary || (day == boundary && hour < 2))
-        }
-    }
-}
-
-fn nth_sunday(year: i32, month: Month, ordinal: u8) -> Result<u8, ScanSelectedChatsError> {
-    let first = Date::from_calendar_date(year, month, 1).map_err(time_error)?;
-    let offset = (7 - first.weekday().number_days_from_sunday()) % 7;
-    Ok(1 + offset + 7 * (ordinal - 1))
-}
-
-fn last_sunday(year: i32, month: Month) -> Result<u8, ScanSelectedChatsError> {
-    let last_day = month.length(year);
-    let last = Date::from_calendar_date(year, month, last_day).map_err(time_error)?;
-    Ok(last_day - last.weekday().number_days_from_sunday())
-}
-
-fn time_error(error: time::error::ComponentRange) -> ScanSelectedChatsError {
-    external_proposal_error(format!("invalid normalized_time date: {error}"))
 }
 
 fn calendar_error(error: morrow_calendar::CalendarError) -> ScanSelectedChatsError {

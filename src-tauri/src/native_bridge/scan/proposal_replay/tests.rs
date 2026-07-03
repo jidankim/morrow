@@ -55,9 +55,13 @@ fn calendar_payload_converts_all_selectable_app_timezones() {
     let cases = [
         ("2026-07-15T14:00:00[America/New_York]", 1_784_138_400),
         ("2026-01-15T14:00:00[America/New_York]", 1_768_503_600),
+        ("2026-07-15T14:00:00[America/Los_Angeles]", 1_784_149_200),
+        ("2026-01-15T14:00:00[America/Los_Angeles]", 1_768_514_400),
         ("2026-07-15T14:00:00[Europe/London]", 1_784_120_400),
         ("2026-01-15T14:00:00[Europe/London]", 1_768_485_600),
+        ("2026-07-15T14:00:00[Asia/Tokyo]", 1_784_091_600),
         ("2026-07-15T14:00:00[UTC]", 1_784_124_000),
+        ("2026-07-15T14:00:00Z", 1_784_124_000),
     ];
 
     for (normalized_time, expected_start) in cases {
@@ -88,7 +92,7 @@ fn calendar_payload_rejects_malformed_normalized_time() {
 #[test]
 fn calendar_payload_rejects_unsupported_app_timezone_without_echoing_value() {
     // Given
-    let payload = calendar_payload("2026-07-15T14:00:00[America/Los_Angeles]");
+    let payload = calendar_payload("2026-07-15T14:00:00[Mars/Olympus_Mons]");
 
     // When
     let error = proposed_event_from_payload(&payload).expect_err("unsupported timezone rejects");
@@ -97,6 +101,24 @@ fn calendar_payload_rejects_unsupported_app_timezone_without_echoing_value() {
     match error {
         ScanSelectedChatsError::ExternalProposal(message) => {
             assert!(message.contains("unsupported normalized_time timezone"));
+            assert!(!message.contains("Mars/Olympus_Mons"));
+        }
+        other => panic!("unexpected error: {other}"),
+    }
+}
+
+#[test]
+fn calendar_payload_rejects_dst_boundary_timezone_without_guessing() {
+    // Given
+    let payload = calendar_payload("2026-03-08T02:30:00[America/Los_Angeles]");
+
+    // When
+    let error = proposed_event_from_payload(&payload).expect_err("dst gap rejects");
+
+    // Then
+    match error {
+        ScanSelectedChatsError::ExternalProposal(message) => {
+            assert!(message.contains("ambiguous or invalid normalized_time timezone"));
             assert!(!message.contains("America/Los_Angeles"));
         }
         other => panic!("unexpected error: {other}"),

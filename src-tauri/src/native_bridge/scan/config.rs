@@ -4,12 +4,11 @@ use morrow_detection::{
     ConfidenceThreshold, DetectionConfig, DetectionError, ProviderIdentity, ReferenceTime,
     SourceExcerptPolicy,
 };
-use time::{Date, Month, OffsetDateTime, UtcOffset};
+use time::OffsetDateTime;
+use time_tz::{timezones, OffsetDateTimeExt};
 
 use super::{ScanSelectedChatsError, ScanSelectedChatsRequest};
 
-const SUPPORTED_REFERENCE_TIMEZONES: &[&str] =
-    &["Asia/Seoul", "America/New_York", "Europe/London", "UTC"];
 const MIN_LOCAL_DIAGNOSTICS_RETENTION_DAYS: u16 = 1;
 const MAX_LOCAL_DIAGNOSTICS_RETENTION_DAYS: u16 = 365;
 
@@ -31,14 +30,6 @@ pub(super) fn scan_config(
     request: &ScanSelectedChatsRequest,
     reference_unix_seconds: i64,
 ) -> Result<ScanConfig, ScanSelectedChatsError> {
-    if !SUPPORTED_REFERENCE_TIMEZONES
-        .iter()
-        .any(|timezone| *timezone == request.reference_timezone)
-    {
-        return Err(ScanSelectedChatsError::Detection(
-            "unsupported reference timezone".to_owned(),
-        ));
-    }
     let reference_time =
         reference_time_string(reference_unix_seconds, &request.reference_timezone)?;
     let source_excerpts = source_excerpt_policy(request.source_excerpts_enabled);
@@ -92,7 +83,14 @@ fn reference_time_string(
     timezone: &str,
 ) -> Result<String, ScanSelectedChatsError> {
     let utc = OffsetDateTime::from_unix_timestamp(unix_seconds).map_err(time_error)?;
-    let local = utc.to_offset(timezone_offset(utc, timezone)?);
+    let local = if timezone == "UTC" {
+        utc
+    } else {
+        let timezone = timezones::get_by_name(timezone).ok_or_else(|| {
+            ScanSelectedChatsError::Detection("unsupported reference timezone".to_owned())
+        })?;
+        utc.to_timezone(timezone)
+    };
     Ok(format!(
         "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}",
         local.year(),
@@ -102,90 +100,6 @@ fn reference_time_string(
         local.minute(),
         local.second()
     ))
-}
-
-fn timezone_offset(
-    utc: OffsetDateTime,
-    timezone: &str,
-) -> Result<UtcOffset, ScanSelectedChatsError> {
-    match timezone {
-        "UTC" => offset_hours(0),
-        "Asia/Seoul" => offset_hours(9),
-        "America/New_York" => {
-            if new_york_daylight_time_utc(utc)? {
-                offset_hours(-4)
-            } else {
-                offset_hours(-5)
-            }
-        }
-        "Europe/London" => {
-            if london_summer_time_utc(utc)? {
-                offset_hours(1)
-            } else {
-                offset_hours(0)
-            }
-        }
-        _other => Err(ScanSelectedChatsError::Detection(
-            "unsupported reference timezone".to_owned(),
-        )),
-    }
-}
-
-fn offset_hours(hours: i8) -> Result<UtcOffset, ScanSelectedChatsError> {
-    UtcOffset::from_hms(hours, 0, 0).map_err(time_error)
-}
-
-fn new_york_daylight_time_utc(utc: OffsetDateTime) -> Result<bool, ScanSelectedChatsError> {
-    let year = utc.year();
-    let starts = utc_boundary(year, Month::March, nth_sunday(year, Month::March, 2)?, 7)?;
-    let ends = utc_boundary(
-        year,
-        Month::November,
-        nth_sunday(year, Month::November, 1)?,
-        6,
-    )?;
-    Ok(utc >= starts && utc < ends)
-}
-
-fn london_summer_time_utc(utc: OffsetDateTime) -> Result<bool, ScanSelectedChatsError> {
-    let year = utc.year();
-    let starts = utc_boundary(year, Month::March, last_sunday(year, Month::March)?, 1)?;
-    let ends = utc_boundary(year, Month::October, last_sunday(year, Month::October)?, 1)?;
-    Ok(utc >= starts && utc < ends)
-}
-
-fn utc_boundary(
-    year: i32,
-    month: Month,
-    day: u8,
-    hour: u8,
-) -> Result<OffsetDateTime, ScanSelectedChatsError> {
-    Date::from_calendar_date(year, month, day)
-        .and_then(|date| date.with_hms(hour, 0, 0))
-        .map(PrimitiveDateTimeExt::assume_utc_datetime)
-        .map_err(time_error)
-}
-
-trait PrimitiveDateTimeExt {
-    fn assume_utc_datetime(self) -> OffsetDateTime;
-}
-
-impl PrimitiveDateTimeExt for time::PrimitiveDateTime {
-    fn assume_utc_datetime(self) -> OffsetDateTime {
-        self.assume_utc()
-    }
-}
-
-fn nth_sunday(year: i32, month: Month, ordinal: u8) -> Result<u8, ScanSelectedChatsError> {
-    let first = Date::from_calendar_date(year, month, 1).map_err(time_error)?;
-    let offset = (7 - first.weekday().number_days_from_sunday()) % 7;
-    Ok(1 + offset + 7 * (ordinal - 1))
-}
-
-fn last_sunday(year: i32, month: Month) -> Result<u8, ScanSelectedChatsError> {
-    let last_day = month.length(year);
-    let last = Date::from_calendar_date(year, month, last_day).map_err(time_error)?;
-    Ok(last_day - last.weekday().number_days_from_sunday())
 }
 
 fn detection_error(error: DetectionError) -> ScanSelectedChatsError {

@@ -97,7 +97,7 @@ fn scan_selected_chats_rejects_unsupported_reference_timezone() -> Result<(), St
         1,
         0,
     )?;
-    request.reference_timezone = "America/Los_Angeles".to_owned();
+    request.reference_timezone = "Mars/Olympus_Mons".to_owned();
 
     // When
     let error = state
@@ -108,7 +108,7 @@ fn scan_selected_chats_rejects_unsupported_reference_timezone() -> Result<(), St
 
     // Then
     assert!(error.contains("unsupported reference timezone"), "{error}");
-    assert!(!error.contains("America/Los_Angeles"), "{error}");
+    assert!(!error.contains("Mars/Olympus_Mons"), "{error}");
     Ok(())
 }
 
