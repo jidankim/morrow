@@ -120,7 +120,7 @@ fn provider_route_cache_miss_stages_write_intent_and_calls_provider() -> Result<
     );
     assert_eq!(
         staged.provider_candidate_schema_version,
-        "provider-candidate-schema-v1"
+        "provider-candidate-schema-v2"
     );
     assert_eq!(staged.evidence_payload_hash, "hash-miss-1");
     assert_eq!(staged.provider_id, "fake-provider");

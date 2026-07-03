@@ -109,7 +109,7 @@ pub(super) fn write_intent(
     ProviderRouteWriteIntent {
         route_fingerprint: route_fingerprint.to_owned(),
         provider_route_contract_version: "provider-route-ledger-v1".to_owned(),
-        provider_candidate_schema_version: "provider-candidate-schema-v1".to_owned(),
+        provider_candidate_schema_version: "provider-candidate-schema-v2".to_owned(),
         evidence_payload_hash: evidence_payload_hash.to_owned(),
         provider_id: "fake-provider".to_owned(),
         model_id: "offline-contract".to_owned(),

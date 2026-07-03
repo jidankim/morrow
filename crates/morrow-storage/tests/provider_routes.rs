@@ -42,7 +42,7 @@ fn candidate_draft(route_fingerprint: &str) -> ProviderRouteOutcomeDraft {
     ProviderRouteOutcomeDraft {
         route_fingerprint: route_fingerprint.to_owned(),
         provider_route_contract_version: "provider-route-ledger-v1".to_owned(),
-        provider_candidate_schema_version: "provider-candidate-schema-v1".to_owned(),
+        provider_candidate_schema_version: "provider-candidate-schema-v2".to_owned(),
         evidence_payload_hash: "sha256:abc123".to_owned(),
         provider_id: "openai".to_owned(),
         model_id: "gpt-4.1-mini".to_owned(),
@@ -67,7 +67,7 @@ fn quiet_draft(route_fingerprint: &str) -> ProviderRouteOutcomeDraft {
     ProviderRouteOutcomeDraft {
         route_fingerprint: route_fingerprint.to_owned(),
         provider_route_contract_version: "provider-route-ledger-v1".to_owned(),
-        provider_candidate_schema_version: "provider-candidate-schema-v1".to_owned(),
+        provider_candidate_schema_version: "provider-candidate-schema-v2".to_owned(),
         evidence_payload_hash: "sha256:def456".to_owned(),
         provider_id: "openai".to_owned(),
         model_id: "gpt-4.1-mini".to_owned(),

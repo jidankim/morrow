@@ -3,9 +3,9 @@ use morrow_storage::{validate_normalized_time as storage_validate_normalized_tim
 use serde::Deserialize;
 use serde_json::{json, Value};
 
-use super::ProviderContractError;
+use super::{normalized_time_schema, ProviderContractError};
 
-pub(crate) const PROVIDER_CANDIDATE_SCHEMA_VERSION: &str = "provider-candidate-schema-v1";
+pub(crate) const PROVIDER_CANDIDATE_SCHEMA_VERSION: &str = "provider-candidate-schema-v2";
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -46,7 +46,7 @@ pub(crate) fn candidate_schema() -> Value {
             },
             "title": { "type": "string" },
             "confidence_millis": { "type": "integer", "minimum": 0, "maximum": 1000 },
-            "normalized_time": { "type": "string" },
+            "normalized_time": normalized_time_schema(),
             "anchor_evidence_id": { "type": "string" },
             "evidence_ids": {
                 "type": "array",

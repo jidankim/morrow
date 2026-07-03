@@ -148,7 +148,7 @@ fn provider_route_ledger_contract_and_schema_mismatch_invalidates() -> Result<()
     assert_eq!(schema_provider.calls(), 2);
     assert!(
         provider_route_outcome_dump(&schema_fixture.store_path)?
-            .contains("provider-candidate-schema-v1"),
+            .contains("provider-candidate-schema-v2"),
         "candidate schema version was not refreshed"
     );
     Ok(())
