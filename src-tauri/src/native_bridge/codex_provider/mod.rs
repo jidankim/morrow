@@ -28,8 +28,9 @@ impl<R: CodexExecRunner> CodexProvider<R> {
     pub fn extract_response(
         &self,
         evidence: &[MessageEvidence],
+        reference_timezone: &str,
     ) -> Result<ProviderResponse, CodexProviderError> {
-        let prompt = provider_prompt(evidence)?;
+        let prompt = provider_prompt(evidence, reference_timezone)?;
         let schema_text = serde_json::to_string(&provider_contract::candidate_schema())
             .map_err(|_| CodexProviderError::WorkspaceUnavailable)?;
         let workspace = CodexTempWorkspace::create()?;
@@ -54,20 +55,30 @@ impl<R: CodexExecRunner> CodexProvider<R> {
 
 impl<R: CodexExecRunner> AiProvider for CodexProvider<R> {
     fn extract(&self, request: ProviderRequest<'_>) -> Result<ProviderResponse, ProviderError> {
-        self.extract_response(request.evidence())
+        self.extract_response(request.evidence(), request.reference_timezone())
             .map_err(|error| ProviderError::Unavailable {
                 reason: error.to_string(),
             })
     }
 }
 
-fn provider_prompt(evidence: &[MessageEvidence]) -> Result<String, CodexProviderError> {
+fn provider_prompt(
+    evidence: &[MessageEvidence],
+    reference_timezone: &str,
+) -> Result<String, CodexProviderError> {
     let evidence_text = provider_contract::evidence_payload_text(evidence)?;
+    let configured_example = match reference_timezone {
+        "UTC" => "2026-07-03T15:30:00Z".to_owned(),
+        timezone => format!("2026-07-03T15:30:00[{timezone}]"),
+    };
     Ok(format!(
         "Return only one JSON object matching the supplied schema. Use only this redacted evidence payload. \
 For an explicit request to create, add, or schedule a calendar event with a date and time, set confidence_millis between 850 and 1000. \
 Use confidence_millis below 550 only when the evidence lacks calendar/reminder intent or lacks an inferable time. \
-Normalize month-name dates and AM/PM times to ISO-like local time.\n{evidence_text}"
+normalized_time contract: use exactly YYYY-MM-DDTHH:MM:SS[Area/Location] with the configured reference timezone or YYYY-MM-DDTHH:MM:SSZ for UTC. \
+Date and time fields are fixed-width; seconds are mandatory. Bracketed zones must be safe IANA-style zones. \
+Valid examples: {configured_example}, 2026-07-03T06:30:00Z. \
+Invalid examples: 2026-7-3T15:30Z, 2026-07-03T15:30, 2026-07-03 15:30:00, 2026-07-03T15:30:00+09:00, tomorrow at 3pm, 2026-07-03T15:30:00[Private/Prompt].\n{evidence_text}"
     ))
 }
 
@@ -91,12 +102,33 @@ mod tests {
         }];
 
         // When
-        let prompt = provider_prompt(&evidence).map_err(|error| error.to_string())?;
+        let prompt = provider_prompt(&evidence, "Asia/Seoul").map_err(|error| error.to_string())?;
 
         // Then
         assert!(prompt.contains("confidence_millis between 850 and 1000"));
         assert!(prompt.contains("below 550 only"));
-        assert!(prompt.contains("Normalize month-name dates and AM/PM times"));
+        assert!(prompt.contains("normalized_time contract"));
+        assert!(prompt.contains("YYYY-MM-DDTHH:MM:SS[Area/Location]"));
+        assert!(prompt.contains("YYYY-MM-DDTHH:MM:SSZ"));
+        assert!(prompt.contains("fixed-width"));
+        assert!(prompt.contains("seconds are mandatory"));
+        assert!(prompt.contains("safe IANA-style"));
+        assert!(prompt.contains("2026-07-03T15:30:00[Asia/Seoul]"));
+        assert!(prompt.contains("2026-07-03T06:30:00Z"));
+        for invalid in [
+            "2026-7-3T15:30Z",
+            "2026-07-03T15:30",
+            "2026-07-03 15:30:00",
+            "2026-07-03T15:30:00+09:00",
+            "tomorrow at 3pm",
+            "2026-07-03T15:30:00[Private/Prompt]",
+        ] {
+            assert!(
+                prompt.contains(invalid),
+                "missing invalid example {invalid}"
+            );
+        }
+        assert!(!prompt.contains("ISO-like local time"));
         assert!(prompt.contains("Morrow QA"));
         assert!(prompt.contains("evidence://selected/0"));
         assert!(!prompt.contains("msg-a"));

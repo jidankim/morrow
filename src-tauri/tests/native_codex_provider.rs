@@ -18,7 +18,7 @@ use support::codex_provider::{FakeCodexRunner, FakeOutcome};
 use support::provider::{candidate_json, config, message};
 
 #[test]
-fn codex_provider_invokes_exec_with_schema_and_isolated_cwd() -> Result<(), String> {
+fn native_codex_provider_invokes_exec_with_schema_and_isolated_cwd() -> Result<(), String> {
     // Given
     let runner = FakeCodexRunner::new(vec![FakeOutcome::WriteOutput(candidate_json().to_owned())]);
     let provider = CodexProvider::new(&runner);
@@ -30,7 +30,7 @@ fn codex_provider_invokes_exec_with_schema_and_isolated_cwd() -> Result<(), Stri
 
     // When
     provider
-        .extract_response(&evidence)
+        .extract_response(&evidence, "Asia/Seoul")
         .map_err(|error| error.to_string())?;
 
     // Then
@@ -107,7 +107,7 @@ fn codex_provider_invokes_exec_with_schema_and_isolated_cwd() -> Result<(), Stri
 }
 
 #[test]
-fn codex_provider_extracts_valid_candidate_json() -> Result<(), String> {
+fn native_codex_provider_extracts_valid_candidate_json() -> Result<(), String> {
     // Given
     let runner = FakeCodexRunner::new(vec![FakeOutcome::WriteOutput(candidate_json().to_owned())]);
     let provider = CodexProvider::new(&runner);
@@ -138,7 +138,7 @@ fn codex_provider_extracts_valid_candidate_json() -> Result<(), String> {
 }
 
 #[test]
-fn codex_provider_rejects_non_json_refusal_timeout_and_unknown_fields() -> Result<(), String> {
+fn native_codex_provider_rejects_invalid_provider_outputs() -> Result<(), String> {
     // Given
     let cases = [
         (
@@ -156,18 +156,6 @@ fn codex_provider_rejects_non_json_refusal_timeout_and_unknown_fields() -> Resul
                 &candidate_json()[1..candidate_json().len() - 1]
             )),
         ),
-        (
-            "raw_suffix_normalized_time",
-            FakeOutcome::WriteOutput(candidate_json_with_normalized_time(
-                "2026-06-26T15:00:00raw-suffix",
-            )),
-        ),
-        (
-            "private_zone_normalized_time",
-            FakeOutcome::WriteOutput(candidate_json_with_normalized_time(
-                "2026-06-26T15:00:00[private_clinic_visit]",
-            )),
-        ),
         ("missing_cli", FakeOutcome::MissingCli),
         ("timeout", FakeOutcome::Timeout),
     ];
@@ -177,11 +165,14 @@ fn codex_provider_rejects_non_json_refusal_timeout_and_unknown_fields() -> Resul
 
         // When
         let error = provider
-            .extract_response(&[message(
-                "chat-a",
-                "msg-ambiguous-1",
-                "Maybe meet tomorrow?",
-            )?])
+            .extract_response(
+                &[message(
+                    "chat-a",
+                    "msg-ambiguous-1",
+                    "Maybe meet tomorrow?",
+                )?],
+                "Asia/Seoul",
+            )
             .err()
             .ok_or_else(|| format!("{name}: extraction unexpectedly succeeded"))?;
 
@@ -200,10 +191,14 @@ fn candidate_json_with_normalized_time(normalized_time: &str) -> String {
 }
 
 #[test]
-fn codex_provider_rejects_malformed_normalized_time() -> Result<(), String> {
+fn native_codex_provider_rejects_malformed_normalized_time() -> Result<(), String> {
     for normalized_time in [
+        "2026-06-26T15:00:00",
+        "2026-06-26T15:00:00+09:00",
+        "2026-6-26T15:00:00Z",
         "2026-06-26T15:00:00raw-suffix",
         "2026-06-26T15:00:00[private_clinic_visit]",
+        "tomorrow at 3pm",
     ] {
         // Given
         let runner = FakeCodexRunner::new(vec![FakeOutcome::WriteOutput(
@@ -213,22 +208,27 @@ fn codex_provider_rejects_malformed_normalized_time() -> Result<(), String> {
 
         // When
         let error = provider
-            .extract_response(&[message(
-                "chat-a",
-                "msg-ambiguous-1",
-                "Maybe meet tomorrow?",
-            )?])
+            .extract_response(
+                &[message(
+                    "chat-a",
+                    "msg-ambiguous-1",
+                    "Maybe meet tomorrow?",
+                )?],
+                "Asia/Seoul",
+            )
             .err()
             .ok_or_else(|| format!("{normalized_time}: extraction unexpectedly succeeded"))?;
 
         // Then
-        assert!(error.to_string().contains("provider"));
+        assert!(error
+            .to_string()
+            .contains("candidate normalized_time was invalid"));
     }
     Ok(())
 }
 
 #[test]
-fn codex_provider_redacts_command_errors() -> Result<(), String> {
+fn native_codex_provider_redacts_command_errors() -> Result<(), String> {
     // Given
     let runner = FakeCodexRunner::new(vec![FakeOutcome::Completed(CodexCommandOutput::new(
         Some(1),
@@ -238,11 +238,14 @@ fn codex_provider_redacts_command_errors() -> Result<(), String> {
     let provider = CodexProvider::new(&runner);
 
     // When
-    let error = provider.extract_response(&[message(
-        "chat-secret",
-        "msg-ambiguous-1",
-        "raw prompt evidence with sk-secret-prompt",
-    )?]);
+    let error = provider.extract_response(
+        &[message(
+            "chat-secret",
+            "msg-ambiguous-1",
+            "raw prompt evidence with sk-secret-prompt",
+        )?],
+        "Asia/Seoul",
+    );
 
     // Then
     let provider_error = match error {

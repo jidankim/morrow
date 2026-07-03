@@ -1790,6 +1790,7 @@ dependencies = [
  "morrow-diagnostics",
  "morrow-messages",
  "morrow-storage",
+ "regex",
  "reqwest",
  "security-framework 2.11.1",
  "security-framework-sys",
