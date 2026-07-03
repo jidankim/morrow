@@ -172,6 +172,7 @@ fn quiet_logs_expire_after_thirty_days_and_reject_full_message_payloads() {
             anchor_message_guid: "quiet-msg".to_owned(),
             reason: "low confidence".to_owned(),
             excerpt: "maybe coffee next week".to_owned(),
+            provider_diagnostic: None,
             created_at,
         })
         .expect("quiet log");
@@ -184,6 +185,7 @@ fn quiet_logs_expire_after_thirty_days_and_reject_full_message_payloads() {
             reason: "privacy probe".to_owned(),
             excerpt: "From: Alice\nTo: Bob\nDate: 2026-07-01\n\nCan you send the full thread?"
                 .to_owned(),
+            provider_diagnostic: None,
             created_at,
         })
         .expect_err("full message rejected");

@@ -60,6 +60,7 @@ fn main() -> Result<(), StorageError> {
         anchor_message_guid: "smoke-message-quiet".to_owned(),
         reason: "low confidence".to_owned(),
         excerpt: "maybe sometime next week".to_owned(),
+        provider_diagnostic: None,
         created_at: 1_784_000_000,
     })?;
     let rejected_full_message = restarted
@@ -68,6 +69,7 @@ fn main() -> Result<(), StorageError> {
             anchor_message_guid: "smoke-message-full".to_owned(),
             reason: "privacy smoke".to_owned(),
             excerpt: "From: Alice\nTo: Bob\nDate: 2026-07-20\n\nfull thread".to_owned(),
+            provider_diagnostic: None,
             created_at: 1_784_000_000,
         })
         .is_err();

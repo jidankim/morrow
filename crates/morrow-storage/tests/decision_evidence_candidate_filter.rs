@@ -128,6 +128,7 @@ fn record_recent_quiet_evidence(store: &morrow_storage::Store) {
             anchor_message_guid: "message-guid-private".to_owned(),
             reason: "provider_unavailable".to_owned(),
             excerpt: "Source excerpt hidden by settings.".to_owned(),
+            provider_diagnostic: None,
             created_at: 1_783_000_500,
         })
         .expect("record quiet log");

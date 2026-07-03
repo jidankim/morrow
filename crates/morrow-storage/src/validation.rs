@@ -60,7 +60,8 @@ pub(crate) fn validate_quiet_log(draft: &QuietLogDraft) -> Result<(), StorageErr
     validate_text("chat_guid", &draft.chat_guid, 240)?;
     validate_text("anchor_message_guid", &draft.anchor_message_guid, 240)?;
     validate_text("reason", &draft.reason, 240)?;
-    validate_excerpt(&draft.excerpt)
+    validate_excerpt(&draft.excerpt)?;
+    validate_optional_provider_diagnostic(draft.provider_diagnostic.as_deref())
 }
 
 pub(crate) fn validate_mapping(mapping: &ExternalObjectMapping) -> Result<(), StorageError> {
@@ -107,5 +108,12 @@ fn validate_excerpt(value: &str) -> Result<(), StorageError> {
         })
     } else {
         Ok(())
+    }
+}
+
+fn validate_optional_provider_diagnostic(value: Option<&str>) -> Result<(), StorageError> {
+    match value {
+        Some(value) => validate_text("provider_diagnostic", value, 240),
+        None => Ok(()),
     }
 }

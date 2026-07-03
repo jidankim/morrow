@@ -94,6 +94,17 @@ fn decision_evidence_summarizes_quiet_trace_linkage() {
             anchor_message_guid: "message-guid-private".to_owned(),
             reason: "provider_unavailable".to_owned(),
             excerpt: "Source excerpt hidden by settings.".to_owned(),
+            provider_diagnostic: Some("stale provider diagnostic".to_owned()),
+            created_at: 1_782_999_999,
+        })
+        .expect("record stale quiet log");
+    store
+        .record_quiet_log(QuietLogDraft {
+            chat_guid: "chat-guid-private".to_owned(),
+            anchor_message_guid: "message-guid-private".to_owned(),
+            reason: "provider_unavailable".to_owned(),
+            excerpt: "Source excerpt hidden by settings.".to_owned(),
+            provider_diagnostic: Some("codex provider command timed out".to_owned()),
             created_at: 1_783_000_000,
         })
         .expect("record quiet log");
@@ -105,7 +116,7 @@ fn decision_evidence_summarizes_quiet_trace_linkage() {
     );
     let mut quiet_snapshot = snapshot("quiet-snapshot", FeedbackSubjectType::QuietLog, subject_id);
     quiet_snapshot.route = Some("provider_unavailable".to_owned());
-    quiet_snapshot.reason_code = Some("provider_timeout".to_owned());
+    quiet_snapshot.reason_code = Some("provider_unavailable".to_owned());
     quiet_snapshot.confidence_millis = None;
 
     // When
@@ -126,7 +137,11 @@ fn decision_evidence_summarizes_quiet_trace_linkage() {
     assert!(summary.candidate_state.is_none());
     assert!(summary.candidate_kind.is_none());
     assert_eq!(summary.route.as_deref(), Some("provider_unavailable"));
-    assert_eq!(summary.reason_code.as_deref(), Some("provider_timeout"));
+    assert_eq!(summary.reason_code.as_deref(), Some("provider_unavailable"));
+    assert_eq!(
+        summary.provider_diagnostic.as_deref(),
+        Some("codex provider command timed out")
+    );
     assert_eq!(summary.confidence_millis, None);
     assert_eq!(summary.label_type, FeedbackLabelType::SystemOutcome);
     assert_eq!(

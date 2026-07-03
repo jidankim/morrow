@@ -63,8 +63,39 @@ fn migrations_record_versions_when_opening_fresh_database() {
             vec!["3".to_owned(), "provider_route_outcomes".to_owned(),],
             vec!["4".to_owned(), "sync_scheduler_state".to_owned(),],
             vec!["5".to_owned(), "sync_scheduler_custom_interval".to_owned(),],
+            vec!["6".to_owned(), "quiet_log_provider_diagnostic".to_owned(),],
         ]
     );
+}
+
+#[test]
+fn quiet_log_schema_accepts_nullable_provider_diagnostic_without_snapshot_columns() {
+    // Given: a fresh SQLite path opened through Store migrations.
+    let dir = tempfile::tempdir().expect("tempdir");
+    let db_path = dir.path().join("quiet-log-provider-diagnostic.sqlite");
+    let _store = Store::open(&db_path).expect("open store");
+
+    // When: the quiet log and evidence-adjacent schemas are inspected.
+    let quiet_log_columns = column_names(&db_path, "quiet_logs");
+    let snapshot_columns = column_names(&db_path, "feature_snapshots");
+    let label_columns = column_names(&db_path, "labels");
+    let feedback_event_columns = column_names(&db_path, "feedback_events");
+    let rows = sqlite_rows(
+        &db_path,
+        "INSERT INTO quiet_logs
+         (chat_guid, anchor_message_guid, reason, excerpt, created_at, expires_at)
+         VALUES
+         ('chat-guid-private', 'message-guid-private', 'provider_unavailable',
+          'Source excerpt hidden by settings.', 1783000000, 1785592000);
+         SELECT provider_diagnostic IS NULL FROM quiet_logs;",
+    );
+
+    // Then: version 6 adds only nullable quiet-log metadata and old-style rows read back.
+    assert!(quiet_log_columns.contains("provider_diagnostic"));
+    assert!(!snapshot_columns.contains("provider_diagnostic"));
+    assert!(!label_columns.contains("provider_diagnostic"));
+    assert!(!feedback_event_columns.contains("provider_diagnostic"));
+    assert_eq!(rows, vec![vec!["1".to_owned()]]);
 }
 
 #[test]
@@ -216,4 +247,11 @@ fn feedback_eval_schema_requires_new_tables() -> Result<(), String> {
 
     // Then: the feedback/eval tables, migration rows, constraints, and column guards hold.
     assert_feedback_eval_schema(&db_path, &table_set)
+}
+
+fn column_names(db_path: &std::path::Path, table: &str) -> BTreeSet<String> {
+    sqlite_rows(db_path, &format!("PRAGMA table_info({table});"))
+        .into_iter()
+        .filter_map(|row| row.get(1).cloned())
+        .collect()
 }

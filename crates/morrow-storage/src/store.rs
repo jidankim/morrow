@@ -1,7 +1,4 @@
-use std::{fs, path::Path};
-
 use crate::ids::CandidateId;
-use crate::migrations::{record_migration_sql, MIGRATIONS};
 use crate::privacy::summarize_privacy;
 use crate::sqlite_cli::{row_value, sql_text, Sqlite};
 use crate::types::{
@@ -32,21 +29,6 @@ pub struct Store {
 }
 
 impl Store {
-    pub fn open(db_path: &Path) -> Result<Self, StorageError> {
-        if let Some(parent) = db_path.parent().filter(|path| !path.as_os_str().is_empty()) {
-            fs::create_dir_all(parent)?;
-        }
-        let store = Self {
-            sqlite: Sqlite::new(db_path),
-            db_path: db_path.to_path_buf(),
-        };
-        for migration in MIGRATIONS {
-            store.sqlite.execute(migration.sql)?;
-            store.sqlite.execute(&record_migration_sql(migration)?)?;
-        }
-        Ok(store)
-    }
-
     pub fn table_names(&self) -> Result<Vec<String>, StorageError> {
         self.sqlite.query_first_column(
             "SELECT name FROM sqlite_schema WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name;",
@@ -145,12 +127,18 @@ impl Store {
         let expires_at = draft.created_at + QUIET_LOG_RETENTION_SECONDS;
         let sql = format!(
             "INSERT INTO quiet_logs
-             (chat_guid, anchor_message_guid, reason, excerpt, created_at, expires_at)
-             VALUES ({chat}, {message}, {reason}, {excerpt}, {created_at}, {expires_at});",
+             (chat_guid, anchor_message_guid, reason, excerpt, provider_diagnostic, created_at, expires_at)
+             VALUES ({chat}, {message}, {reason}, {excerpt}, {provider_diagnostic}, {created_at}, {expires_at});",
             chat = sql_text(&draft.chat_guid)?,
             message = sql_text(&draft.anchor_message_guid)?,
             reason = sql_text(&draft.reason)?,
             excerpt = sql_text(&draft.excerpt)?,
+            provider_diagnostic = draft
+                .provider_diagnostic
+                .as_deref()
+                .map(sql_text)
+                .transpose()?
+                .unwrap_or_else(|| "NULL".to_owned()),
             created_at = draft.created_at,
         );
         self.sqlite.execute(&sql)

@@ -35,6 +35,7 @@ pub struct DecisionEvidenceSummary {
     pub diagnostics_span_id: Option<String>,
     pub diagnostics_chat_hash_present: bool,
     pub diagnostics_message_hash_present: bool,
+    pub provider_diagnostic: Option<String>,
     pub created_at: i64,
     pub trace_retention: DecisionEvidenceTraceRetention,
 }
@@ -90,7 +91,19 @@ fn decision_evidence_sql(extra_filter: &str, limit: usize) -> String {
            s.route, s.reason_code, s.confidence_millis, l.label_type, l.label_value,
            s.source_excerpt_policy, s.privacy_tier, s.diagnostics_trace_id,
            s.diagnostics_span_id, s.diagnostics_chat_hash IS NOT NULL,
-           s.diagnostics_message_hash IS NOT NULL, s.created_at
+           s.diagnostics_message_hash IS NOT NULL,
+           (
+             SELECT q.provider_diagnostic
+             FROM quiet_logs q
+             WHERE s.subject_type = 'quiet_log'
+               AND q.chat_guid = s.chat_guid
+               AND q.anchor_message_guid = s.anchor_message_guid
+               AND q.reason = s.reason_code
+               AND q.provider_diagnostic IS NOT NULL
+             ORDER BY q.created_at DESC, q.id DESC
+             LIMIT 1
+           ),
+           s.created_at
          FROM feature_snapshots s
          JOIN labels l
            ON l.id = (
@@ -137,7 +150,8 @@ fn row_to_summary(row: Vec<String>) -> Result<DecisionEvidenceSummary, StorageEr
         diagnostics_span_id: optional_cell(row_value(&row, 13, "snapshot.diagnostics_span_id")?),
         diagnostics_chat_hash_present: row_bool(&row, 14, "diagnostics_chat_hash_present")?,
         diagnostics_message_hash_present: row_bool(&row, 15, "diagnostics_message_hash_present")?,
-        created_at: row_i64(&row, 16, "snapshot.created_at")?,
+        provider_diagnostic: optional_cell(row_value(&row, 16, "quiet_log.provider_diagnostic")?),
+        created_at: row_i64(&row, 17, "snapshot.created_at")?,
         trace_retention: DecisionEvidenceTraceRetention::NotChecked,
     })
 }

@@ -1,9 +1,47 @@
 mod support;
 
 use morrow_storage::{
-    FeedbackLabelValue, FeedbackSubjectType, ProposalOutcomeLabel, StorageError, SystemOutcomeLabel,
+    FeedbackLabelValue, FeedbackSubjectType, ProposalOutcomeLabel, QuietLogDraft, StorageError,
+    SystemOutcomeLabel,
 };
 use support::decision_evidence::{fresh_store, label, snapshot};
+
+#[test]
+fn decision_evidence_provider_diagnostic_rejects_malformed_input() {
+    // Given
+    let malformed_inputs = [
+        Some(""),
+        Some(
+            "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz",
+        ),
+        Some("codex provider command timed out\u{1f}"),
+    ];
+
+    for provider_diagnostic in malformed_inputs {
+        let (_dir, store) = fresh_store("decision-evidence-bad-provider-diagnostic.sqlite");
+        let draft = QuietLogDraft {
+            chat_guid: "chat-guid-private".to_owned(),
+            anchor_message_guid: "message-guid-private".to_owned(),
+            reason: "provider_unavailable".to_owned(),
+            excerpt: "Source excerpt hidden by settings.".to_owned(),
+            provider_diagnostic: provider_diagnostic.map(str::to_owned),
+            created_at: 1_783_000_000,
+        };
+
+        // When
+        let error = store
+            .record_quiet_log(draft)
+            .expect_err("malformed provider diagnostic should be rejected");
+
+        // Then
+        match error {
+            StorageError::InvalidInput { field, .. } => {
+                assert_eq!(field, "provider_diagnostic");
+            }
+            other => panic!("expected invalid provider diagnostic, got {other}"),
+        }
+    }
+}
 
 #[test]
 fn decision_evidence_malformed_diagnostics_rejected_by_existing_validator() {

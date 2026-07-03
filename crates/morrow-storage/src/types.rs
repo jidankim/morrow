@@ -155,6 +155,7 @@ pub struct QuietLogDraft {
     pub anchor_message_guid: String,
     pub reason: String,
     pub excerpt: String,
+    pub provider_diagnostic: Option<String>,
     pub created_at: i64,
 }
 
