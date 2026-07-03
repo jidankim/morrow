@@ -80,12 +80,31 @@ pub(crate) fn quiet(
     reason: &'static str,
     source_excerpts: SourceExcerptPolicy,
 ) -> DetectionOutcome {
+    quiet_metadata(anchor, reason, None, source_excerpts)
+}
+
+pub(crate) fn quiet_with_provider_diagnostic(
+    anchor: &MessageEvidence,
+    reason: &'static str,
+    provider_diagnostic: String,
+    source_excerpts: SourceExcerptPolicy,
+) -> DetectionOutcome {
+    quiet_metadata(anchor, reason, Some(provider_diagnostic), source_excerpts)
+}
+
+fn quiet_metadata(
+    anchor: &MessageEvidence,
+    reason: &'static str,
+    provider_diagnostic: Option<String>,
+    source_excerpts: SourceExcerptPolicy,
+) -> DetectionOutcome {
     DetectionOutcome::QuietLog(QuietLogDraft {
         chat_guid: anchor.chat_guid.as_str().to_owned(),
         anchor_message_guid: anchor.message_guid.as_str().to_owned(),
         reason: reason.to_owned(),
         excerpt: excerpt_for_policy(&anchor.excerpt, source_excerpts),
         created_at: anchor.timestamp.as_i64(),
+        provider_diagnostic,
     })
 }
 

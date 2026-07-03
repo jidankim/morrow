@@ -37,12 +37,30 @@ fn trace_records_provider_unavailable_matches_default_paths() -> Result<(), Box<
         "provider_unavailable"
     );
     assert_eq!(
+        only_quiet(&traced_report.outcomes)?
+            .provider_diagnostic
+            .as_deref(),
+        Some("network offline")
+    );
+    assert_eq!(
         only_quiet(&default_report.outcomes)?.reason,
         "provider_unavailable"
     );
     assert_eq!(
+        only_quiet(&default_report.outcomes)?
+            .provider_diagnostic
+            .as_deref(),
+        Some("network offline")
+    );
+    assert_eq!(
         only_quiet(&noop_report.outcomes)?.reason,
         "provider_unavailable"
+    );
+    assert_eq!(
+        only_quiet(&noop_report.outcomes)?
+            .provider_diagnostic
+            .as_deref(),
+        Some("network offline")
     );
     assert_eq!(traced_provider.calls(), 1);
     assert_eq!(default_provider.calls(), traced_provider.calls());

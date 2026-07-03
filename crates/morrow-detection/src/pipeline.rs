@@ -2,10 +2,11 @@ use morrow_diagnostics::{NoopTraceRecorder, TraceRecorder};
 use morrow_messages::MessageEvidence;
 
 use crate::outcome::{
-    candidate_from_parsed, candidate_from_provider, quiet, DetectionOutcome, DetectionReport,
+    candidate_from_parsed, candidate_from_provider, quiet, quiet_with_provider_diagnostic,
+    DetectionOutcome, DetectionReport,
 };
 use crate::parser::{classify, GateDecision};
-use crate::provider::{AiProvider, ProviderRequest};
+use crate::provider::{AiProvider, ProviderError, ProviderRequest};
 use crate::provider_route_cache::{
     NoopProviderRouteCache, NoopProviderRouteCacheError, ProviderRouteCache, ProviderRouteDecision,
     ProviderRouteRequest as CacheRequest, ProviderRouteWriteIntent,
@@ -164,9 +165,14 @@ impl<'a, P: AiProvider> DetectionPipeline<'a, P> {
                 trace.provider_extract_success(config);
                 response
             }
-            Err(_) => {
+            Err(ProviderError::Unavailable { reason }) => {
                 trace.provider_unavailable(config);
-                let outcome = quiet(message, "provider_unavailable", config.source_excerpts);
+                let outcome = quiet_with_provider_diagnostic(
+                    message,
+                    "provider_unavailable",
+                    reason,
+                    config.source_excerpts,
+                );
                 trace.outcome_materialized(&outcome, config.source_excerpts);
                 return DetectionStep::new(outcome, None);
             }

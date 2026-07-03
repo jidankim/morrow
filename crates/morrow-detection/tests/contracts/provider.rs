@@ -43,6 +43,12 @@ fn confidence_thresholds_are_explicit() -> Result<(), Box<dyn Error>> {
         only_quiet(&low_report.outcomes)?.reason,
         "confidence_below_threshold"
     );
+    assert_eq!(
+        only_quiet(&low_report.outcomes)?
+            .provider_diagnostic
+            .as_deref(),
+        None
+    );
 
     // Given
     let meeting_threshold = FakeProvider::new(Some(
@@ -186,6 +192,10 @@ fn provider_failure_is_quiet_logged_without_successful_candidate() -> Result<(),
     // Then
     let quiet = only_quiet(&report.outcomes)?;
     assert_eq!(quiet.reason, "provider_unavailable");
+    assert_eq!(
+        quiet.provider_diagnostic.as_deref(),
+        Some("network offline")
+    );
     assert_eq!(report.candidates().count(), 0);
     Ok(())
 }
