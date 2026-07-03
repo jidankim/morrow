@@ -157,10 +157,11 @@ impl<'a, P: AiProvider> DetectionPipeline<'a, P> {
     ) -> DetectionStep {
         let evidence = std::slice::from_ref(message);
         trace.provider_route(config);
-        let response = match self
-            .provider
-            .extract(ProviderRequest::new(evidence, &config.provider))
-        {
+        let response = match self.provider.extract(ProviderRequest::new(
+            evidence,
+            &config.provider,
+            &config.reference.timezone,
+        )) {
             Ok(response) => {
                 trace.provider_extract_success(config);
                 response

@@ -54,6 +54,9 @@ fn trace_records_provider_success_threshold_and_privacy_state() -> Result<(), Bo
         &[
             "MORROW_PROVIDER_TITLE_CANARY_FULL",
             "MORROW_MESSAGE_CANARY",
+            "chat-1",
+            "msg-ambiguous-1",
+            "messages://chat-1/msg-ambiguous-1",
             "raw_title",
             "title_text",
             "full_title",

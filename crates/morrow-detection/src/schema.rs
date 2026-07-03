@@ -1,5 +1,5 @@
 use morrow_messages::MessageEvidence;
-use morrow_storage::CandidateKind;
+use morrow_storage::{validate_normalized_time as storage_validate_normalized_time, CandidateKind};
 use serde::Deserialize;
 
 use crate::parser::ParsedCandidate;
@@ -55,6 +55,8 @@ pub(crate) fn parse_provider_candidate(
     {
         return Err(SchemaRejection::InvalidSchema);
     }
+    storage_validate_normalized_time(&payload.normalized_time)
+        .map_err(|_| SchemaRejection::InvalidSchema)?;
     let provider_time = CivilDateTime::parse_normalized(&payload.normalized_time)
         .map_err(|_| SchemaRejection::InvalidSchema)?;
     if provider_time <= config.reference.observed {
@@ -71,8 +73,6 @@ pub(crate) fn parse_provider_candidate(
     if parser_time.is_some_and(|time| time != provider_time) {
         return Err(SchemaRejection::ParserConflict);
     }
-    let normalized_time =
-        provider_normalized_time(&payload.normalized_time, provider_time, config)?;
     Ok(ProviderCandidate {
         parsed: ParsedCandidate {
             kind,
@@ -80,26 +80,9 @@ pub(crate) fn parse_provider_candidate(
             confidence_millis: payload.confidence_millis,
         },
         title: payload.title,
-        normalized_time,
+        normalized_time: payload.normalized_time,
         anchor_message_guid: payload.anchor_message_guid,
     })
-}
-
-fn provider_normalized_time(
-    raw: &str,
-    provider_time: CivilDateTime,
-    config: &DetectionConfig,
-) -> Result<String, SchemaRejection> {
-    if raw.contains('[') {
-        if raw.ends_with(']') {
-            return Ok(raw.to_owned());
-        }
-        return Err(SchemaRejection::InvalidSchema);
-    }
-    if raw.ends_with('Z') {
-        return Ok(raw.to_owned());
-    }
-    Ok(provider_time.normalized(&config.reference.timezone))
 }
 
 fn parse_kind(raw: &str) -> Result<CandidateKind, SchemaRejection> {

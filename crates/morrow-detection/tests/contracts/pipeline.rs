@@ -145,7 +145,7 @@ fn calendar_event_creation_wording_routes_to_provider() -> Result<(), Box<dyn Er
     let provider = FakeProvider::new(Some(
         "{\"kind\":\"calendar_event\",\"title\":\"Morrow QA\",\
          \"confidence_millis\":820,\
-         \"normalized_time\":\"2026-07-02T15:30:00\",\
+         \"normalized_time\":\"2026-07-02T15:30:00[Asia/Seoul]\",\
          \"anchor_message_guid\":\"msg-calendar-event-1\",\
          \"evidence_message_guids\":[\"msg-calendar-event-1\"]}",
     ));

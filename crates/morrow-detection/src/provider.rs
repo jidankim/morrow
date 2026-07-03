@@ -10,14 +10,20 @@ pub trait AiProvider {
 pub struct ProviderRequest<'a> {
     evidence: &'a [MessageEvidence],
     identity: &'a ProviderIdentity,
+    reference_timezone: &'a str,
 }
 
 impl<'a> ProviderRequest<'a> {
     pub(crate) const fn new(
         evidence: &'a [MessageEvidence],
         identity: &'a ProviderIdentity,
+        reference_timezone: &'a str,
     ) -> Self {
-        Self { evidence, identity }
+        Self {
+            evidence,
+            identity,
+            reference_timezone,
+        }
     }
 
     pub const fn evidence(&self) -> &'a [MessageEvidence] {
@@ -26,6 +32,10 @@ impl<'a> ProviderRequest<'a> {
 
     pub const fn identity(&self) -> &'a ProviderIdentity {
         self.identity
+    }
+
+    pub const fn reference_timezone(&self) -> &'a str {
+        self.reference_timezone
     }
 }
 
