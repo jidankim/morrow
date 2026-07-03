@@ -35,6 +35,7 @@ const decisionEvidenceItemSchema = z
     candidateKind: optionalNativeStringSchema,
     route: optionalNativeStringSchema,
     reasonCode: optionalNativeStringSchema,
+    providerDiagnostic: optionalNativeStringSchema,
     confidenceMillis: z.union([z.number().int().min(0), z.null()]).optional().transform((value) => value ?? undefined),
     labelType: z.string().min(1),
     labelValue: z.string().min(1),
@@ -76,6 +77,7 @@ export type DecisionEvidenceItem = {
   readonly candidateKind?: string | undefined
   readonly route?: string | undefined
   readonly reasonCode?: string | undefined
+  readonly providerDiagnostic?: string | undefined
   readonly confidenceMillis?: number | undefined
   readonly labelType: string
   readonly labelValue: string

@@ -136,7 +136,8 @@ function createVisualSyncSchedulerAppState(): AppShellState {
         {
           subjectType: "quietLog",
           route: "provider",
-          reasonCode: "no_actionable_time",
+          reasonCode: "provider_unavailable",
+          providerDiagnostic: "codex provider command timed out",
           labelType: "quiet",
           labelValue: "rejected",
           sourceExcerptPolicy: "disabled",

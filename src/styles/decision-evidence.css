@@ -121,6 +121,14 @@
   word-break: break-word;
 }
 
+.decision-evidence-provider-diagnostic {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
 .decision-evidence-sequence {
   margin: 0;
   color: var(--text-secondary);

@@ -11,6 +11,7 @@ import {
   type DiscoveredChat,
   type SelectedChat
 } from "./domain/appShell"
+import { decisionEvidenceReportSchema } from "./domain/decisionEvidence"
 import { createDefaultSyncSchedulerState } from "./domain/syncScheduler"
 
 const nowUnixSeconds = 1_783_000_000
@@ -54,7 +55,8 @@ describe("StatusView decision evidence", () => {
           {
             subjectType: "quietLog",
             route: "provider",
-            reasonCode: "no_actionable_time",
+            reasonCode: "provider_unavailable",
+            providerDiagnostic: "codex provider command timed out",
             labelType: "quiet",
             labelValue: "rejected",
             sourceExcerptPolicy: "disabled",
@@ -88,7 +90,8 @@ describe("StatusView decision evidence", () => {
     expect(screen.getByText("Trace retained")).toBeInTheDocument()
     expect(screen.getByText("Trace not retained")).toBeInTheDocument()
     expect(screen.getByText("provider / accepted_for_calendar")).toBeInTheDocument()
-    expect(screen.getByText("provider / no_actionable_time")).toBeInTheDocument()
+    expect(screen.getByText("provider / provider_unavailable")).toBeInTheDocument()
+    expect(screen.getByText("codex provider command timed out")).toBeInTheDocument()
     expect(screen.getByText("Confidence 842 ms")).toBeInTheDocument()
     expect(screen.getByLabelText(`Candidate ID ${candidateId}`)).toHaveTextContent(`ID${candidateId}`)
     expect(screen.getByText("candidate: created · Eval needs review")).toBeInTheDocument()
@@ -100,6 +103,27 @@ describe("StatusView decision evidence", () => {
       throw new Error("Quiet decision evidence row was not rendered")
     }
     expect(within(quietRow).queryByLabelText(/Candidate ID/u)).not.toBeInTheDocument()
+  })
+
+  it("normalizes optional provider diagnostics at the native schema boundary", () => {
+    // Given
+    const reportWithDiagnostic = decisionEvidenceReport({
+      providerDiagnostic: "codex provider command timed out"
+    })
+    const reportWithNullDiagnostic = decisionEvidenceReport({ providerDiagnostic: null })
+    const reportWithoutDiagnostic = decisionEvidenceReport({})
+    const reportWithEmptyDiagnostic = decisionEvidenceReport({ providerDiagnostic: "" })
+
+    // When
+    const parsedWithDiagnostic = decisionEvidenceReportSchema.parse(reportWithDiagnostic)
+    const parsedWithNullDiagnostic = decisionEvidenceReportSchema.parse(reportWithNullDiagnostic)
+    const parsedWithoutDiagnostic = decisionEvidenceReportSchema.parse(reportWithoutDiagnostic)
+
+    // Then
+    expect(parsedWithDiagnostic.items[0]?.providerDiagnostic).toBe("codex provider command timed out")
+    expect(parsedWithNullDiagnostic.items[0]?.providerDiagnostic).toBeUndefined()
+    expect(parsedWithoutDiagnostic.items[0]?.providerDiagnostic).toBeUndefined()
+    expect(() => decisionEvidenceReportSchema.parse(reportWithEmptyDiagnostic)).toThrow()
   })
 
   it("renders compact empty and loading states without raw private field names", () => {
@@ -189,6 +213,46 @@ function readyState(overrides: Partial<AppShellState> = {}): AppShellState {
     discovery: { status: "ready", chats: [chat] },
     providerCredentialStatus: "configured",
     selectedChats: [selectedChat]
+  }
+}
+
+function decisionEvidenceReport({
+  providerDiagnostic
+}: {
+  readonly providerDiagnostic?: string | null | undefined
+}) {
+  const item =
+    providerDiagnostic === undefined
+      ? decisionEvidenceItem()
+      : decisionEvidenceItem({ providerDiagnostic })
+  return {
+    items: [item],
+    skippedTraceLineCount: 0,
+    latestEvalStatus: "needs_review"
+  }
+}
+
+function decisionEvidenceItem(extraFields: Record<string, string | null> = {}) {
+  return {
+    subjectType: "quietLog",
+    route: "provider",
+    reasonCode: "provider_unavailable",
+    labelType: "quiet",
+    labelValue: "rejected",
+    sourceExcerptPolicy: "disabled",
+    privacyTier: "safe",
+    hasDiagnosticsHashes: false,
+    createdAt: nowUnixSeconds - 30,
+    traceRetention: "traceMissing",
+    traceSequence: [
+      {
+        component: "scan",
+        operation: "classify",
+        decision: "quiet",
+        outcome: "not actionable"
+      }
+    ],
+    ...extraFields
   }
 }
 

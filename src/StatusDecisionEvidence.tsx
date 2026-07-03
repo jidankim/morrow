@@ -73,6 +73,9 @@ function DecisionEvidenceRow({
           {item.labelType}: {item.labelValue} · Eval {formatLatestEvalStatus(latestEvalStatus).toLowerCase()}
         </span>
       </div>
+      {item.providerDiagnostic === undefined ? null : (
+        <p className="decision-evidence-provider-diagnostic">{item.providerDiagnostic}</p>
+      )}
       <p className="decision-evidence-sequence">{formatDecisionSequence(item.traceSequence)}</p>
     </li>
   )
