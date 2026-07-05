@@ -62,6 +62,9 @@ function DecisionEvidenceRow({
         </span>
       </div>
       <div className="decision-evidence-meta">
+        {item.candidateKind === undefined ? null : (
+          <span className="decision-evidence-candidate-kind">{formatCandidateKind(item.candidateKind)}</span>
+        )}
         {item.confidenceMillis === undefined ? null : <span>Confidence {item.confidenceMillis} ms</span>}
         {item.candidateId === undefined ? null : (
           <span className="decision-evidence-candidate-id" aria-label={`Candidate ID ${item.candidateId}`}>
@@ -78,11 +81,17 @@ function DecisionEvidenceRow({
       )}
       {item.sourceExcerpt === undefined ? null : (
         <p className="decision-evidence-source">
-          <span className="decision-evidence-source-label">Message</span>
-          <span className="decision-evidence-source-text">{item.sourceExcerpt}</span>
+          <span className="decision-evidence-source-label">
+            {sourceExcerptLabel(item.sourceExcerptPolicy)}
+          </span>
+          <span className="decision-evidence-source-text">
+            {formatSourceExcerpt(item.sourceExcerpt, item.sourceExcerptPolicy)}
+          </span>
         </p>
       )}
-      <p className="decision-evidence-sequence">{formatDecisionSequence(item.traceSequence)}</p>
+      {item.traceSequence.length === 0 ? null : (
+        <p className="decision-evidence-sequence">{formatDecisionSequence(item.traceSequence)}</p>
+      )}
     </li>
   )
 }
@@ -104,6 +113,38 @@ function formatRouteReason(item: DecisionEvidenceItem): string {
     return route
   }
   return `${route} / ${item.reasonCode}`
+}
+
+function formatCandidateKind(candidateKind: string): string {
+  switch (candidateKind) {
+    case "calendar_event":
+      return "Calendar event"
+    case "reminder":
+      return "Reminder"
+    default:
+      return candidateKind
+        .split("_")
+        .filter((part) => part.length > 0)
+        .join(" ")
+  }
+}
+
+function sourceExcerptLabel(sourceExcerptPolicy: string): "Message" | "Source" {
+  if (isSourceExcerptHidden(sourceExcerptPolicy)) {
+    return "Source"
+  }
+  return "Message"
+}
+
+function formatSourceExcerpt(sourceExcerpt: string, sourceExcerptPolicy: string): string {
+  if (isSourceExcerptHidden(sourceExcerptPolicy)) {
+    return "Hidden by privacy settings."
+  }
+  return sourceExcerpt
+}
+
+function isSourceExcerptHidden(sourceExcerptPolicy: string): boolean {
+  return sourceExcerptPolicy !== "include"
 }
 
 function formatTraceRetention(traceRetention: DecisionEvidenceItem["traceRetention"]): string {

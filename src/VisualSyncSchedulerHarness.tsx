@@ -112,6 +112,7 @@ function createVisualSyncSchedulerAppState(): AppShellState {
           route: "provider",
           reasonCode: "accepted_for_calendar",
           confidenceMillis: 842,
+          sourceExcerpt: "Source excerpt hidden by settings.",
           labelType: "candidate",
           labelValue: "created",
           sourceExcerptPolicy: "disabled",
