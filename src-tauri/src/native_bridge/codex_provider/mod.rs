@@ -74,7 +74,9 @@ fn provider_prompt(
     Ok(format!(
         "Return only one JSON object matching the supplied schema. Use only this redacted evidence payload. \
 For an explicit request to create, add, or schedule a calendar event with a date and time, set confidence_millis between 850 and 1000. \
-Use confidence_millis below 550 only when the evidence lacks calendar/reminder intent or lacks an inferable time. \
+For a task or reminder request with a clear due date, deadline, or by-date, set kind to task_reminder and set confidence_millis between 700 and 850. \
+If that task/reminder request has a clear deadline date but no clock time, use 23:59:00 in the configured reference timezone. \
+Use confidence_millis below 550 only when the evidence lacks calendar/reminder intent or lacks an inferable date or time after these calendar/reminder rules. \
 normalized_time contract: use exactly YYYY-MM-DDTHH:MM:SS[Area/Location] with the configured reference timezone or YYYY-MM-DDTHH:MM:SSZ for UTC. \
 Date and time fields are fixed-width; seconds are mandatory. Bracketed zones must be safe IANA-style zones. \
 Valid examples: {configured_example}, 2026-07-03T06:30:00Z. \
@@ -133,6 +135,32 @@ mod tests {
         assert!(prompt.contains("evidence://selected/0"));
         assert!(!prompt.contains("msg-a"));
         assert!(!prompt.contains("messages://chat-a/msg-a"));
+        Ok(())
+    }
+
+    #[test]
+    fn provider_prompt_calibrates_task_due_date_confidence() -> Result<(), String> {
+        // Given
+        let evidence = [MessageEvidence {
+            chat_guid: ChatGuid::parse("chat-a").map_err(|error| error.to_string())?,
+            message_guid: MessageGuid::parse("msg-a").map_err(|error| error.to_string())?,
+            timestamp: MessageTimestamp::new(1_782_705_142).map_err(|error| error.to_string())?,
+            participant_count: 1,
+            tapback_signal: false,
+            excerpt: "Finish review of the essay by July 25, 2026.".to_owned(),
+            evidence_pointer: "messages://chat-a/msg-a".to_owned(),
+        }];
+
+        // When
+        let prompt = provider_prompt(&evidence, "Asia/Seoul").map_err(|error| error.to_string())?;
+
+        // Then
+        assert!(prompt.contains("task or reminder request"));
+        assert!(prompt.contains("due date, deadline, or by-date"));
+        assert!(prompt.contains("confidence_millis between 700 and 850"));
+        assert!(prompt.contains("23:59:00"));
+        assert!(prompt.contains("below 550 only"));
+        assert!(prompt.contains("Finish review of the essay"));
         Ok(())
     }
 }
