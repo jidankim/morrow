@@ -33,6 +33,23 @@ fn lifecycle_trace_records_cover_phase3_operations_when_serialized() -> Result<(
 }
 
 #[test]
+fn lifecycle_trace_excludes_user_correction_from_phase3_records() -> Result<(), String> {
+    // Given: the Phase 3 lifecycle/replay trace fixture records.
+    let records = lifecycle_records()?;
+
+    // When: the reserved user correction operation is requested as a lifecycle record.
+    let user_correction_record =
+        TraceRecord::sample_lifecycle_replay_v1(TraceOperation::UserCorrection);
+
+    // Then: Phase 3 remains scoped to lifecycle/replay operations only.
+    assert_eq!(user_correction_record, None);
+    assert!(!records
+        .iter()
+        .any(|record| record.span.operation == TraceOperation::UserCorrection));
+    Ok(())
+}
+
+#[test]
 fn lifecycle_trace_fixture_matches_serializer() -> Result<(), String> {
     // Given: the canonical Phase 3 lifecycle/replay trace fixture records.
     let records = lifecycle_records()?;
