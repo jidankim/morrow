@@ -17,6 +17,46 @@ pub struct EventKitProposalReceipt {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EventKitReminderReceipt {
+    pub reminder_id: String,
+    pub list_id: String,
+    pub source_id: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProposedReminder {
+    pub title: String,
+    pub due: ReminderDue,
+    pub metadata: ReminderProposalMetadata,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReminderDue {
+    pub date: ReminderDate,
+    pub time: Option<ReminderTime>,
+    pub timezone_name: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ReminderDate {
+    pub year: i32,
+    pub month: u8,
+    pub day: u8,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ReminderTime {
+    pub hour: u8,
+    pub minute: u8,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReminderProposalMetadata {
+    pub candidate_id: String,
+    pub source_id: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum EventKitProposalError {
     InvalidInput { field: &'static str, reason: String },
     PermissionDenied { reason: String },
@@ -43,7 +83,7 @@ impl Display for EventKitProposalError {
             }
             Self::EmptyEventIdentifier => write!(
                 formatter,
-                "Calendar event save failed: EventKit returned an empty event identifier"
+                "EventKit proposal save failed: EventKit returned an empty item identifier"
             ),
             Self::Unavailable { reason } => {
                 write!(formatter, "Calendar proposal bridge unavailable: {reason}")
@@ -66,6 +106,14 @@ impl EventKitProposalBridge {
         EventKitProposalAdapter::new(RealEventKitClient).propose_event(event)
     }
 
+    #[cfg(target_os = "macos")]
+    pub fn propose_reminder(
+        &self,
+        reminder: ProposedReminder,
+    ) -> Result<EventKitReminderReceipt, EventKitProposalError> {
+        EventKitProposalAdapter::new(RealEventKitClient).propose_reminder(reminder)
+    }
+
     #[cfg(not(target_os = "macos"))]
     pub fn propose_event(
         &self,
@@ -73,6 +121,16 @@ impl EventKitProposalBridge {
     ) -> Result<EventKitProposalReceipt, EventKitProposalError> {
         Err(EventKitProposalError::Unavailable {
             reason: "Calendar proposal creation requires macOS EventKit".to_owned(),
+        })
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    pub fn propose_reminder(
+        &self,
+        _reminder: ProposedReminder,
+    ) -> Result<EventKitReminderReceipt, EventKitProposalError> {
+        Err(EventKitProposalError::Unavailable {
+            reason: "Reminders proposal creation requires macOS EventKit".to_owned(),
         })
     }
 }
@@ -116,6 +174,24 @@ impl<C: EventKitProposalClient> EventKitProposalAdapter<C> {
         }
         Ok(receipt)
     }
+
+    fn propose_reminder(
+        &mut self,
+        reminder: ProposedReminder,
+    ) -> Result<EventKitReminderReceipt, EventKitProposalError> {
+        let ProposedReminder {
+            title,
+            due,
+            metadata,
+        } = reminder;
+        let notes = reminder_notes(&metadata);
+        let record = ReminderRecord { title, due, notes };
+        let receipt = self.client.create_proposal_reminder(&record)?;
+        if receipt.reminder_id.trim().is_empty() {
+            return Err(EventKitProposalError::EmptyEventIdentifier);
+        }
+        Ok(receipt)
+    }
 }
 
 trait EventKitProposalClient {
@@ -123,6 +199,25 @@ trait EventKitProposalClient {
         &mut self,
         record: &EventRecord,
     ) -> Result<EventKitProposalReceipt, EventKitProposalError>;
+
+    fn create_proposal_reminder(
+        &mut self,
+        record: &ReminderRecord,
+    ) -> Result<EventKitReminderReceipt, EventKitProposalError>;
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ReminderRecord {
+    title: String,
+    due: ReminderDue,
+    notes: String,
+}
+
+fn reminder_notes(metadata: &ReminderProposalMetadata) -> String {
+    format!(
+        "[MORROW_METADATA_V1]\ncandidate_id={}\nsource_id={}\n",
+        metadata.candidate_id, metadata.source_id
+    )
 }
 
 #[cfg(target_os = "macos")]
@@ -136,5 +231,12 @@ impl EventKitProposalClient for RealEventKitClient {
         record: &EventRecord,
     ) -> Result<EventKitProposalReceipt, EventKitProposalError> {
         macos::create_proposal_event(record)
+    }
+
+    fn create_proposal_reminder(
+        &mut self,
+        record: &ReminderRecord,
+    ) -> Result<EventKitReminderReceipt, EventKitProposalError> {
+        macos::create_proposal_reminder(record)
     }
 }

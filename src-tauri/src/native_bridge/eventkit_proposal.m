@@ -11,6 +11,18 @@ typedef struct {
 } MorrowEventKitProposalRequest;
 
 typedef struct {
+    const char *title;
+    const char *notes;
+    int due_year;
+    int due_month;
+    int due_day;
+    int has_due_time;
+    int due_hour;
+    int due_minute;
+    const char *timezone_name;
+} MorrowEventKitReminderRequest;
+
+typedef struct {
     int ok;
     int error_code;
     int truncated_field;
@@ -19,6 +31,16 @@ typedef struct {
     char source_id[256];
     char message[512];
 } MorrowEventKitProposalResult;
+
+typedef struct {
+    int ok;
+    int error_code;
+    int truncated_field;
+    char reminder_id[256];
+    char list_id[256];
+    char source_id[256];
+    char message[512];
+} MorrowEventKitReminderResult;
 
 static const int ErrorPermissionDenied = 1;
 static const int ErrorSourceUnavailable = 2;
@@ -44,12 +66,30 @@ static void SetError(MorrowEventKitProposalResult *result, int code, NSString *m
     (void)SetString(result->message, sizeof(result->message), message);
 }
 
+static void SetReminderError(MorrowEventKitReminderResult *result, int code, NSString *message) {
+    if (result == NULL) {
+        return;
+    }
+    result->ok = 0;
+    result->error_code = code;
+    (void)SetString(result->message, sizeof(result->message), message);
+}
+
 static BOOL SetIdentifier(char *buffer, size_t capacity, NSString *value, int truncatedField, MorrowEventKitProposalResult *result) {
     if (SetString(buffer, capacity, value)) {
         return YES;
     }
     result->truncated_field = truncatedField;
     SetError(result, ErrorSaveFailed, @"EventKit returned an identifier that is too long");
+    return NO;
+}
+
+static BOOL SetReminderIdentifier(char *buffer, size_t capacity, NSString *value, int truncatedField, MorrowEventKitReminderResult *result) {
+    if (SetString(buffer, capacity, value)) {
+        return YES;
+    }
+    result->truncated_field = truncatedField;
+    SetReminderError(result, ErrorSaveFailed, @"EventKit returned an identifier that is too long");
     return NO;
 }
 
@@ -105,6 +145,63 @@ static BOOL RequestEventAccess(EKEventStore *store, MorrowEventKitProposalResult
     }
     if (!granted) {
         SetError(result, ErrorPermissionDenied, @"Calendar access was denied");
+        return NO;
+    }
+    return YES;
+}
+
+static void RequestLegacyReminderAccess(EKEventStore *store, void (^completion)(BOOL, NSError *)) {
+    SEL selector = NSSelectorFromString(@"requestAccessToEntityType:completion:");
+    NSMethodSignature *signature = [store methodSignatureForSelector:selector];
+    if (signature == nil) {
+        completion(NO, nil);
+        return;
+    }
+    NSInvocation *invocation = [NSInvocation invocationWithMethodSignature:signature];
+    invocation.target = store;
+    invocation.selector = selector;
+    EKEntityType type = EKEntityTypeReminder;
+    void (^completionCopy)(BOOL, NSError *) = [completion copy];
+    [invocation setArgument:&type atIndex:2];
+    [invocation setArgument:&completionCopy atIndex:3];
+    [invocation invoke];
+}
+
+static BOOL RequestReminderAccess(EKEventStore *store, MorrowEventKitReminderResult *result) {
+    if (store == nil) {
+        SetReminderError(result, ErrorUnavailable, @"EventKit store is unavailable");
+        return NO;
+    }
+
+    dispatch_semaphore_t semaphore = dispatch_semaphore_create(0);
+    __block BOOL granted = NO;
+    __block NSError *requestError = nil;
+
+    if (@available(macOS 14.0, *)) {
+        [store requestFullAccessToRemindersWithCompletion:^(BOOL ok, NSError *error) {
+            granted = ok;
+            requestError = error;
+            dispatch_semaphore_signal(semaphore);
+        }];
+    } else {
+        RequestLegacyReminderAccess(store, ^(BOOL ok, NSError *error) {
+            granted = ok;
+            requestError = error;
+            dispatch_semaphore_signal(semaphore);
+        });
+    }
+
+    dispatch_time_t timeout = dispatch_time(DISPATCH_TIME_NOW, 120LL * NSEC_PER_SEC);
+    if (dispatch_semaphore_wait(semaphore, timeout) != 0) {
+        SetReminderError(result, ErrorPermissionDenied, @"Reminders permission prompt did not resolve");
+        return NO;
+    }
+    if (requestError != nil) {
+        SetReminderError(result, ErrorPermissionDenied, [NSString stringWithFormat:@"EventKit access request failed: %@", requestError.localizedDescription]);
+        return NO;
+    }
+    if (!granted) {
+        SetReminderError(result, ErrorPermissionDenied, @"Reminders access was denied");
         return NO;
     }
     return YES;
@@ -176,11 +273,156 @@ static EKCalendar *EnsureProposedCalendar(EKEventStore *store, MorrowEventKitPro
     return calendar;
 }
 
+static EKSource *WritableReminderSource(EKEventStore *store) {
+    if (store.defaultCalendarForNewReminders.source != nil) {
+        return store.defaultCalendarForNewReminders.source;
+    }
+    for (EKSource *source in store.sources) {
+        if (source.sourceType == EKSourceTypeLocal) {
+            return source;
+        }
+    }
+    return store.sources.firstObject;
+}
+
+static EKCalendar *EnsureProposedReminderList(EKEventStore *store, MorrowEventKitReminderResult *result) {
+    for (EKCalendar *calendar in [store calendarsForEntityType:EKEntityTypeReminder]) {
+        if ([CalendarTitle(calendar) isEqualToString:ProposedName]) {
+            if (!calendar.allowsContentModifications) {
+                SetReminderError(result, ErrorSourceUnavailable, @"Morrow Proposed exists but is read-only");
+                return nil;
+            }
+            if (!HasSourceIdentifier(calendar) || !HasCalendarIdentifier(calendar)) {
+                SetReminderError(result, ErrorSourceUnavailable, @"Morrow Proposed is missing an EventKit source identifier");
+                return nil;
+            }
+            return calendar;
+        }
+    }
+
+    EKSource *source = WritableReminderSource(store);
+    if (source == nil || source.sourceIdentifier.length == 0) {
+        SetReminderError(result, ErrorSourceUnavailable, @"No writable EventKit source is available for Morrow Proposed");
+        return nil;
+    }
+
+    EKCalendar *calendar = [EKCalendar calendarForEntityType:EKEntityTypeReminder eventStore:store];
+    calendar.title = ProposedName;
+    calendar.source = source;
+    NSError *error = nil;
+    if (![store saveCalendar:calendar commit:YES error:&error]) {
+        SetReminderError(result, ErrorSourceUnavailable, [NSString stringWithFormat:@"Morrow Proposed reminder list creation failed: %@", error.localizedDescription ?: @"unknown EventKit error"]);
+        return nil;
+    }
+    if (!HasCalendarIdentifier(calendar) || !HasSourceIdentifier(calendar)) {
+        SetReminderError(result, ErrorSourceUnavailable, @"Morrow Proposed did not receive EventKit reminder list/source identifiers");
+        return nil;
+    }
+    return calendar;
+}
+
 static NSString *RequestString(const char *value) {
     if (value == NULL) {
         return nil;
     }
     return [NSString stringWithUTF8String:value];
+}
+
+static NSArray<EKReminder *> *FetchReminders(EKEventStore *store, EKCalendar *calendar, MorrowEventKitReminderResult *result) {
+    dispatch_semaphore_t semaphore = dispatch_semaphore_create(0);
+    NSPredicate *predicate = [store predicateForRemindersInCalendars:@[calendar]];
+    __block NSArray<EKReminder *> *matched = @[];
+
+    [store fetchRemindersMatchingPredicate:predicate completion:^(NSArray<EKReminder *> *reminders) {
+        matched = [reminders copy] ?: @[];
+        dispatch_semaphore_signal(semaphore);
+    }];
+
+    dispatch_time_t timeout = dispatch_time(DISPATCH_TIME_NOW, 10LL * NSEC_PER_SEC);
+    if (dispatch_semaphore_wait(semaphore, timeout) != 0) {
+        SetReminderError(result, ErrorSaveFailed, @"Reminders readback timed out");
+        return nil;
+    }
+    return matched;
+}
+
+static NSDateComponents *ReminderDueComponents(const MorrowEventKitReminderRequest *request, MorrowEventKitReminderResult *result) {
+    NSDateComponents *components = [[NSDateComponents alloc] init];
+    components.calendar = [NSCalendar calendarWithIdentifier:NSCalendarIdentifierGregorian];
+    components.year = request->due_year;
+    components.month = request->due_month;
+    components.day = request->due_day;
+    if (request->has_due_time != 0) {
+        components.hour = request->due_hour;
+        components.minute = request->due_minute;
+    }
+    NSString *timezoneName = RequestString(request->timezone_name);
+    if (timezoneName.length > 0) {
+        NSTimeZone *timezone = [NSTimeZone timeZoneWithName:timezoneName];
+        if (timezone == nil) {
+            SetReminderError(result, ErrorSaveFailed, @"Reminder timezone is unsupported by EventKit");
+            return nil;
+        }
+        components.timeZone = timezone;
+    }
+    return components;
+}
+
+static BOOL ReminderDueMatches(NSDateComponents *left, NSDateComponents *right, BOOL hasTime) {
+    if (left == nil || right == nil) {
+        return NO;
+    }
+    if (left.year != right.year || left.month != right.month || left.day != right.day) {
+        return NO;
+    }
+    if (!hasTime) {
+        return YES;
+    }
+    return left.hour == right.hour && left.minute == right.minute;
+}
+
+static NSString *SaveProposalReminder(EKEventStore *store, EKCalendar *calendar, const MorrowEventKitReminderRequest *request, MorrowEventKitReminderResult *result) {
+    NSString *title = RequestString(request->title);
+    NSString *notes = RequestString(request->notes);
+    if (title == nil || notes == nil) {
+        SetReminderError(result, ErrorSaveFailed, @"Reminder proposal title or notes were not valid UTF-8");
+        return nil;
+    }
+    NSDateComponents *due = ReminderDueComponents(request, result);
+    if (due == nil) {
+        return nil;
+    }
+
+    NSArray<EKReminder *> *existingReminders = FetchReminders(store, calendar, result);
+    if (existingReminders == nil) {
+        return nil;
+    }
+    BOOL hasTime = request->has_due_time != 0;
+    for (EKReminder *existing in existingReminders) {
+        if ([existing.title isEqualToString:title] &&
+            [existing.notes isEqualToString:notes] &&
+            ReminderDueMatches(existing.dueDateComponents, due, hasTime) &&
+            existing.calendarItemIdentifier.length > 0) {
+            return existing.calendarItemIdentifier;
+        }
+    }
+
+    EKReminder *reminder = [EKReminder reminderWithEventStore:store];
+    reminder.calendar = calendar;
+    reminder.title = title;
+    reminder.notes = notes;
+    reminder.dueDateComponents = due;
+
+    NSError *error = nil;
+    if (![store saveReminder:reminder commit:YES error:&error]) {
+        SetReminderError(result, ErrorSaveFailed, [NSString stringWithFormat:@"EventKit saveReminder failed: %@", error.localizedDescription ?: @"unknown EventKit error"]);
+        return nil;
+    }
+    if (reminder.calendarItemIdentifier.length == 0) {
+        SetReminderError(result, ErrorEmptyEventIdentifier, @"EventKit did not return a reminder identifier");
+        return nil;
+    }
+    return reminder.calendarItemIdentifier;
 }
 
 static NSString *SaveProposalEvent(EKEventStore *store, EKCalendar *calendar, const MorrowEventKitProposalRequest *request, MorrowEventKitProposalResult *result) {
@@ -257,6 +499,43 @@ void morrow_eventkit_create_proposal_event(const MorrowEventKitProposalRequest *
             return;
         }
         if (!SetIdentifier(result->source_id, sizeof(result->source_id), calendar.source.sourceIdentifier, TruncatedSourceId, result)) {
+            return;
+        }
+        result->ok = 1;
+    }
+}
+
+void morrow_eventkit_create_proposal_reminder(const MorrowEventKitReminderRequest *request, MorrowEventKitReminderResult *result) {
+    @autoreleasepool {
+        if (result == NULL) {
+            return;
+        }
+        memset(result, 0, sizeof(*result));
+        if (request == NULL) {
+            SetReminderError(result, ErrorSaveFailed, @"Reminder proposal request is missing");
+            return;
+        }
+
+        EKEventStore *store = [[EKEventStore alloc] init];
+        if (!RequestReminderAccess(store, result)) {
+            return;
+        }
+        EKCalendar *calendar = EnsureProposedReminderList(store, result);
+        if (calendar == nil) {
+            return;
+        }
+        NSString *reminderIdentifier = SaveProposalReminder(store, calendar, request, result);
+        if (reminderIdentifier == nil) {
+            return;
+        }
+
+        if (!SetReminderIdentifier(result->reminder_id, sizeof(result->reminder_id), reminderIdentifier, TruncatedEventId, result)) {
+            return;
+        }
+        if (!SetReminderIdentifier(result->list_id, sizeof(result->list_id), calendar.calendarIdentifier, TruncatedCalendarId, result)) {
+            return;
+        }
+        if (!SetReminderIdentifier(result->source_id, sizeof(result->source_id), calendar.source.sourceIdentifier, TruncatedSourceId, result)) {
             return;
         }
         result->ok = 1;
