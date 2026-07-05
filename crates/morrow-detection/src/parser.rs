@@ -54,25 +54,35 @@ pub(crate) fn classify(message: &MessageEvidence, config: &DetectionConfig) -> G
     }
 }
 
+const CALENDAR_SCHEDULING_SIGNALS: &[&str] = &[
+    "meet",
+    "meeting",
+    "lunch",
+    "dinner",
+    "call",
+    "appointment",
+    "calendar",
+    "create",
+    "event",
+    "schedule",
+];
+
+const TASK_SCHEDULING_SIGNALS: &[&str] = &[
+    "send", "submit", "finish", "complete", "remind", "reminder", "due", "deadline",
+];
+
 fn has_scheduling_verb(lowered: &str) -> bool {
-    [
-        "meet",
-        "meeting",
-        "lunch",
-        "dinner",
-        "call",
-        "appointment",
-        "calendar",
-        "create",
-        "event",
-        "schedule",
-        "send",
-        "submit",
-        "remind",
-        "deadline",
-    ]
-    .iter()
-    .any(|needle| lowered.contains(needle))
+    contains_any(lowered, CALENDAR_SCHEDULING_SIGNALS) || has_task_scheduling_signal(lowered)
+}
+
+fn has_task_scheduling_signal(lowered: &str) -> bool {
+    contains_any(lowered, TASK_SCHEDULING_SIGNALS)
+}
+
+fn contains_any(haystack: &str, needles: &[&str]) -> bool {
+    haystack
+        .split(|ch: char| !ch.is_ascii_alphanumeric())
+        .any(|word| needles.contains(&word))
 }
 
 fn has_temporal_signal(lowered: &str) -> bool {
@@ -109,7 +119,7 @@ fn deterministic_confidence(tapback_signal: bool) -> i64 {
 }
 
 fn kind_for(lowered: &str) -> CandidateKind {
-    if lowered.contains("send") || lowered.contains("submit") || lowered.contains("deadline") {
+    if has_task_scheduling_signal(lowered) {
         CandidateKind::TaskReminder
     } else {
         CandidateKind::CalendarEvent

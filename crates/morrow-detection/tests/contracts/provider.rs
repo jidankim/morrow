@@ -43,7 +43,11 @@ impl InspectingProvider {
 
 impl AiProvider for InspectingProvider {
     fn extract(&self, request: ProviderRequest<'_>) -> Result<ProviderResponse, ProviderError> {
-        let anchor = &request.evidence()[0];
+        let Some(anchor) = request.evidence().first() else {
+            return Err(ProviderError::Unavailable {
+                reason: "missing evidence".to_owned(),
+            });
+        };
         self.request.replace(Some(ObservedProviderRequest {
             reference_timezone: request.reference_timezone().to_owned(),
             evidence_count: request.evidence().len(),
