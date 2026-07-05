@@ -1,5 +1,6 @@
 use std::{
     cell::RefCell,
+    ffi::OsString,
     path::{Path, PathBuf},
     time::Duration,
 };
@@ -72,6 +73,37 @@ fn codex_auth_probe_reports_missing_cli() {
     assert_eq!(readiness.status, CodexAuthStatus::MissingCli);
     assert!(!readiness.ready);
     assert!(runner.calls().is_empty());
+}
+
+#[test]
+fn codex_auth_probe_finds_user_installed_cli_when_packaged_app_path_omits_shell_bins(
+) -> Result<(), String> {
+    // Given
+    let home_dir = tempfile::tempdir().map_err(|error| error.to_string())?;
+    let user_bin_dir = home_dir.path().join(".local").join("bin");
+    std::fs::create_dir_all(&user_bin_dir).map_err(|error| error.to_string())?;
+    let codex_path = user_bin_dir.join("codex");
+    std::fs::write(&codex_path, "#!/bin/sh\nexit 0\n").map_err(|error| error.to_string())?;
+    mark_executable(&codex_path)?;
+    let runner = FakeCodexAuthRunner::new(CodexLoginStatusRun::Completed(
+        CodexAuthCommandOutput::new(Some(0), "Logged in using ChatGPT\n", ""),
+    ));
+    let options = {
+        let _home_guard = EnvVarGuard::set("HOME", home_dir.path().as_os_str());
+        let _path_guard = EnvVarGuard::set("PATH", "/usr/bin:/bin");
+        CodexAuthProbeOptions::default()
+    };
+
+    // When
+    let readiness = probe_codex_provider_auth_with_runner(&options, &runner);
+
+    // Then
+    assert_eq!(readiness.status, CodexAuthStatus::LoggedInUsingChatGpt);
+    assert!(readiness.ready);
+    let calls = runner.calls();
+    assert_eq!(calls.len(), 1);
+    assert_eq!(calls[0].0, codex_path);
+    Ok(())
 }
 
 #[test]
@@ -256,6 +288,28 @@ fn codex_auth_probe_reports_unknown_failure_for_malformed_output() -> Result<(),
     assert_eq!(readiness.status, CodexAuthStatus::UnknownFailure);
     assert!(!readiness.ready);
     Ok(())
+}
+
+struct EnvVarGuard {
+    key: &'static str,
+    previous: Option<OsString>,
+}
+
+impl EnvVarGuard {
+    fn set(key: &'static str, value: impl AsRef<std::ffi::OsStr>) -> Self {
+        let previous = std::env::var_os(key);
+        std::env::set_var(key, value);
+        Self { key, previous }
+    }
+}
+
+impl Drop for EnvVarGuard {
+    fn drop(&mut self) {
+        match &self.previous {
+            Some(value) => std::env::set_var(self.key, value),
+            None => std::env::remove_var(self.key),
+        }
+    }
 }
 
 struct CodexAuthFixture {
