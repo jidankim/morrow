@@ -3,6 +3,8 @@ use std::cell::{Cell, RefCell};
 use morrow_calendar::ProposedEvent;
 use morrow_storage::{CandidateState, ExternalObjectMapping};
 
+use crate::native_bridge::eventkit_proposal::ProposedReminder;
+
 use super::*;
 
 #[test]
@@ -134,11 +136,52 @@ fn partial_write_replay_uses_existing_mapping_without_duplicate_external_create(
     );
 }
 
+#[test]
+fn task_reminder_replay_creates_reminders_mapping_without_legacy_branch() {
+    // Given
+    let dir = tempfile::tempdir().expect("tempdir");
+    let store = Store::open(&dir.path().join("morrow.sqlite")).expect("store");
+    let candidate_id = store
+        .create_candidate(task_reminder_draft("msg-reminder-replay"))
+        .expect("candidate");
+    store
+        .transition_candidate(
+            &candidate_id,
+            CandidateState::CreatingExternal,
+            "cap_selected_for_external_creation",
+            1_782_352_399,
+        )
+        .expect("creating external");
+    let queued = queued_reminder(&candidate_id);
+    let adapter = CountingProposalAdapter::default();
+
+    // When
+    let summary = replay_external_proposals(&store, &[queued], &adapter).expect("replay");
+
+    // Then
+    assert_eq!(summary.created, 1);
+    assert_eq!(summary.failed, 0);
+    assert_eq!(adapter.reminder_calls(), 1);
+    assert_eq!(adapter.legacy_calls(), 0);
+    assert_eq!(
+        store.candidate_state(&candidate_id).expect("state"),
+        CandidateState::Visible
+    );
+    let mapping = store
+        .candidate_external_mapping(&candidate_id, ExternalSource::Reminders, MAPPED_AT)
+        .expect("mapping")
+        .expect("reminder mapping");
+    assert_eq!(mapping.external_object_id, "fake-reminder-1");
+    assert_eq!(mapping.external_source_id, "fake-reminders-source-1");
+}
+
 #[derive(Default)]
 struct CountingProposalAdapter {
     calendar_calls: Cell<usize>,
+    reminder_calls: Cell<usize>,
     legacy_calls: Cell<usize>,
     calendar_events: RefCell<Vec<ProposedEvent>>,
+    reminders: RefCell<Vec<ProposedReminder>>,
 }
 
 impl CountingProposalAdapter {
@@ -148,6 +191,10 @@ impl CountingProposalAdapter {
 
     fn legacy_calls(&self) -> usize {
         self.legacy_calls.get()
+    }
+
+    fn reminder_calls(&self) -> usize {
+        self.reminder_calls.get()
     }
 }
 
@@ -161,6 +208,18 @@ impl ProposalReplayAdapter for CountingProposalAdapter {
         Ok(CalendarProposalReceipt {
             event_id: format!("fake-event-{}", self.calendar_calls.get()),
             source_id: "fake-source-1".to_owned(),
+        })
+    }
+
+    fn create_reminder_proposal(
+        &self,
+        reminder: ProposedReminder,
+    ) -> Result<ReminderProposalReceipt, ScanSelectedChatsError> {
+        self.reminder_calls.set(self.reminder_calls.get() + 1);
+        self.reminders.borrow_mut().push(reminder);
+        Ok(ReminderProposalReceipt {
+            reminder_id: format!("fake-reminder-{}", self.reminder_calls.get()),
+            source_id: "fake-reminders-source-1".to_owned(),
         })
     }
 
@@ -184,6 +243,31 @@ fn queued_calendar(candidate_id: &StorageCandidateId) -> QueuedProposal {
         false,
     )
     .expect("queued proposal")
+}
+
+fn queued_reminder(candidate_id: &StorageCandidateId) -> QueuedProposal {
+    QueuedProposal::with_kind(
+        candidate_id.as_str(),
+        CandidateKind::TaskReminder,
+        "public-chat",
+        900,
+        "2026-07-25T09:00:00[Asia/Seoul]",
+        false,
+    )
+    .expect("queued reminder")
+}
+
+fn task_reminder_draft(anchor_message_guid: &str) -> CandidateDraft {
+    CandidateDraft {
+        kind: CandidateKind::TaskReminder,
+        chat_guid: "public-chat".to_owned(),
+        anchor_message_guid: anchor_message_guid.to_owned(),
+        title: "Finish review of the essay".to_owned(),
+        confidence_millis: 900,
+        normalized_time: "2026-07-25T09:00:00[Asia/Seoul]".to_owned(),
+        evidence_excerpt: "source hidden".to_owned(),
+        observed_at: 1_782_352_398,
+    }
 }
 
 fn calendar_mapping(store: &Store, candidate_id: &StorageCandidateId) -> ExternalObjectMapping {

@@ -74,8 +74,8 @@ pub use runtime_identity::{
 };
 pub use scan::{
     scan_selected_chats_with_dependencies, CalendarProposalReceipt, CapPolicyRequest,
-    ProposalReplayAdapter, ScanSelectedChatsDependencies, ScanSelectedChatsError,
-    ScanSelectedChatsRequest, ScanSelectedChatsResult,
+    ProposalReplayAdapter, ReminderProposalReceipt, ScanSelectedChatsDependencies,
+    ScanSelectedChatsError, ScanSelectedChatsRequest, ScanSelectedChatsResult,
 };
 pub use scheduler::{
     SyncSchedulerLastResultCommand, SyncSchedulerStateCommand, SyncSchedulerStatusCommand,

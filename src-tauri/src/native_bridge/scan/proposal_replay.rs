@@ -2,6 +2,7 @@ mod adapter;
 mod calendar;
 mod decision;
 mod finalize;
+mod reminder;
 #[cfg(test)]
 mod tests;
 
@@ -17,6 +18,8 @@ use decision::{
     CandidateReplayDecision, ProposalReplayDelta, ReplayMapping,
 };
 use finalize::{apply_store_decision, finalize_existing_mapping, transition_mapping_visible};
+use reminder::reminder_mapping_from_store;
+pub use reminder::ReminderProposalReceipt;
 
 const MAPPED_AT: i64 = 1_782_352_400;
 const DEFAULT_CALENDAR_EVENT_DURATION_SECONDS: i64 = 30 * 60;
@@ -69,6 +72,17 @@ fn replay_external_proposals_with_mode(
                 }
                 CandidateReplayDecision::NeedsCalendarCreate => match mode {
                     ReplayMode::Commit => calendar_mapping_from_store(store, candidate, adapter)
+                        .map(|mapping| ReplayMapping {
+                            mapping,
+                            created_external: true,
+                        }),
+                    ReplayMode::DryRun => {
+                        summary.dry_run += 1;
+                        continue;
+                    }
+                },
+                CandidateReplayDecision::NeedsReminderCreate => match mode {
+                    ReplayMode::Commit => reminder_mapping_from_store(store, candidate, adapter)
                         .map(|mapping| ReplayMapping {
                             mapping,
                             created_external: true,
@@ -141,8 +155,14 @@ fn mapping_for_candidate(
                 MAPPED_AT,
             )
             .map_err(storage_error),
-        CandidateKind::TaskReminder
-        | CandidateKind::EventUpdate
+        CandidateKind::TaskReminder => store
+            .candidate_external_mapping(
+                &candidate.candidate_id,
+                ExternalSource::Reminders,
+                MAPPED_AT,
+            )
+            .map_err(storage_error),
+        CandidateKind::EventUpdate
         | CandidateKind::EventReschedule
         | CandidateKind::EventCancellation
         | CandidateKind::ReminderUpdate

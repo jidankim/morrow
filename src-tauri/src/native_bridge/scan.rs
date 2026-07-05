@@ -35,7 +35,9 @@ pub use production::{
 };
 use proposal_replay::replay_external_proposals;
 pub(in crate::native_bridge) use proposal_replay::LocalProposalAdapter;
-pub use proposal_replay::{CalendarProposalReceipt, ProposalReplayAdapter};
+pub use proposal_replay::{
+    CalendarProposalReceipt, ProposalReplayAdapter, ReminderProposalReceipt,
+};
 use provider_route_cache::{
     record_provider_route_ledger_writes, stage_provider_route_ledger_writes,
     NativeProviderRouteCache,

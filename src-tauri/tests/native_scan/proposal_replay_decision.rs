@@ -17,7 +17,8 @@ fn proposal_replay_decision_marks_recovery_pending_on_finalize_failure() -> Resu
     // When
     let existing = candidate_replay_decision(CandidateKind::CalendarEvent, Some(mapping.clone()));
     let calendar_create = candidate_replay_decision(CandidateKind::CalendarEvent, None);
-    let legacy_create = candidate_replay_decision(CandidateKind::TaskReminder, None);
+    let reminder_create = candidate_replay_decision(CandidateKind::TaskReminder, None);
+    let legacy_create = candidate_replay_decision(CandidateKind::ReminderUpdate, None);
     let created = mapping_finalization_decision(true, true);
     let not_created = mapping_finalization_decision(false, true);
     let recovery = mapping_finalization_decision(true, false);
@@ -32,6 +33,10 @@ fn proposal_replay_decision_marks_recovery_pending_on_finalize_failure() -> Resu
     assert!(matches!(
         calendar_create,
         CandidateReplayDecision::NeedsCalendarCreate
+    ));
+    assert!(matches!(
+        reminder_create,
+        CandidateReplayDecision::NeedsReminderCreate
     ));
     assert!(matches!(
         legacy_create,
@@ -108,6 +113,9 @@ fn assert_mapping_present(
         }
         CandidateReplayDecision::NeedsCalendarCreate => {
             Err("existing mapping requested calendar create".to_owned())
+        }
+        CandidateReplayDecision::NeedsReminderCreate => {
+            Err("existing mapping requested reminder create".to_owned())
         }
         CandidateReplayDecision::NeedsLegacyCreate => {
             Err("existing mapping requested legacy create".to_owned())

@@ -5,8 +5,9 @@ use std::{
 
 use morrow_calendar::ProposedEvent;
 use morrow_detection::{AiProvider, ProviderError, ProviderRequest, ProviderResponse};
+use morrow_lib::native_bridge::eventkit_proposal::ProposedReminder;
 use morrow_lib::native_bridge::{
-    CalendarProposalReceipt, ProposalReplayAdapter, ScanSelectedChatsError,
+    CalendarProposalReceipt, ProposalReplayAdapter, ReminderProposalReceipt, ScanSelectedChatsError,
 };
 use morrow_storage::{ExternalObjectMapping, QueuedProposal};
 
@@ -19,6 +20,21 @@ impl AiProvider for CandidateProvider {
             "{\"kind\":\"calendar_event\",\"title\":\"Provider supplied title\",\
              \"confidence_millis\":800,\
              \"normalized_time\":\"2026-06-26T15:00:00[Asia/Seoul]\",\
+             \"anchor_message_guid\":\"beta-provider-route\",\
+             \"evidence_message_guids\":[\"beta-provider-route\"]}",
+        ))
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct TaskReminderProvider;
+
+impl AiProvider for TaskReminderProvider {
+    fn extract(&self, _request: ProviderRequest<'_>) -> Result<ProviderResponse, ProviderError> {
+        Ok(ProviderResponse::new(
+            "{\"kind\":\"task_reminder\",\"title\":\"Finish review of the essay\",\
+             \"confidence_millis\":820,\
+             \"normalized_time\":\"2026-07-25T09:00:00[Asia/Seoul]\",\
              \"anchor_message_guid\":\"beta-provider-route\",\
              \"evidence_message_guids\":[\"beta-provider-route\"]}",
         ))
@@ -75,6 +91,7 @@ impl AiProvider for InvalidJsonProvider {
 pub struct RecordingProposalAdapter {
     created_titles: RefCell<Vec<String>>,
     created_by_candidate: RefCell<BTreeMap<String, String>>,
+    created_reminders_by_candidate: RefCell<BTreeMap<String, String>>,
     fail_calendar: bool,
 }
 
@@ -87,6 +104,7 @@ impl RecordingProposalAdapter {
         Self {
             created_titles: RefCell::new(Vec::new()),
             created_by_candidate: RefCell::new(BTreeMap::new()),
+            created_reminders_by_candidate: RefCell::new(BTreeMap::new()),
             fail_calendar: true,
         }
     }
@@ -119,6 +137,26 @@ impl ProposalReplayAdapter for RecordingProposalAdapter {
         Ok(CalendarProposalReceipt {
             event_id,
             source_id: "source-injected-1".to_owned(),
+        })
+    }
+
+    fn create_reminder_proposal(
+        &self,
+        reminder: ProposedReminder,
+    ) -> Result<ReminderProposalReceipt, ScanSelectedChatsError> {
+        let candidate_id = reminder.metadata.candidate_id;
+        let reminder_id = {
+            let mut created = self.created_reminders_by_candidate.borrow_mut();
+            let next = created.len() + 1;
+            created
+                .entry(candidate_id)
+                .or_insert_with(|| format!("reminder-injected-{next}"))
+                .clone()
+        };
+        self.created_titles.borrow_mut().push(reminder.title);
+        Ok(ReminderProposalReceipt {
+            reminder_id,
+            source_id: "reminders-source-injected-1".to_owned(),
         })
     }
 

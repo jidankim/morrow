@@ -178,6 +178,15 @@ pub struct CalendarProposalPayload {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReminderProposalPayload {
+    pub candidate_id: CandidateId,
+    pub kind: CandidateKind,
+    pub normalized_time: String,
+    pub title: String,
+    pub source_id: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AuditEntry {
     pub from_state: CandidateState,
     pub to_state: CandidateState,

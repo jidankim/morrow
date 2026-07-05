@@ -7,6 +7,7 @@ const MAX_CANDIDATE_REASON_BYTES: usize = 240;
 pub(super) enum CandidateReplayDecision {
     MappingPresent(ExternalObjectMapping),
     NeedsCalendarCreate,
+    NeedsReminderCreate,
     NeedsLegacyCreate,
 }
 
@@ -44,8 +45,8 @@ pub(super) fn candidate_replay_decision(
         Some(mapping) => CandidateReplayDecision::MappingPresent(mapping),
         None => match kind {
             CandidateKind::CalendarEvent => CandidateReplayDecision::NeedsCalendarCreate,
-            CandidateKind::TaskReminder
-            | CandidateKind::EventUpdate
+            CandidateKind::TaskReminder => CandidateReplayDecision::NeedsReminderCreate,
+            CandidateKind::EventUpdate
             | CandidateKind::EventReschedule
             | CandidateKind::EventCancellation
             | CandidateKind::ReminderUpdate

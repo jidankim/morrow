@@ -57,9 +57,13 @@ impl Store {
             "SELECT c.id, c.kind, c.chat_guid, c.confidence_millis, c.normalized_time
              FROM candidates c
              LEFT JOIN external_object_mappings m
-               ON m.candidate_id = c.id AND m.source = 'calendar'
+               ON m.candidate_id = c.id
+              AND m.source = CASE c.kind
+                WHEN 'task_reminder' THEN 'reminders'
+                ELSE 'calendar'
+              END
              WHERE c.state = 'creating_external'
-               AND c.kind = 'calendar_event'
+               AND c.kind IN ('calendar_event', 'task_reminder')
                AND m.id IS NULL
              ORDER BY c.updated_at, c.id;",
         )?;

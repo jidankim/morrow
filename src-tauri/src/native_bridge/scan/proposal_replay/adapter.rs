@@ -1,9 +1,12 @@
 use morrow_calendar::ProposedEvent;
 use morrow_storage::{CandidateKind, ExternalObjectMapping, ExternalSource, QueuedProposal};
 
-use crate::native_bridge::eventkit_proposal::EventKitProposalBridge;
+use crate::native_bridge::eventkit_proposal::{EventKitProposalBridge, ProposedReminder};
 
-use super::{external_proposal_error, CalendarProposalReceipt, ScanSelectedChatsError, MAPPED_AT};
+use super::{
+    external_proposal_error, CalendarProposalReceipt, ReminderProposalReceipt,
+    ScanSelectedChatsError, MAPPED_AT,
+};
 
 pub(in crate::native_bridge) struct LocalProposalAdapter;
 
@@ -12,6 +15,11 @@ pub trait ProposalReplayAdapter {
         &self,
         event: ProposedEvent,
     ) -> Result<CalendarProposalReceipt, ScanSelectedChatsError>;
+
+    fn create_reminder_proposal(
+        &self,
+        reminder: ProposedReminder,
+    ) -> Result<ReminderProposalReceipt, ScanSelectedChatsError>;
 
     fn create_legacy_proposal(
         &self,
@@ -30,6 +38,16 @@ impl ProposalReplayAdapter for LocalProposalAdapter {
                 event.metadata.candidate_id.as_str()
             ),
             source_id: event.metadata.source_id.as_str().to_owned(),
+        })
+    }
+
+    fn create_reminder_proposal(
+        &self,
+        reminder: ProposedReminder,
+    ) -> Result<ReminderProposalReceipt, ScanSelectedChatsError> {
+        Ok(ReminderProposalReceipt {
+            reminder_id: format!("morrow-local-reminder-{}", reminder.metadata.candidate_id),
+            source_id: reminder.metadata.source_id,
         })
     }
 
@@ -77,6 +95,18 @@ impl ProposalReplayAdapter for EventKitProposalBridge {
         self.propose_event(event)
             .map(|receipt| CalendarProposalReceipt {
                 event_id: receipt.event_id,
+                source_id: receipt.source_id,
+            })
+            .map_err(|error| external_proposal_error(error.to_string()))
+    }
+
+    fn create_reminder_proposal(
+        &self,
+        reminder: ProposedReminder,
+    ) -> Result<ReminderProposalReceipt, ScanSelectedChatsError> {
+        self.propose_reminder(reminder)
+            .map(|receipt| ReminderProposalReceipt {
+                reminder_id: receipt.reminder_id,
                 source_id: receipt.source_id,
             })
             .map_err(|error| external_proposal_error(error.to_string()))

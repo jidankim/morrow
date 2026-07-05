@@ -6,6 +6,8 @@ use morrow_storage::{
     ExternalSource,
 };
 
+use crate::native_bridge::eventkit_proposal::ProposedReminder;
+
 use super::calendar::{
     calendar_mapping_from_payload, proposed_event_from_payload, CalendarProposalReceipt,
 };
@@ -255,6 +257,16 @@ impl ProposalReplayAdapter for FakeProposalAdapter {
         Ok(CalendarProposalReceipt {
             event_id: "fake-event-1".to_owned(),
             source_id: "fake-source-1".to_owned(),
+        })
+    }
+
+    fn create_reminder_proposal(
+        &self,
+        reminder: ProposedReminder,
+    ) -> Result<ReminderProposalReceipt, ScanSelectedChatsError> {
+        Ok(ReminderProposalReceipt {
+            reminder_id: format!("fake-reminder-{}", reminder.metadata.candidate_id),
+            source_id: reminder.metadata.source_id,
         })
     }
 

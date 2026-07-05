@@ -12,6 +12,7 @@ mod ids;
 mod migrations;
 mod normalized_time;
 mod privacy;
+mod reminder_payload;
 mod sqlite_cli;
 mod store;
 mod sync_scheduler;
@@ -45,6 +46,6 @@ pub use types::{
     CandidateLifecycleReadback, CandidateState, ExternalObjectMapping, ExternalSource,
     PrivacySummary, ProviderRouteCandidate, ProviderRouteLedgerRow, ProviderRouteOutcome,
     ProviderRouteOutcomeDraft, ProviderRouteOutcomeKind, ProviderRouteRecordStatus,
-    ProviderRouteSourceExcerptPolicy, ProviderRouteStoredOutcome, QuietLogDraft, ReplayStream,
-    PROVIDER_ROUTE_NATIVE_CANDIDATE_TITLE,
+    ProviderRouteSourceExcerptPolicy, ProviderRouteStoredOutcome, QuietLogDraft,
+    ReminderProposalPayload, ReplayStream, PROVIDER_ROUTE_NATIVE_CANDIDATE_TITLE,
 };
