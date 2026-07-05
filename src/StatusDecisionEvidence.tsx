@@ -119,6 +119,7 @@ function formatCandidateKind(candidateKind: string): string {
   switch (candidateKind) {
     case "calendar_event":
       return "Calendar event"
+    case "task_reminder":
     case "reminder":
       return "Reminder"
     default:

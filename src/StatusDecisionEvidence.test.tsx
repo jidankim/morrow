@@ -53,7 +53,7 @@ describe("StatusDecisionEvidence", () => {
       subjectType: "candidate",
       candidateId: "morrow_8c4997c018681aed",
       candidateState: "draft",
-      candidateKind: "reminder",
+      candidateKind: "task_reminder",
       route: "provider_candidate",
       reasonCode: "confidence_meets_threshold",
       confidenceMillis: 820,

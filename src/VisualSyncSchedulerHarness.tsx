@@ -108,10 +108,10 @@ function createVisualSyncSchedulerAppState(): AppShellState {
           subjectType: "candidate",
           candidateId: "candidate-visual-opaque-id-with-long-suffix-0123456789abcdef",
           candidateState: "draft",
-          candidateKind: "calendar_event",
-          route: "provider",
-          reasonCode: "accepted_for_calendar",
-          confidenceMillis: 842,
+          candidateKind: "task_reminder",
+          route: "provider_candidate",
+          reasonCode: "confidence_meets_threshold",
+          confidenceMillis: 820,
           sourceExcerpt: "Source excerpt hidden by settings.",
           labelType: "candidate",
           labelValue: "created",
@@ -119,20 +119,8 @@ function createVisualSyncSchedulerAppState(): AppShellState {
           privacyTier: "safe",
           hasDiagnosticsHashes: true,
           createdAt: NOW,
-          traceRetention: "retained",
-          traceSequence: [
-            {
-              component: "scan",
-              operation: "classify",
-              decision: "candidate",
-              outcome: "accepted"
-            },
-            {
-              component: "proposal",
-              operation: "create",
-              outcome: "queued"
-            }
-          ]
+          traceRetention: "notRetained",
+          traceSequence: []
         },
         {
           subjectType: "quietLog",
