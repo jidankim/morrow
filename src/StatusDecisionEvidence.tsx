@@ -130,7 +130,7 @@ function formatDecisionSequence(traceSequence: readonly DecisionTraceStep[]): st
   if (traceSequence.length === 0) {
     return "Sequence unavailable."
   }
-  return traceSequence.slice(0, 3).map(formatDecisionStep).join(" -> ")
+  return traceSequence.map(formatDecisionStep).join(" -> ")
 }
 
 function formatDecisionStep(step: DecisionTraceStep): string {

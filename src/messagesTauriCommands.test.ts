@@ -76,7 +76,8 @@ describe("messagesTauriCommands scan result parsing", () => {
           createdAt: 1_783_000_010,
           traceRetention: "retained",
           traceSequence: [],
-          rawText: "must not cross the schema"
+          rawText: "must not cross the schema",
+          nativeIdentifier: "/Users/person/Library/Messages/chat.db"
         }
       ],
       skippedTraceLineCount: 0,

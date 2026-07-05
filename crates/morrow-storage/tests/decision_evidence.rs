@@ -3,7 +3,8 @@ mod support;
 use morrow_storage::{
     DecisionEvidenceSubjectType, DecisionEvidenceTraceRetention, DetectionRouteLabel,
     FeedbackLabelType, FeedbackLabelValue, FeedbackPrivacyTier, FeedbackSourceExcerptPolicy,
-    FeedbackSubjectType, ProposalOutcomeLabel, QuietLogDraft, SystemOutcomeLabel,
+    FeedbackSubjectType, FieldQualityLabel, ProposalOutcomeLabel, QuietLogDraft,
+    SystemOutcomeLabel,
 };
 use support::decision_evidence::{candidate_draft, fresh_store, label, meta, snapshot};
 
@@ -213,5 +214,77 @@ fn decision_evidence_uses_latest_label_without_duplicate_snapshot_rows() {
     assert_eq!(
         summaries[0].label_value,
         FeedbackLabelValue::ProposalOutcome(ProposalOutcomeLabel::Accepted)
+    );
+}
+
+#[test]
+fn decision_evidence_summarizes_candidate_correction_label_when_snapshot_exists() {
+    // Given
+    let (_dir, store) = fresh_store("decision-evidence-correction-label.sqlite");
+    let candidate_id = store
+        .create_candidate(candidate_draft())
+        .expect("create candidate");
+    let subject_id = candidate_id.as_str();
+    let mut candidate_meta = meta(FeedbackSubjectType::Candidate, subject_id);
+    candidate_meta.candidate_id = Some(candidate_id.clone());
+    let mut proposal_label = label(
+        "candidate-correction-proposal-label",
+        FeedbackSubjectType::Candidate,
+        subject_id,
+        FeedbackLabelValue::ProposalOutcome(ProposalOutcomeLabel::PendingEdited),
+    );
+    proposal_label.meta = candidate_meta.clone();
+    let mut field_quality_label = label(
+        "candidate-correction-field-label",
+        FeedbackSubjectType::Candidate,
+        subject_id,
+        FeedbackLabelValue::FieldQuality(FieldQualityLabel::TitleEdited),
+    );
+    field_quality_label.meta = candidate_meta.clone();
+    let mut candidate_snapshot = snapshot(
+        "candidate-correction-snapshot",
+        FeedbackSubjectType::Candidate,
+        subject_id,
+    );
+    candidate_snapshot.meta = candidate_meta;
+    candidate_snapshot.route = Some("human_correction".to_owned());
+    candidate_snapshot.reason_code = Some("user_correction_applied".to_owned());
+
+    // When
+    store
+        .record_label(proposal_label)
+        .expect("record proposal outcome label");
+    store
+        .record_label(field_quality_label)
+        .expect("record field quality label");
+    store
+        .record_feature_snapshot(candidate_snapshot)
+        .expect("record snapshot");
+    let summaries = store
+        .recent_decision_evidence(10)
+        .expect("decision evidence");
+
+    // Then
+    assert_eq!(summaries.len(), 1);
+    let summary = &summaries[0];
+    assert_eq!(summary.subject_type, DecisionEvidenceSubjectType::Candidate);
+    assert_eq!(summary.candidate_id.as_ref(), Some(&candidate_id));
+    assert_eq!(summary.route.as_deref(), Some("human_correction"));
+    assert_eq!(
+        summary.reason_code.as_deref(),
+        Some("user_correction_applied")
+    );
+    assert_eq!(summary.label_type, FeedbackLabelType::FieldQuality);
+    assert_eq!(
+        summary.label_value,
+        FeedbackLabelValue::FieldQuality(FieldQualityLabel::TitleEdited)
+    );
+    assert_eq!(
+        summary.diagnostics_trace_id.as_deref(),
+        Some("trace_018fda8a98bf4cdba33a6f9d42180d6d")
+    );
+    assert_eq!(
+        summary.trace_retention,
+        DecisionEvidenceTraceRetention::NotChecked
     );
 }

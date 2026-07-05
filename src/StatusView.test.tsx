@@ -126,6 +126,67 @@ describe("StatusView decision evidence", () => {
     expect(() => decisionEvidenceReportSchema.parse(reportWithEmptyDiagnostic)).toThrow()
   })
 
+  it("renders a retained phase4 correction trace sequence with the latest correction label", () => {
+    // Given
+    const state = readyState({
+      decisionEvidence: {
+        items: [
+          {
+            subjectType: "candidate",
+            candidateId: "candidate-phase4-correction",
+            candidateState: "draft",
+            candidateKind: "calendar_event",
+            route: "human_correction",
+            reasonCode: "user_correction_applied",
+            confidenceMillis: 860,
+            labelType: "field_quality",
+            labelValue: "title_edited",
+            sourceExcerptPolicy: "hide",
+            privacyTier: "hashed_identifier",
+            hasDiagnosticsHashes: true,
+            createdAt: nowUnixSeconds,
+            traceRetention: "retained",
+            traceSequence: [
+              {
+                component: "parser",
+                operation: "parser_decision",
+                decision: "candidate",
+                outcome: "candidate_created"
+              },
+              {
+                component: "provider",
+                operation: "provider_result",
+                decision: "candidate",
+                outcome: "candidate_created"
+              },
+              {
+                component: "outcome",
+                operation: "outcome_materialized",
+                outcome: "candidate_created"
+              },
+              {
+                component: "correction",
+                operation: "user_correction",
+                decision: "user_corrected",
+                outcome: "noop"
+              }
+            ]
+          }
+        ],
+        skippedTraceLineCount: 0,
+        latestEvalStatus: "passed"
+      }
+    })
+
+    // When
+    renderStatusView({ state })
+
+    // Then
+    expect(screen.getByText("human_correction / user_correction_applied")).toBeInTheDocument()
+    expect(screen.getByText("field_quality: title_edited · Eval passed")).toBeInTheDocument()
+    expect(screen.getByText(/correction user_correction user_corrected noop/u)).toBeInTheDocument()
+  })
+
   it("renders compact empty and loading states without raw private field names", () => {
     // Given
     const emptyState = readyState()

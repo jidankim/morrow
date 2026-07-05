@@ -6,6 +6,8 @@ use morrow_lib::native_bridge::{
 mod decision_evidence;
 #[path = "native_scan_codex/decision_evidence_focus.rs"]
 mod decision_evidence_focus;
+#[path = "native_scan_codex/decision_evidence_phase4.rs"]
+mod decision_evidence_phase4;
 #[path = "native_scan_codex/decision_evidence_retention.rs"]
 mod decision_evidence_retention;
 #[path = "native_scan_codex/decision_evidence_states.rs"]
