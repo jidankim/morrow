@@ -1,11 +1,11 @@
 use morrow_calendar::ProposedEvent;
-use morrow_storage::{CandidateKind, ExternalObjectMapping, ExternalSource, QueuedProposal};
+use morrow_storage::{CandidateKind, ExternalObjectMapping, QueuedProposal};
 
-use crate::native_bridge::eventkit_proposal::{EventKitProposalBridge, ProposedReminder};
+use crate::native_bridge::eventkit_proposal::{EventKitProposalBridge, ReminderProposalRecord};
 
 use super::{
     external_proposal_error, CalendarProposalReceipt, ReminderProposalReceipt,
-    ScanSelectedChatsError, MAPPED_AT,
+    ScanSelectedChatsError,
 };
 
 pub(in crate::native_bridge) struct LocalProposalAdapter;
@@ -18,7 +18,7 @@ pub trait ProposalReplayAdapter {
 
     fn create_reminder_proposal(
         &self,
-        reminder: ProposedReminder,
+        reminder: ReminderProposalRecord,
     ) -> Result<ReminderProposalReceipt, ScanSelectedChatsError>;
 
     fn create_legacy_proposal(
@@ -43,11 +43,11 @@ impl ProposalReplayAdapter for LocalProposalAdapter {
 
     fn create_reminder_proposal(
         &self,
-        reminder: ProposedReminder,
+        reminder: ReminderProposalRecord,
     ) -> Result<ReminderProposalReceipt, ScanSelectedChatsError> {
         Ok(ReminderProposalReceipt {
-            reminder_id: format!("morrow-local-reminder-{}", reminder.metadata.candidate_id),
-            source_id: reminder.metadata.source_id,
+            reminder_id: format!("morrow-local-reminder-{}", reminder.candidate_id.as_str()),
+            list_id: "morrow-local-reminders".to_owned(),
         })
     }
 
@@ -55,35 +55,22 @@ impl ProposalReplayAdapter for LocalProposalAdapter {
         &self,
         candidate: &QueuedProposal,
     ) -> Result<ExternalObjectMapping, ScanSelectedChatsError> {
-        let source = match candidate.kind {
-            CandidateKind::CalendarEvent => {
-                return Err(external_proposal_error(
-                    "calendar candidates require calendar proposal payload replay",
-                ));
-            }
-            CandidateKind::TaskReminder => ExternalSource::Reminders,
+        match candidate.kind {
+            CandidateKind::CalendarEvent => Err(external_proposal_error(
+                "calendar candidates require calendar proposal payload replay",
+            )),
+            CandidateKind::TaskReminder => Err(external_proposal_error(
+                "task reminder candidates require reminder proposal payload replay",
+            )),
             CandidateKind::EventUpdate
             | CandidateKind::EventReschedule
             | CandidateKind::EventCancellation
             | CandidateKind::ReminderUpdate
             | CandidateKind::ReminderReschedule
-            | CandidateKind::ReminderCancellation => {
-                return Err(external_proposal_error(
-                    "proposal creation is unavailable for mutation candidates",
-                ));
-            }
-        };
-        Ok(ExternalObjectMapping {
-            candidate_id: candidate.candidate_id.clone(),
-            source,
-            external_object_id: format!(
-                "morrow-local-{}-{}",
-                source.as_str(),
-                candidate.candidate_id.as_str()
-            ),
-            external_source_id: format!("morrow-local-{}", source.as_str()),
-            mapped_at: MAPPED_AT,
-        })
+            | CandidateKind::ReminderCancellation => Err(external_proposal_error(
+                "proposal creation is unavailable for mutation candidates",
+            )),
+        }
     }
 }
 
@@ -102,12 +89,12 @@ impl ProposalReplayAdapter for EventKitProposalBridge {
 
     fn create_reminder_proposal(
         &self,
-        reminder: ProposedReminder,
+        reminder: ReminderProposalRecord,
     ) -> Result<ReminderProposalReceipt, ScanSelectedChatsError> {
         self.propose_reminder(reminder)
             .map(|receipt| ReminderProposalReceipt {
                 reminder_id: receipt.reminder_id,
-                source_id: receipt.source_id,
+                list_id: receipt.list_id,
             })
             .map_err(|error| external_proposal_error(error.to_string()))
     }

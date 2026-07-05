@@ -3,9 +3,7 @@ use morrow_calendar::{
 };
 
 use super::{
-    EventKitProposalAdapter, EventKitProposalClient, EventKitProposalError,
-    EventKitProposalReceipt, EventKitReminderReceipt, ProposedReminder, ReminderDate, ReminderDue,
-    ReminderProposalMetadata, ReminderTime,
+    EventKitProposalAdapter, EventKitProposalClient, EventKitProposalError, EventKitProposalReceipt,
 };
 
 #[test]
@@ -128,13 +126,7 @@ fn rejects_empty_event_identifier_when_eventkit_reports_success() -> Result<(), 
             calendar_id: "calendar-morrow-proposed".to_owned(),
             source_id: "source-local".to_owned(),
         }),
-        reminder_receipt: Ok(EventKitReminderReceipt {
-            reminder_id: "reminder-1".to_owned(),
-            list_id: "list-morrow-proposed".to_owned(),
-            source_id: "source-local".to_owned(),
-        }),
         created: None,
-        created_reminder: None,
     });
 
     // When
@@ -145,45 +137,6 @@ fn rejects_empty_event_identifier_when_eventkit_reports_success() -> Result<(), 
 
     // Then
     assert_eq!(error, EventKitProposalError::EmptyEventIdentifier);
-    Ok(())
-}
-
-#[test]
-fn creates_proposal_reminder_when_eventkit_save_succeeds() -> Result<(), String> {
-    // Given
-    let client = FakeEventKitClient::succeeding();
-    let mut adapter = EventKitProposalAdapter::new(client);
-
-    // When
-    let receipt = adapter
-        .propose_reminder(proposed_reminder())
-        .map_err(|error| error.to_string())?;
-
-    // Then
-    assert_eq!(receipt.reminder_id, "reminder-1");
-    assert_eq!(receipt.list_id, "list-morrow-proposed");
-    assert_eq!(receipt.source_id, "source-local");
-    let record = adapter
-        .client
-        .created_reminder
-        .as_ref()
-        .ok_or_else(|| "missing created EventKit reminder".to_owned())?;
-    assert_eq!(record.title, "Finish review of the essay");
-    assert_eq!(record.due.date.year, 2026);
-    assert_eq!(record.due.date.month, 7);
-    assert_eq!(record.due.date.day, 25);
-    assert_eq!(
-        record.due.time,
-        Some(ReminderTime {
-            hour: 9,
-            minute: 30,
-        })
-    );
-    assert!(record.notes.contains("[MORROW_METADATA_V1]"));
-    assert!(record
-        .notes
-        .contains("candidate_id=morrow_0000000000000001"));
-    assert!(record.notes.contains("source_id=morrow-selected-messages"));
     Ok(())
 }
 
@@ -235,9 +188,7 @@ fn bridge_is_typed_unavailable_on_non_macos() -> Result<(), String> {
 #[derive(Debug)]
 struct FakeEventKitClient {
     receipt: Result<EventKitProposalReceipt, EventKitProposalError>,
-    reminder_receipt: Result<EventKitReminderReceipt, EventKitProposalError>,
     created: Option<EventRecord>,
-    created_reminder: Option<super::ReminderRecord>,
 }
 
 impl FakeEventKitClient {
@@ -248,24 +199,14 @@ impl FakeEventKitClient {
                 calendar_id: "calendar-morrow-proposed".to_owned(),
                 source_id: "source-local".to_owned(),
             }),
-            reminder_receipt: Ok(EventKitReminderReceipt {
-                reminder_id: "reminder-1".to_owned(),
-                list_id: "list-morrow-proposed".to_owned(),
-                source_id: "source-local".to_owned(),
-            }),
             created: None,
-            created_reminder: None,
         }
     }
 
     fn failing(error: EventKitProposalError) -> Self {
         Self {
             receipt: Err(error),
-            reminder_receipt: Err(EventKitProposalError::Unavailable {
-                reason: "unused reminder fake".to_owned(),
-            }),
             created: None,
-            created_reminder: None,
         }
     }
 }
@@ -281,10 +222,11 @@ impl EventKitProposalClient for FakeEventKitClient {
 
     fn create_proposal_reminder(
         &mut self,
-        record: &super::ReminderRecord,
-    ) -> Result<EventKitReminderReceipt, EventKitProposalError> {
-        self.created_reminder = Some(record.clone());
-        self.reminder_receipt.clone()
+        _record: &super::ReminderProposalRecord,
+    ) -> Result<super::EventKitReminderProposalReceipt, super::EventKitReminderProposalError> {
+        Err(super::EventKitReminderProposalError::Unavailable {
+            reason: "reminder path is not used by calendar tests".to_owned(),
+        })
     }
 }
 
@@ -302,26 +244,4 @@ fn proposed_event() -> Result<ProposedEvent, String> {
                 .map_err(|error| error.to_string())?,
         },
     })
-}
-
-fn proposed_reminder() -> ProposedReminder {
-    ProposedReminder {
-        title: "Finish review of the essay".to_owned(),
-        due: ReminderDue {
-            date: ReminderDate {
-                year: 2026,
-                month: 7,
-                day: 25,
-            },
-            time: Some(ReminderTime {
-                hour: 9,
-                minute: 30,
-            }),
-            timezone_name: Some("Asia/Seoul".to_owned()),
-        },
-        metadata: ReminderProposalMetadata {
-            candidate_id: "morrow_0000000000000001".to_owned(),
-            source_id: "morrow-selected-messages".to_owned(),
-        },
-    }
 }

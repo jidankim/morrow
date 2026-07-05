@@ -2,6 +2,7 @@ mod adapter;
 mod calendar;
 mod decision;
 mod finalize;
+mod normalized_time;
 mod reminder;
 #[cfg(test)]
 mod tests;

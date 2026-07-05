@@ -6,12 +6,8 @@ use morrow_storage::{
     CalendarProposalPayload, CandidateKind, ExternalObjectMapping, ExternalSource, QueuedProposal,
     Store,
 };
-use time::{
-    format_description::well_known::{Iso8601, Rfc3339},
-    OffsetDateTime, PrimitiveDateTime,
-};
-use time_tz::{timezones, OffsetResult, PrimitiveDateTimeExt};
 
+use super::normalized_time::parse_normalized_time;
 use super::{
     external_proposal_error, storage_error, ProposalReplayAdapter, ScanSelectedChatsError,
     DEFAULT_CALENDAR_EVENT_DURATION_SECONDS, MAPPED_AT,
@@ -73,7 +69,7 @@ pub(super) fn proposed_event_from_payload(
             )));
         }
     }
-    let start_unix = parse_normalized_time(&payload.normalized_time)?;
+    let start_unix = parse_normalized_time(&payload.normalized_time)?.unix_timestamp;
     let end_unix = start_unix
         .checked_add(DEFAULT_CALENDAR_EVENT_DURATION_SECONDS)
         .ok_or_else(|| {
@@ -90,31 +86,6 @@ pub(super) fn proposed_event_from_payload(
             source_id: CalendarSourceId::new(&payload.source_id).map_err(calendar_error)?,
         },
     })
-}
-
-fn parse_normalized_time(value: &str) -> Result<i64, ScanSelectedChatsError> {
-    match value.split_once('[') {
-        Some((local_time, timezone_with_bracket)) => {
-            let timezone = timezone_with_bracket
-                .strip_suffix(']')
-                .ok_or_else(|| external_proposal_error("invalid normalized_time timezone"))?;
-            let local_datetime =
-                PrimitiveDateTime::parse(local_time, &Iso8601::DEFAULT).map_err(|error| {
-                    external_proposal_error(format!("invalid normalized_time: {error}"))
-                })?;
-            let timezone = timezones::get_by_name(timezone)
-                .ok_or_else(|| external_proposal_error("unsupported normalized_time timezone"))?;
-            match local_datetime.assume_timezone(timezone) {
-                OffsetResult::Some(datetime) => Ok(datetime.unix_timestamp()),
-                OffsetResult::Ambiguous(_, _) | OffsetResult::None => Err(external_proposal_error(
-                    "ambiguous or invalid normalized_time timezone",
-                )),
-            }
-        }
-        None => OffsetDateTime::parse(value, &Rfc3339)
-            .map(OffsetDateTime::unix_timestamp)
-            .map_err(|error| external_proposal_error(format!("invalid normalized_time: {error}"))),
-    }
 }
 
 fn calendar_error(error: morrow_calendar::CalendarError) -> ScanSelectedChatsError {

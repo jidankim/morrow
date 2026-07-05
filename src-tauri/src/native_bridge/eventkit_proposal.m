@@ -3,6 +3,14 @@
 #include <stdint.h>
 #include <string.h>
 
+// allow: SIZE_OK - This pre-existing Objective-C EventKit bridge keeps the C
+// ABI structs, Reminders authorization flow, proposed-list lookup, metadata
+// dedupe, and save/result mapping in one ARC translation unit. Splitting it in
+// the T4 repair would risk native symbol linkage, block lifetime, and
+// permission/list-store behavior before production replay QA covers the path.
+// Follow-up risk: split authorization/list resolution and dedupe helpers after
+// T5-T7 prove the Reminders replay ABI and cleanup behavior end to end.
+
 typedef struct {
     const char *title;
     const char *notes;
@@ -13,12 +21,14 @@ typedef struct {
 typedef struct {
     const char *title;
     const char *notes;
+    const char *metadata_candidate_id;
     int due_year;
     int due_month;
     int due_day;
     int has_due_time;
     int due_hour;
     int due_minute;
+    int due_second;
     const char *timezone_name;
 } MorrowEventKitReminderRequest;
 
@@ -51,6 +61,8 @@ static const int TruncatedEventId = 1;
 static const int TruncatedCalendarId = 2;
 static const int TruncatedSourceId = 3;
 static NSString *const ProposedName = @"Morrow Proposed";
+static NSString *const MetadataBegin = @"[MORROW_METADATA_V1]";
+static NSString *const MetadataEnd = @"[/MORROW_METADATA_V1]";
 
 static BOOL SetString(char *buffer, size_t capacity, NSString *value) {
     const char *text = [value ?: @"" UTF8String];
@@ -173,6 +185,25 @@ static BOOL RequestReminderAccess(EKEventStore *store, MorrowEventKitReminderRes
         return NO;
     }
 
+    EKAuthorizationStatus status = [EKEventStore authorizationStatusForEntityType:EKEntityTypeReminder];
+    if (status == EKAuthorizationStatusDenied) {
+        SetReminderError(result, ErrorPermissionDenied, @"Reminders access was denied");
+        return NO;
+    }
+    if (status == EKAuthorizationStatusRestricted) {
+        SetReminderError(result, ErrorPermissionDenied, @"Reminders access is restricted");
+        return NO;
+    }
+    if (@available(macOS 14.0, *)) {
+        if (status == EKAuthorizationStatusWriteOnly) {
+            SetReminderError(result, ErrorPermissionDenied, @"Reminders write-only access cannot read Morrow metadata");
+            return NO;
+        }
+    }
+    if (status != EKAuthorizationStatusNotDetermined) {
+        return YES;
+    }
+
     dispatch_semaphore_t semaphore = dispatch_semaphore_create(0);
     __block BOOL granted = NO;
     __block NSError *requestError = nil;
@@ -203,6 +234,13 @@ static BOOL RequestReminderAccess(EKEventStore *store, MorrowEventKitReminderRes
     if (!granted) {
         SetReminderError(result, ErrorPermissionDenied, @"Reminders access was denied");
         return NO;
+    }
+    EKAuthorizationStatus resolvedStatus = [EKEventStore authorizationStatusForEntityType:EKEntityTypeReminder];
+    if (@available(macOS 14.0, *)) {
+        if (resolvedStatus == EKAuthorizationStatusWriteOnly) {
+            SetReminderError(result, ErrorPermissionDenied, @"Reminders write-only access cannot read Morrow metadata");
+            return NO;
+        }
     }
     return YES;
 }
@@ -355,6 +393,7 @@ static NSDateComponents *ReminderDueComponents(const MorrowEventKitReminderReque
     if (request->has_due_time != 0) {
         components.hour = request->due_hour;
         components.minute = request->due_minute;
+        components.second = request->due_second;
     }
     NSString *timezoneName = RequestString(request->timezone_name);
     if (timezoneName.length > 0) {
@@ -368,24 +407,42 @@ static NSDateComponents *ReminderDueComponents(const MorrowEventKitReminderReque
     return components;
 }
 
-static BOOL ReminderDueMatches(NSDateComponents *left, NSDateComponents *right, BOOL hasTime) {
-    if (left == nil || right == nil) {
+static BOOL ReminderMetadataContainsCandidate(EKReminder *reminder, NSString *candidateLine) {
+    if (candidateLine.length == 0 || ![reminder.notes isKindOfClass:[NSString class]]) {
         return NO;
     }
-    if (left.year != right.year || left.month != right.month || left.day != right.day) {
+    NSString *notes = reminder.notes;
+    NSRange endRange = [notes rangeOfString:MetadataEnd options:NSBackwardsSearch];
+    if (endRange.location == NSNotFound) {
         return NO;
     }
-    if (!hasTime) {
-        return YES;
+    NSRange searchRange = NSMakeRange(0, endRange.location);
+    NSRange beginRange = [notes rangeOfString:MetadataBegin options:NSBackwardsSearch range:searchRange];
+    if (beginRange.location == NSNotFound) {
+        return NO;
     }
-    return left.hour == right.hour && left.minute == right.minute;
+    NSUInteger bodyStart = beginRange.location + beginRange.length;
+    NSString *body = [notes substringWithRange:NSMakeRange(bodyStart, endRange.location - bodyStart)];
+    __block BOOL found = NO;
+    [body enumerateLinesUsingBlock:^(NSString *line, BOOL *stop) {
+        if ([line isEqualToString:candidateLine]) {
+            found = YES;
+            *stop = YES;
+        }
+    }];
+    return found;
 }
 
 static NSString *SaveProposalReminder(EKEventStore *store, EKCalendar *calendar, const MorrowEventKitReminderRequest *request, MorrowEventKitReminderResult *result) {
     NSString *title = RequestString(request->title);
     NSString *notes = RequestString(request->notes);
+    NSString *metadataCandidateId = RequestString(request->metadata_candidate_id);
     if (title == nil || notes == nil) {
         SetReminderError(result, ErrorSaveFailed, @"Reminder proposal title or notes were not valid UTF-8");
+        return nil;
+    }
+    if (metadataCandidateId.length == 0) {
+        SetReminderError(result, ErrorSaveFailed, @"Reminder proposal metadata candidate id is missing");
         return nil;
     }
     NSDateComponents *due = ReminderDueComponents(request, result);
@@ -397,11 +454,8 @@ static NSString *SaveProposalReminder(EKEventStore *store, EKCalendar *calendar,
     if (existingReminders == nil) {
         return nil;
     }
-    BOOL hasTime = request->has_due_time != 0;
     for (EKReminder *existing in existingReminders) {
-        if ([existing.title isEqualToString:title] &&
-            [existing.notes isEqualToString:notes] &&
-            ReminderDueMatches(existing.dueDateComponents, due, hasTime) &&
+        if (ReminderMetadataContainsCandidate(existing, metadataCandidateId) &&
             existing.calendarItemIdentifier.length > 0) {
             return existing.calendarItemIdentifier;
         }

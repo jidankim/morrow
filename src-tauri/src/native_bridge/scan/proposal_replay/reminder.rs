@@ -1,26 +1,24 @@
+use morrow_calendar::{CalendarSourceId, CandidateId};
 use morrow_storage::{
     CandidateKind, ExternalObjectMapping, ExternalSource, QueuedProposal, ReminderProposalPayload,
     Store,
 };
-use time::{
-    format_description::well_known::{Iso8601, Rfc3339},
-    OffsetDateTime, PrimitiveDateTime,
-};
-use time_tz::{timezones, OffsetResult, PrimitiveDateTimeExt};
 
 use crate::native_bridge::eventkit_proposal::{
-    ProposedReminder, ReminderDate, ReminderDue, ReminderProposalMetadata, ReminderTime,
+    ReminderDueComponents as EventKitReminderDueComponents,
+    ReminderDueTimeZone as EventKitReminderDueTimeZone, ReminderProposalRecord,
 };
 
 use super::{
-    external_proposal_error, storage_error, ProposalReplayAdapter, ScanSelectedChatsError,
-    MAPPED_AT,
+    external_proposal_error,
+    normalized_time::{parse_normalized_time, ReminderDueComponents, ReminderDueTimeZone},
+    storage_error, ProposalReplayAdapter, ScanSelectedChatsError, MAPPED_AT,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ReminderProposalReceipt {
     pub reminder_id: String,
-    pub source_id: String,
+    pub list_id: String,
 }
 
 pub(super) fn reminder_mapping_from_store(
@@ -50,14 +48,14 @@ pub(super) fn reminder_mapping_from_payload(
         candidate_id: payload.candidate_id.clone(),
         source: ExternalSource::Reminders,
         external_object_id: receipt.reminder_id,
-        external_source_id: receipt.source_id,
+        external_source_id: receipt.list_id,
         mapped_at: MAPPED_AT,
     })
 }
 
 pub(super) fn proposed_reminder_from_payload(
     payload: &ReminderProposalPayload,
-) -> Result<ProposedReminder, ScanSelectedChatsError> {
+) -> Result<ReminderProposalRecord, ScanSelectedChatsError> {
     match payload.kind {
         CandidateKind::TaskReminder => {}
         CandidateKind::CalendarEvent
@@ -73,76 +71,37 @@ pub(super) fn proposed_reminder_from_payload(
             )));
         }
     }
-    Ok(ProposedReminder {
+    Ok(ReminderProposalRecord {
+        candidate_id: CandidateId::new(payload.candidate_id.as_str())
+            .map_err(|error| external_proposal_error(error.to_string()))?,
+        selected_source_id: CalendarSourceId::new(&payload.source_id)
+            .map_err(|error| external_proposal_error(error.to_string()))?,
         title: payload.title.clone(),
-        due: parse_normalized_reminder_due(&payload.normalized_time)?,
-        metadata: ReminderProposalMetadata {
-            candidate_id: payload.candidate_id.as_str().to_owned(),
-            source_id: payload.source_id.clone(),
-        },
+        notes: String::new(),
+        due: reminder_due_from_normalized_time(&payload.normalized_time)?,
     })
 }
 
-fn parse_normalized_reminder_due(value: &str) -> Result<ReminderDue, ScanSelectedChatsError> {
-    match value.split_once('[') {
-        Some((local_time, timezone_with_bracket)) => {
-            let timezone_name = timezone_with_bracket
-                .strip_suffix(']')
-                .ok_or_else(|| external_proposal_error("invalid normalized_time timezone"))?;
-            let local_datetime =
-                PrimitiveDateTime::parse(local_time, &Iso8601::DEFAULT).map_err(|error| {
-                    external_proposal_error(format!("invalid normalized_time: {error}"))
-                })?;
-            let timezone = timezones::get_by_name(timezone_name)
-                .ok_or_else(|| external_proposal_error("unsupported normalized_time timezone"))?;
-            match local_datetime.assume_timezone(timezone) {
-                OffsetResult::Some(_) => Ok(reminder_due_from_local(
-                    local_datetime,
-                    Some(timezone_name.to_owned()),
-                )),
-                OffsetResult::Ambiguous(_, _) | OffsetResult::None => Err(external_proposal_error(
-                    "ambiguous or invalid normalized_time timezone",
-                )),
-            }
-        }
-        None => {
-            let datetime = OffsetDateTime::parse(value, &Rfc3339).map_err(|error| {
-                external_proposal_error(format!("invalid normalized_time: {error}"))
-            })?;
-            Ok(reminder_due_from_offset(datetime))
-        }
-    }
+fn reminder_due_from_normalized_time(
+    value: &str,
+) -> Result<EventKitReminderDueComponents, ScanSelectedChatsError> {
+    let parsed = parse_normalized_time(value)?;
+    Ok(reminder_due_from_components(parsed.reminder_due_components))
 }
 
-fn reminder_due_from_local(
-    datetime: PrimitiveDateTime,
-    timezone_name: Option<String>,
-) -> ReminderDue {
-    ReminderDue {
-        date: ReminderDate {
-            year: datetime.year(),
-            month: u8::from(datetime.month()),
-            day: datetime.day(),
+fn reminder_due_from_components(
+    components: ReminderDueComponents,
+) -> EventKitReminderDueComponents {
+    EventKitReminderDueComponents {
+        year: components.year,
+        month: components.month,
+        day: components.day,
+        hour: components.hour,
+        minute: components.minute,
+        second: components.second,
+        time_zone: match components.time_zone {
+            ReminderDueTimeZone::Named(name) => EventKitReminderDueTimeZone::Named(name),
+            ReminderDueTimeZone::Utc => EventKitReminderDueTimeZone::Utc,
         },
-        time: Some(ReminderTime {
-            hour: datetime.hour(),
-            minute: datetime.minute(),
-        }),
-        timezone_name,
-    }
-}
-
-fn reminder_due_from_offset(datetime: OffsetDateTime) -> ReminderDue {
-    ReminderDue {
-        date: ReminderDate {
-            year: datetime.year(),
-            month: u8::from(datetime.month()),
-            day: datetime.day(),
-        },
-        time: Some(ReminderTime {
-            hour: datetime.hour(),
-            minute: datetime.minute(),
-        }),
-        timezone_name: Some("UTC".to_owned()),
     }
 }
