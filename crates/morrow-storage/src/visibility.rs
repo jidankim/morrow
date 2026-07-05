@@ -1,6 +1,6 @@
 use crate::caps::{plan_visibility, CapPlan, CapPolicy, QueuedProposal};
-use crate::sqlite_cli::row_value;
-use crate::types::{CandidateKind, CandidateState};
+use crate::sqlite_cli::{row_value, sql_text};
+use crate::types::{CandidateKind, CandidateState, ExternalSource};
 use crate::{StorageError, Store};
 
 impl Store {
@@ -53,20 +53,26 @@ impl Store {
     }
 
     pub fn recoverable_external_proposals(&self) -> Result<Vec<QueuedProposal>, StorageError> {
-        let rows = self.sqlite.query_rows(
+        let sql = format!(
             "SELECT c.id, c.kind, c.chat_guid, c.confidence_millis, c.normalized_time
              FROM candidates c
-             LEFT JOIN external_object_mappings m
-               ON m.candidate_id = c.id
-              AND m.source = CASE c.kind
-                WHEN 'task_reminder' THEN 'reminders'
-                ELSE 'calendar'
-              END
-             WHERE c.state = 'creating_external'
-               AND c.kind IN ('calendar_event', 'task_reminder')
-               AND m.id IS NULL
+             LEFT JOIN external_object_mappings calendar_mapping
+               ON calendar_mapping.candidate_id = c.id AND calendar_mapping.source = {calendar_source}
+             LEFT JOIN external_object_mappings reminder_mapping
+               ON reminder_mapping.candidate_id = c.id AND reminder_mapping.source = {reminders_source}
+             WHERE c.state = {state}
+               AND (
+                 (c.kind = {calendar_kind} AND calendar_mapping.id IS NULL)
+                 OR (c.kind = {reminder_kind} AND reminder_mapping.id IS NULL)
+               )
              ORDER BY c.updated_at, c.id;",
-        )?;
+            calendar_source = sql_text(ExternalSource::Calendar.as_str())?,
+            reminders_source = sql_text(ExternalSource::Reminders.as_str())?,
+            state = sql_text(CandidateState::CreatingExternal.as_str())?,
+            calendar_kind = sql_text(CandidateKind::CalendarEvent.as_str())?,
+            reminder_kind = sql_text(CandidateKind::TaskReminder.as_str())?,
+        );
+        let rows = self.sqlite.query_rows(&sql)?;
         rows.into_iter()
             .map(|row| {
                 let candidate_id = row_value(&row, 0, "recoverable.id")?;

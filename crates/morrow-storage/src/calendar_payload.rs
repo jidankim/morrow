@@ -1,9 +1,13 @@
 use crate::sqlite_cli::{row_value, sql_text};
-use crate::types::{CalendarProposalPayload, CandidateKind, CandidateState, ExternalSource};
+use crate::types::{
+    CalendarProposalPayload, CandidateKind, CandidateState, ExternalSource, ReminderProposalPayload,
+};
 use crate::{CandidateId, StorageError, Store};
 
 const SELECTED_MESSAGES_SOURCE_ID: &str = "morrow-selected-messages";
+const SELECTED_REMINDERS_SOURCE_ID: &str = "morrow-selected-reminders";
 const NATIVE_SCAN_TITLE: &str = "Messages event candidate";
+const NATIVE_SCAN_REMINDER_TITLE: &str = "Messages reminder candidate";
 
 impl Store {
     pub fn calendar_proposal_payloads(
@@ -45,7 +49,10 @@ impl Store {
         if !is_normalized_calendar_time(normalized_time) {
             return Ok(None);
         }
-        let title = calendar_payload_title(row_value(row, 3, "calendar_payload.title")?);
+        let title = payload_title(
+            row_value(row, 3, "calendar_payload.title")?,
+            NATIVE_SCAN_TITLE,
+        );
         Ok(Some(CalendarProposalPayload {
             candidate_id: CandidateId::from_storage(row_value(row, 0, "calendar_payload.id")?)?,
             kind: CandidateKind::parse(row_value(row, 1, "calendar_payload.kind")?)?,
@@ -54,12 +61,64 @@ impl Store {
             source_id: SELECTED_MESSAGES_SOURCE_ID.to_owned(),
         }))
     }
+
+    pub fn reminder_proposal_payloads(
+        &self,
+        candidate_ids: &[CandidateId],
+    ) -> Result<Vec<ReminderProposalPayload>, StorageError> {
+        let mut payloads = Vec::new();
+        for candidate_id in candidate_ids {
+            if let Some(payload) = self.reminder_proposal_payload(candidate_id)? {
+                payloads.push(payload);
+            }
+        }
+        Ok(payloads)
+    }
+
+    fn reminder_proposal_payload(
+        &self,
+        candidate_id: &CandidateId,
+    ) -> Result<Option<ReminderProposalPayload>, StorageError> {
+        let sql = format!(
+            "SELECT c.id, c.kind, c.normalized_time, c.title
+             FROM candidates c
+             LEFT JOIN external_object_mappings m
+               ON m.candidate_id = c.id AND m.source = {source}
+             WHERE c.id = {id}
+               AND c.state = {state}
+               AND c.kind = {kind}
+               AND m.id IS NULL;",
+            id = sql_text(candidate_id.as_str())?,
+            source = sql_text(ExternalSource::Reminders.as_str())?,
+            state = sql_text(CandidateState::CreatingExternal.as_str())?,
+            kind = sql_text(CandidateKind::TaskReminder.as_str())?,
+        );
+        let rows = self.sqlite.query_rows(&sql)?;
+        let Some(row) = rows.first() else {
+            return Ok(None);
+        };
+        let normalized_time = row_value(row, 2, "reminder_payload.normalized_time")?;
+        if !is_normalized_calendar_time(normalized_time) {
+            return Ok(None);
+        }
+        let title = payload_title(
+            row_value(row, 3, "reminder_payload.title")?,
+            NATIVE_SCAN_REMINDER_TITLE,
+        );
+        Ok(Some(ReminderProposalPayload {
+            candidate_id: CandidateId::from_storage(row_value(row, 0, "reminder_payload.id")?)?,
+            kind: CandidateKind::parse(row_value(row, 1, "reminder_payload.kind")?)?,
+            normalized_time: normalized_time.to_owned(),
+            title,
+            source_id: SELECTED_REMINDERS_SOURCE_ID.to_owned(),
+        }))
+    }
 }
 
-fn calendar_payload_title(raw: &str) -> String {
+fn payload_title(raw: &str, fallback: &str) -> String {
     let title = raw.trim();
     if title.is_empty() || title_has_private_marker(title) {
-        NATIVE_SCAN_TITLE.to_owned()
+        fallback.to_owned()
     } else {
         title.to_owned()
     }

@@ -12,7 +12,6 @@ mod ids;
 mod migrations;
 mod normalized_time;
 mod privacy;
-mod reminder_payload;
 mod sqlite_cli;
 mod store;
 mod sync_scheduler;
