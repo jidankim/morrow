@@ -5,7 +5,7 @@ use std::{
 
 use morrow_calendar::ProposedEvent;
 use morrow_detection::{AiProvider, ProviderError, ProviderRequest, ProviderResponse};
-use morrow_lib::native_bridge::eventkit_proposal::ProposedReminder;
+use morrow_lib::native_bridge::eventkit_proposal::ReminderProposalRecord;
 use morrow_lib::native_bridge::{
     CalendarProposalReceipt, ProposalReplayAdapter, ReminderProposalReceipt, ScanSelectedChatsError,
 };
@@ -93,6 +93,7 @@ pub struct RecordingProposalAdapter {
     created_by_candidate: RefCell<BTreeMap<String, String>>,
     created_reminders_by_candidate: RefCell<BTreeMap<String, String>>,
     fail_calendar: bool,
+    reminder_failure: Option<String>,
 }
 
 impl RecordingProposalAdapter {
@@ -102,15 +103,26 @@ impl RecordingProposalAdapter {
 
     pub fn failing_calendar() -> Self {
         Self {
-            created_titles: RefCell::new(Vec::new()),
-            created_by_candidate: RefCell::new(BTreeMap::new()),
-            created_reminders_by_candidate: RefCell::new(BTreeMap::new()),
             fail_calendar: true,
+            ..Self::default()
+        }
+    }
+
+    pub fn failing_reminder_permission_denied() -> Self {
+        Self {
+            reminder_failure: Some(
+                "Reminders permission denied: test reminders unavailable".to_owned(),
+            ),
+            ..Self::default()
         }
     }
 
     pub fn created_count(&self) -> usize {
         self.created_by_candidate.borrow().len()
+    }
+
+    pub fn created_reminder_count(&self) -> usize {
+        self.created_reminders_by_candidate.borrow().len()
     }
 }
 
@@ -142,9 +154,12 @@ impl ProposalReplayAdapter for RecordingProposalAdapter {
 
     fn create_reminder_proposal(
         &self,
-        reminder: ProposedReminder,
+        reminder: ReminderProposalRecord,
     ) -> Result<ReminderProposalReceipt, ScanSelectedChatsError> {
-        let candidate_id = reminder.metadata.candidate_id;
+        if let Some(reason) = &self.reminder_failure {
+            return Err(ScanSelectedChatsError::ExternalProposal(reason.clone()));
+        }
+        let candidate_id = reminder.candidate_id.as_str().to_owned();
         let reminder_id = {
             let mut created = self.created_reminders_by_candidate.borrow_mut();
             let next = created.len() + 1;
@@ -156,7 +171,7 @@ impl ProposalReplayAdapter for RecordingProposalAdapter {
         self.created_titles.borrow_mut().push(reminder.title);
         Ok(ReminderProposalReceipt {
             reminder_id,
-            source_id: "reminders-source-injected-1".to_owned(),
+            list_id: "reminders-list-injected-1".to_owned(),
         })
     }
 

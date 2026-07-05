@@ -29,9 +29,21 @@ pub(super) fn create_messages_fixture(db_path: &Path) -> Result<(), String> {
 }
 
 pub(super) fn external_mapping_count(db_path: &Path) -> Result<i64, String> {
+    external_mapping_count_for_source(db_path, "calendar")
+}
+
+pub(super) fn external_mapping_count_for_source(
+    db_path: &Path,
+    source: &str,
+) -> Result<i64, String> {
+    let source = match source {
+        "calendar" => "calendar",
+        "reminders" => "reminders",
+        other => return Err(format!("unsupported external mapping source {other}")),
+    };
     query_sqlite_i64(
         db_path,
-        "SELECT COUNT(*) FROM external_object_mappings WHERE source = 'calendar';",
+        &format!("SELECT COUNT(*) FROM external_object_mappings WHERE source = '{source}';"),
     )
 }
 

@@ -24,6 +24,8 @@ mod production_trace_recorder_selection;
 mod proposal_replay_decision;
 #[path = "native_scan/provider_eventkit.rs"]
 mod provider_eventkit;
+#[path = "native_scan/provider_eventkit_reminders.rs"]
+mod provider_eventkit_reminders;
 #[path = "native_scan/provider_feedback.rs"]
 mod provider_feedback;
 #[path = "native_scan/provider_route_ledger.rs"]
