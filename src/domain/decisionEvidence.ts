@@ -41,6 +41,7 @@ const decisionEvidenceItemSchema = z
     labelValue: z.string().min(1),
     sourceExcerptPolicy: z.string().min(1),
     privacyTier: z.string().min(1),
+    sourceExcerpt: optionalNativeStringSchema,
     hasDiagnosticsHashes: z.boolean(),
     createdAt: z.number().int(),
     traceRetention: decisionEvidenceTraceRetentionSchema,
@@ -83,6 +84,7 @@ export type DecisionEvidenceItem = {
   readonly labelValue: string
   readonly sourceExcerptPolicy: string
   readonly privacyTier: string
+  readonly sourceExcerpt?: string | undefined
   readonly hasDiagnosticsHashes: boolean
   readonly createdAt: number
   readonly traceRetention: "retained" | "notRetained" | "diagnosticsMissing" | "traceMissing"

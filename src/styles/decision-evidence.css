@@ -129,6 +129,31 @@
   overflow-wrap: anywhere;
 }
 
+.decision-evidence-source {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  min-width: 0;
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.decision-evidence-source-label {
+  color: var(--text-tertiary);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.decision-evidence-source-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .decision-evidence-sequence {
   margin: 0;
   color: var(--text-secondary);

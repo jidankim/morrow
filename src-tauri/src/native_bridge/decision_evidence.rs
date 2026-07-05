@@ -49,6 +49,7 @@ pub struct DecisionEvidenceItem {
     pub label_value: String,
     pub source_excerpt_policy: String,
     pub privacy_tier: String,
+    pub source_excerpt: Option<String>,
     pub has_diagnostics_hashes: bool,
     pub created_at: i64,
     pub trace_retention: DecisionEvidenceTraceRetention,
@@ -141,6 +142,7 @@ fn item_from_summary(
         label_value: summary.label_value.as_str().to_owned(),
         source_excerpt_policy: summary.source_excerpt_policy.as_str().to_owned(),
         privacy_tier: summary.privacy_tier.as_str().to_owned(),
+        source_excerpt: summary.excerpt.clone(),
         has_diagnostics_hashes: summary.diagnostics_chat_hash_present
             || summary.diagnostics_message_hash_present,
         created_at: summary.created_at,

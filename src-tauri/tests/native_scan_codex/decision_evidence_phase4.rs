@@ -59,6 +59,10 @@ fn decision_evidence_surfaces_phase4_candidate_correction_trace() -> Result<(), 
     assert_eq!(item.reason_code.as_deref(), Some("user_correction_applied"));
     assert_eq!(item.label_type, "field_quality");
     assert_eq!(item.label_value, "title_edited");
+    assert_eq!(
+        item.source_excerpt.as_deref(),
+        Some("Source excerpt hidden by settings.")
+    );
     assert!(item.has_diagnostics_hashes);
     assert_eq!(
         item.trace_retention,
@@ -71,8 +75,15 @@ fn decision_evidence_surfaces_phase4_candidate_correction_trace() -> Result<(), 
             && step.operation == "user_correction"
             && step.decision.as_deref() == Some("user_corrected")));
 
+    let serialized = serde_json::to_string(&report).map_err(|error| error.to_string())?;
+    let serialized_value = serde_json::from_str::<serde_json::Value>(&serialized)
+        .map_err(|error| error.to_string())?;
+    assert_eq!(
+        serialized_value["items"][0]["sourceExcerpt"],
+        "Source excerpt hidden by settings."
+    );
     assert_phase4_serialized_report_is_sanitized(
-        &serde_json::to_string(&report).map_err(|error| error.to_string())?,
+        &serialized,
         fixture.app_data_dir().to_string_lossy().as_ref(),
     )?;
     println!("phase4_decision_evidence_artifact=phase4-correction-decision-evidence.json");

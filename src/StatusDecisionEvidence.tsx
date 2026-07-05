@@ -76,6 +76,12 @@ function DecisionEvidenceRow({
       {item.providerDiagnostic === undefined ? null : (
         <p className="decision-evidence-provider-diagnostic">{item.providerDiagnostic}</p>
       )}
+      {item.sourceExcerpt === undefined ? null : (
+        <p className="decision-evidence-source">
+          <span className="decision-evidence-source-label">Message</span>
+          <span className="decision-evidence-source-text">{item.sourceExcerpt}</span>
+        </p>
+      )}
       <p className="decision-evidence-sequence">{formatDecisionSequence(item.traceSequence)}</p>
     </li>
   )

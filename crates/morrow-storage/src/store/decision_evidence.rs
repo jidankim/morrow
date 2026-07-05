@@ -31,6 +31,7 @@ pub struct DecisionEvidenceSummary {
     pub label_value: FeedbackLabelValue,
     pub source_excerpt_policy: FeedbackSourceExcerptPolicy,
     pub privacy_tier: FeedbackPrivacyTier,
+    pub excerpt: Option<String>,
     pub diagnostics_trace_id: Option<String>,
     pub diagnostics_span_id: Option<String>,
     pub diagnostics_chat_hash_present: bool,
@@ -92,6 +93,7 @@ fn decision_evidence_sql(extra_filter: &str, limit: usize) -> String {
            s.source_excerpt_policy, s.privacy_tier, s.diagnostics_trace_id,
            s.diagnostics_span_id, s.diagnostics_chat_hash IS NOT NULL,
            s.diagnostics_message_hash IS NOT NULL,
+           s.excerpt,
            (
              SELECT q.provider_diagnostic
              FROM quiet_logs q
@@ -150,8 +152,9 @@ fn row_to_summary(row: Vec<String>) -> Result<DecisionEvidenceSummary, StorageEr
         diagnostics_span_id: optional_cell(row_value(&row, 13, "snapshot.diagnostics_span_id")?),
         diagnostics_chat_hash_present: row_bool(&row, 14, "diagnostics_chat_hash_present")?,
         diagnostics_message_hash_present: row_bool(&row, 15, "diagnostics_message_hash_present")?,
-        provider_diagnostic: optional_cell(row_value(&row, 16, "quiet_log.provider_diagnostic")?),
-        created_at: row_i64(&row, 17, "snapshot.created_at")?,
+        excerpt: optional_cell(row_value(&row, 16, "snapshot.excerpt")?),
+        provider_diagnostic: optional_cell(row_value(&row, 17, "quiet_log.provider_diagnostic")?),
+        created_at: row_i64(&row, 18, "snapshot.created_at")?,
         trace_retention: DecisionEvidenceTraceRetention::NotChecked,
     })
 }
