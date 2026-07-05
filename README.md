@@ -9,6 +9,7 @@ This repository is prepared as a v0.1 source snapshot. Local OMO planning and ev
 1. Synthetic pipeline QA passes: fake Messages fixtures can become typed candidates and fake Calendar/Reminders proposals.
 2. Real Calendar surface QA passes: this machine can create, read back, and clean up a synthetic EventKit event in `Morrow Proposed`.
 3. Real Messages discovery, selected-chat scanning, the Codex provider path, and EventKit proposal creation are wired through the production Tauri path. "Production-wired" means the app can use the native Tauri path after local permissions and Codex CLI login are complete. It does not mean real Messages-to-Calendar event creation is verified end to end yet: live QA still needs a real environment that allows EventKit readback and cleanup after `Sync Now` creates a proposed event from a real message.
+4. The local Phase 4 approval/correction evidence loop is covered by local smoke artifacts only. It proves sanitized local evidence for accepted, rejected, pending-edited, unknown, and `user_correction` outcomes with no live network, vendor, Messages, Calendar, or Reminders access. The correction UI remains future work, cloud telemetry remains future work, the full live Messages-to-Calendar approval trajectory eval remains future work, and real-surface status remains PASS or sanitized BLOCKED.
 
 Because of that, do not treat synthetic e2e success as proof that a real message has created a real Calendar event.
 
@@ -183,6 +184,31 @@ Real Messages-to-Calendar QA through the Codex CLI provider:
 ```bash
 env -u MORROW_REAL_QA_OPENAI_API_KEY scripts/messages-calendar-real-qa.sh
 ```
+
+Phase 4 local approval/correction evidence smoke:
+
+```bash
+scripts/run-human-approval-correction-smoke.sh --out-dir .omo/evidence/phase-4-human-approval-correction/final-smoke --assert-canary-rejection
+```
+
+Expected Phase 4 smoke artifacts:
+
+- `.omo/evidence/phase-4-human-approval-correction/final-smoke/summary.txt`
+- `.omo/evidence/phase-4-human-approval-correction/final-smoke/human-approval-correction-report.json`
+- `.omo/evidence/phase-4-human-approval-correction/final-smoke/trace.jsonl`
+- `.omo/evidence/phase-4-human-approval-correction/final-smoke/storage-readback.json`
+- `.omo/evidence/phase-4-human-approval-correction/final-smoke/decision-evidence.json`
+- `.omo/evidence/phase-4-human-approval-correction/final-smoke/privacy-inspect.txt`
+- `.omo/evidence/phase-4-human-approval-correction/final-smoke/canary-rejection.txt`
+- `.omo/evidence/phase-4-human-approval-correction/final-smoke/cleanup-receipt.txt`
+
+Phase 4 real-surface receipt command:
+
+```bash
+scripts/run-lifecycle-real-surface-qa.sh --out-dir .omo/evidence/phase-4-human-approval-correction/real-surface
+```
+
+Expected Phase 4 real-surface receipts include `.omo/evidence/phase-4-human-approval-correction/real-surface/summary.txt` and `.omo/evidence/phase-4-human-approval-correction/real-surface/cleanup-receipt.txt`. A PASS receipt proves that bounded surface; a sanitized BLOCKED receipt means host permission or tooling stopped the run before mutation or after cleanup. A FAIL receipt is not acceptable.
 
 This path must use the local Codex CLI session and must not require an OpenAI API key. It can still block on external setup: missing Codex CLI login, missing Full Disk Access for Messages, missing Calendar access, or missing real QA chat environment variables.
 

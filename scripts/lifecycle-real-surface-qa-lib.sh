@@ -28,32 +28,29 @@ qa_prepare_out_dir() {
   local root="$1"
   local output="$2"
   local output_abs
-  local phase_abs
-  local phase_child
+  local phase_out_dir_status
 
   output_abs="$(qa_canonicalize_out_dir "$root" "$output")" || return 1
-  phase_abs="$(qa_canonicalize_out_dir "$root" "$root/.omo/evidence/phase-3-lifecycle-replay-coverage")" || return 1
 
   case "$output_abs" in
-    ""|"/"|"$root"|"$phase_abs") qa_fail_usage "refusing unsafe --out-dir: $output" ;;
+    ""|"/"|"$root") qa_fail_usage "refusing unsafe --out-dir: $output" ;;
   esac
 
-  case "$output_abs" in
-    "$phase_abs"/*)
-      phase_child="${output_abs#"$phase_abs"/}"
-      qa_is_allowed_phase_real_surface_dir "$phase_child" ||
-        qa_fail_usage "refusing non-dedicated real-surface --out-dir under phase evidence: $output"
-      ;;
-    *)
-      qa_is_allowed_tmp_out_dir "$output_abs" ||
-        qa_fail_usage "refusing to clean output outside dedicated phase real-surface evidence or wrapper tmp dir: $output"
-      qa_require_empty_or_marked_tmp_dir "$output_abs"
-      ;;
-  esac
+  qa_is_allowed_phase_out_dir "$root" "$output_abs" "$output"
+  phase_out_dir_status=$?
+  if (( phase_out_dir_status == 1 )); then
+    return 1
+  fi
+
+  if (( phase_out_dir_status != 0 )); then
+    qa_is_allowed_tmp_out_dir "$output_abs" ||
+      qa_fail_usage "refusing to clean output outside dedicated phase real-surface evidence or wrapper tmp dir: $output"
+    qa_require_empty_or_marked_tmp_dir "$output_abs"
+  fi
 
   mkdir -p "$output_abs" || return 1
   qa_clean_out_dir "$output_abs"
-  printf 'phase-3 lifecycle real-surface qa out-dir\n' >"$output_abs/.morrow-lifecycle-real-surface-qa-out-dir"
+  printf 'lifecycle real-surface qa out-dir\n' >"$output_abs/.morrow-lifecycle-real-surface-qa-out-dir"
 }
 
 qa_truncate_receipts() {

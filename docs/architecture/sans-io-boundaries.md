@@ -19,3 +19,24 @@ Status: Tasks 1-9 have been independently confirmed in start-work evidence. Fina
 - Keep each Imperative adapter thin: parse at the edge, call the native service or persistence layer, convert failures into existing error contracts, and delegate decisions back to the core.
 - Do not move into core: Tauri invoke/listen, EventKit/Reminders, Messages SQLite/protected DB access, sqlite CLI/Store persistence, OpenAI/Codex transport/keychain/network/subprocess, filesystem/app paths, or UI state runtime effects.
 - Future work must preserve current Tauri command names, zod schemas, database schema, provider model/prompt behavior, privacy behavior, and user-visible UI behavior unless explicitly scoped.
+
+## Phase 4 Evidence Boundary
+
+The local Phase 4 approval/correction evidence loop is covered by local smoke artifacts, not by new native adapters or UI runtime behavior. The smoke command is:
+
+```bash
+scripts/run-human-approval-correction-smoke.sh --out-dir .omo/evidence/phase-4-human-approval-correction/final-smoke --assert-canary-rejection
+```
+
+The bounded real-surface receipt command is:
+
+```bash
+scripts/run-lifecycle-real-surface-qa.sh --out-dir .omo/evidence/phase-4-human-approval-correction/real-surface
+```
+
+The evidence boundary is:
+
+- The smoke may prove sanitized local approval/correction trace, storage, and decision-evidence receipts under `.omo/evidence/phase-4-human-approval-correction/final-smoke/summary.txt`, `.omo/evidence/phase-4-human-approval-correction/final-smoke/human-approval-correction-report.json`, `.omo/evidence/phase-4-human-approval-correction/final-smoke/trace.jsonl`, `.omo/evidence/phase-4-human-approval-correction/final-smoke/storage-readback.json`, `.omo/evidence/phase-4-human-approval-correction/final-smoke/decision-evidence.json`, `.omo/evidence/phase-4-human-approval-correction/final-smoke/privacy-inspect.txt`, `.omo/evidence/phase-4-human-approval-correction/final-smoke/canary-rejection.txt`, and `.omo/evidence/phase-4-human-approval-correction/final-smoke/cleanup-receipt.txt`.
+- It must not imply EventKit/Reminders mutation, Messages access, provider calls, cloud upload, or user-facing correction interaction; the smoke runs with no live network, vendor, Messages, Calendar, or Reminders access.
+- The correction UI remains future work, cloud telemetry remains future work, and the full live Messages-to-Calendar approval trajectory eval remains future work.
+- Real-surface status remains PASS or sanitized BLOCKED and is recorded separately under `.omo/evidence/phase-4-human-approval-correction/real-surface/summary.txt` and `.omo/evidence/phase-4-human-approval-correction/real-surface/cleanup-receipt.txt`.

@@ -43,7 +43,7 @@ Privacy rules for this phase:
 
 Remaining gaps:
 
-- Phase 4 human approval/correction remains future work, including risk gates, correction capture, and auditable approval outcomes.
+- Phase 4 local approval/correction evidence is documented below and is outside the Phase 2 product-correlation claim.
 - Phase 5 trajectory-level eval hardening remains future work for multi-step Messages-to-Calendar approval paths, collateral-damage checks, and replay scoring.
 - Cloud telemetry rollout remains future work; Phase 2 does not upload diagnostics or require Phoenix, Langfuse, LangSmith, Braintrust, LiteLLM, Helicone, or any vendor backend.
 
@@ -102,10 +102,57 @@ Privacy rules for Phase 3:
 
 Remaining gaps:
 
-- Phase 4 human approval/correction loop remains future work, including risk gates, correction capture, and auditable approval outcomes.
+- Phase 4 local approval/correction evidence is documented below and is outside the Phase 3 lifecycle-replay claim.
 - Phase 5 trajectory eval hardening remains future work for multi-step Messages-to-Calendar approval paths, collateral-damage checks, and replay scoring.
 - The full Messages -> Calendar -> approval trajectory eval remains future work.
 - Cloud telemetry remains future work; Phase 3 does not upload diagnostics or require Phoenix, Langfuse, LangSmith, Braintrust, LiteLLM, Helicone, or any vendor backend.
+
+## Phase 4 Human Approval/Correction Evidence Smoke
+
+The local Phase 4 approval/correction evidence loop is covered by local smoke artifacts for the narrowed evidence claim only. It covers sanitized local evidence for accepted, rejected-observed, pending-edited, unknown, and `user_correction` outcomes, plus retained decision evidence for the latest proposal outcome or field-quality label. It does not prove a correction UI, cloud telemetry, live vendor behavior, real Messages access, real Calendar/Reminders mutation, or the full live Messages-to-Calendar approval trajectory eval.
+
+Run the Phase 4 local smoke with:
+
+```bash
+scripts/run-human-approval-correction-smoke.sh --out-dir .omo/evidence/phase-4-human-approval-correction/final-smoke --assert-canary-rejection
+```
+
+Expected smoke artifacts:
+
+- `.omo/evidence/phase-4-human-approval-correction/final-smoke/summary.txt`
+- `.omo/evidence/phase-4-human-approval-correction/final-smoke/human-approval-correction-report.json`
+- `.omo/evidence/phase-4-human-approval-correction/final-smoke/trace.jsonl`
+- `.omo/evidence/phase-4-human-approval-correction/final-smoke/storage-readback.json`
+- `.omo/evidence/phase-4-human-approval-correction/final-smoke/decision-evidence.json`
+- `.omo/evidence/phase-4-human-approval-correction/final-smoke/privacy-inspect.txt`
+- `.omo/evidence/phase-4-human-approval-correction/final-smoke/canary-rejection.txt`
+- `.omo/evidence/phase-4-human-approval-correction/final-smoke/cleanup-receipt.txt`
+- `.omo/evidence/phase-4-human-approval-correction/final-smoke/command-log-pass-counts.txt`
+- `.omo/evidence/phase-4-human-approval-correction/final-smoke/command-logs/`
+
+The recorded smoke receipt reports `result: PASS`, `coverage: user_correction=user_corrected`, proposal outcomes for accepted/rejected-observed/pending-edited/unknown, retained trace evidence, privacy inspection, canary rejection, and cleanup. The smoke uses local fixtures/fakes and synthetic privacy surfaces with no live network, vendor, Messages, Calendar, or Reminders access.
+
+Run the bounded real-surface receipt wrapper with:
+
+```bash
+scripts/run-lifecycle-real-surface-qa.sh --out-dir .omo/evidence/phase-4-human-approval-correction/real-surface
+```
+
+Expected real-surface receipts:
+
+- `.omo/evidence/phase-4-human-approval-correction/real-surface/summary.txt`
+- `.omo/evidence/phase-4-human-approval-correction/real-surface/calendar-status.txt`
+- `.omo/evidence/phase-4-human-approval-correction/real-surface/reminders-status.txt`
+- `.omo/evidence/phase-4-human-approval-correction/real-surface/cleanup-receipt.txt`
+
+Real-surface status remains PASS or sanitized BLOCKED. PASS proves the bounded real Calendar/Reminders surface for that run; sanitized BLOCKED means host permissions or tooling stopped the run before mutation, or cleanup was completed and the receipt names the rerun condition. The local smoke does not claim a full real-surface pass.
+
+Remaining Phase 4 gaps:
+
+- The correction UI remains future work.
+- Cloud telemetry remains future work.
+- The full live Messages-to-Calendar approval trajectory eval remains future work.
+- Real-surface status remains PASS or sanitized BLOCKED and is not implied by the local smoke.
 
 ## Provider-Backed Messages-to-Calendar Flow
 
@@ -277,7 +324,7 @@ Benchmark inspiration is used for fixture design, not as a required corpus:
 
 ## Lifecycle And Reserved Trace Operations
 
-The trace schema now exercises the Phase 3 lifecycle/replay operation names locally while reserving correction vocabulary for future approval/correction work:
+The trace schema now exercises the Phase 3 lifecycle/replay operation names locally and the Phase 4 local correction vocabulary through smoke evidence:
 
 - `candidate_superseded`
 - `candidate_rescheduled`
@@ -290,9 +337,8 @@ Additional reserved names remain schema vocabulary only in this layer:
 
 - `poll_empty`
 - `cursor_advanced`
-- `user_correction`
 
-The full Messages -> Calendar -> approval trajectory eval remains future work. Current local diagnostics, Phase 1 production trace sink, Phase 2 product correlation, Phase 3 lifecycle replay smoke, and feedback/eval receipts prove the local trace substrate plus local candidate/quiet/lifecycle correlation, not an end-to-end approval lifecycle benchmark.
+The full live Messages-to-Calendar approval trajectory eval remains future work. Current local diagnostics, Phase 1 production trace sink, Phase 2 product correlation, Phase 3 lifecycle replay smoke, Phase 4 local approval/correction evidence smoke, and feedback/eval receipts prove the local trace substrate plus local candidate/quiet/lifecycle/approval-correction evidence, not an end-to-end approval lifecycle benchmark.
 
 ## Non-Goals
 
@@ -300,9 +346,8 @@ The full Messages -> Calendar -> approval trajectory eval remains future work. C
 - No vendor backend required for local smoke, CI, runtime scans, evals, Delete All, or privacy inspection.
 - No raw prompt, raw message, provider JSON, embeddings, model responses, or unredacted candidate titles in traces, evals, exports, logs, or screenshots.
 - No agent-native control-plane CLI.
-- No human correction UI or correction-training loop.
+- No human correction UI or correction-training loop; the correction UI remains future work.
 - The full Calendar write workflow is not claimed; Phase 3 dry-run and commit-idempotency evidence is local/fake or bounded by explicit real-surface PASS/BLOCKED receipts.
 - No approval-bypassing mutation path.
-- No Phase 4 human approval/correction loop.
-- No completed trajectory-level Messages -> Calendar -> approval eval in this layer.
-- No cloud telemetry rollout.
+- No completed trajectory-level Messages -> Calendar -> approval eval in this layer; the full live Messages-to-Calendar approval trajectory eval remains future work.
+- No cloud telemetry rollout; cloud telemetry remains future work.

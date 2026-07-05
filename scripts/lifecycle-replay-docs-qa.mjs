@@ -17,11 +17,12 @@ const requiredPhrases = [
   ".omo/evidence/phase-3-lifecycle-replay-coverage/final-smoke/privacy-inspect.txt",
   ".omo/evidence/phase-3-lifecycle-replay-coverage/final-smoke/canary-rejection.txt",
   ".omo/evidence/phase-3-lifecycle-replay-coverage/final-smoke/cleanup-receipt.txt",
+  ".omo/evidence/phase-3-lifecycle-replay-coverage/real-surface/summary.txt",
   ".omo/evidence/phase-3-lifecycle-replay-coverage/real-surface/calendar-status.txt",
   ".omo/evidence/phase-3-lifecycle-replay-coverage/real-surface/reminders-status.txt",
   ".omo/evidence/phase-3-lifecycle-replay-coverage/real-surface/cleanup-receipt.txt",
   "PASS or BLOCKED per surface exits 0; any FAIL exits nonzero",
-  "Phase 4 human approval/correction loop remains future work",
+  "Phase 4 local approval/correction evidence is documented below and is outside the Phase 3 lifecycle-replay claim.",
   "Phase 5 trajectory eval hardening remains future work",
   "full Messages -> Calendar -> approval trajectory eval remains future work",
   "No full real-surface pass is claimed because at least one surface is BLOCKED",
@@ -56,6 +57,11 @@ const forbiddenPatterns = [
     pattern: /\b(?:approval workflow|human approval\/correction loop)\b[^.\n]*(?:complete|completed|done|implemented|proved|covered)/i
   },
   {
+    name: "correction UI completion claim",
+    pattern:
+      /\b(?:correction UI|human correction UI)\b(?![^.\n]*(?:remains future work|not claimed|deferred|gap|not complete))[^.\n]*(?:complete|completed|done|implemented|proved|covered|available|enabled)/i
+  },
+  {
     name: "trajectory eval completion claim",
     pattern: /\btrajectory(?:-level)? eval\b[^.\n]*(?:complete|completed|done|implemented|proved|covered)/i
   },
@@ -80,14 +86,15 @@ function presentForbidden(text) {
 
 async function nonEmptyEvidenceFailures() {
   const failures = []
-  for (const file of evidenceFiles) {
+  for (const path of evidenceFiles) {
     try {
-      const info = await stat(file)
+      const info = await stat(path)
       if (!info.isFile() || info.size === 0) {
-        failures.push(`empty evidence artifact: ${file}`)
+        failures.push(`empty evidence artifact: ${path}`)
       }
-    } catch {
-      failures.push(`missing evidence artifact: ${file}`)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      failures.push(message.includes("ENOENT") ? `missing evidence artifact: ${path}` : message)
     }
   }
   return failures
@@ -104,13 +111,21 @@ function printList(title, items) {
   }
 }
 
+function assertNoArgs(argv) {
+  if (argv.length > 0) {
+    throw new Error(`unknown argument: ${argv[0]}`)
+  }
+}
+
 async function main() {
+  assertNoArgs(process.argv.slice(2))
+
   const docTexts = await Promise.all(docs.map((doc) => readFile(doc, "utf8")))
   const text = docTexts.join("\n")
   const failures = [
+    ...(await nonEmptyEvidenceFailures()),
     ...missingPhrases(text).map((phrase) => `missing required wording: ${phrase}`),
-    ...presentForbidden(text).map((name) => `forbidden overclaim present: ${name}`),
-    ...(await nonEmptyEvidenceFailures())
+    ...presentForbidden(text).map((name) => `forbidden overclaim present: ${name}`)
   ]
 
   printList("Lifecycle replay docs QA failures:", failures)
@@ -123,4 +138,8 @@ async function main() {
   console.log("PASS lifecycle replay docs QA")
 }
 
-await main()
+main().catch((error) => {
+  const message = error instanceof Error ? error.message : "unknown docs QA failure"
+  console.error(`FAIL lifecycle replay docs QA: ${message}`)
+  process.exitCode = 1
+})

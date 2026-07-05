@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 
-import { readFile } from "node:fs/promises"
+import { readFile, stat } from "node:fs/promises"
 
 const diagnosticsDocPath = "docs/diagnostics-trace-eval.md"
 const axiDocPath = "docs/axi-phase-0-feedback-eval-baseline.md"
 const finalSmokeSummaryPath =
   ".omo/evidence/phase-2-trace-candidate-correlation/final-smoke/summary.txt"
+const finalSmokeDir = ".omo/evidence/phase-2-trace-candidate-correlation/final-smoke"
 const phase2SmokeCommand =
   "scripts/run-trace-candidate-correlation-smoke.sh --out-dir .omo/evidence/phase-2-trace-candidate-correlation/final-smoke --assert-canary-rejection"
 
@@ -24,10 +25,10 @@ const requiredCombinedPhrases = [
   finalSmokeSummaryPath,
   "Phase 2 product correlation is implemented for local candidate and quiet summaries",
   "retained and deleted diagnostics states",
-  "No raw content leaves the device",
+  "Raw private content is not exported by the local diagnostics evidence flow.",
   "No raw prompt text, raw source content, provider JSON, native identifiers, or app-data paths are exposed",
-  "Phase 3 lifecycle coverage remains future work",
-  "Phase 4 human approval/correction remains future work",
+  "Phase 3 lifecycle coverage is now backed by local smoke artifacts and real-surface PASS/BLOCKED receipts.",
+  "Phase 4 local approval/correction evidence is documented below and is outside the Phase 2 product-correlation claim.",
   "Phase 5 trajectory-level eval hardening remains future work",
   "Cloud telemetry rollout remains future work",
   "not full AXI compliance"
@@ -98,6 +99,23 @@ function requiredArtifactFailures(text) {
     .map((artifact) => `missing Phase 2 expected artifact: ${artifact}`)
 }
 
+async function nonEmptyEvidenceFailures() {
+  const failures = []
+  for (const artifact of requiredArtifacts) {
+    const path = `${finalSmokeDir}/${artifact}`
+    try {
+      const info = await stat(path)
+      if (!info.isFile() || info.size === 0) {
+        failures.push(`empty evidence artifact: ${path}`)
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      failures.push(message.includes("ENOENT") ? `missing evidence artifact: ${path}` : message)
+    }
+  }
+  return failures
+}
+
 function assertFinalSmokePassed(summaryText) {
   const failures = []
   if (!summaryText.includes("scenario: Phase 2 trace candidate correlation smoke")) {
@@ -113,7 +131,15 @@ function formatFailures(failures) {
   return failures.map((failure) => `- ${failure}`).join("\n")
 }
 
+function assertNoArgs(argv) {
+  if (argv.length > 0) {
+    throw new Error(`unknown argument: ${argv[0]}`)
+  }
+}
+
 async function main() {
+  assertNoArgs(process.argv.slice(2))
+
   const [diagnosticsText, axiText, summaryText] = await Promise.all([
     readFile(diagnosticsDocPath, "utf8"),
     readFile(axiDocPath, "utf8"),
@@ -121,6 +147,7 @@ async function main() {
   ])
   const combinedText = `${diagnosticsText}\n${axiText}`
   const failures = [
+    ...(await nonEmptyEvidenceFailures()),
     ...assertFinalSmokePassed(summaryText),
     ...missingPhrases(combinedText, requiredCombinedPhrases).map(
       (phrase) => `missing required wording: ${phrase}`

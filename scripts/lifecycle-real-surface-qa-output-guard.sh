@@ -68,6 +68,33 @@ qa_is_allowed_phase_real_surface_dir() {
   esac
 }
 
+qa_is_allowed_phase_out_dir() {
+  local root="$1"
+  local output_abs="$2"
+  local output="$3"
+  local phase_abs
+  local phase_child
+  local phase_root
+
+  for phase_root in \
+    "$root/.omo/evidence/phase-3-lifecycle-replay-coverage" \
+    "$root/.omo/evidence/phase-4-human-approval-correction"
+  do
+    phase_abs="$(qa_canonicalize_out_dir "$root" "$phase_root")" || return 1
+    case "$output_abs" in
+      "$phase_abs") qa_fail_usage "refusing unsafe --out-dir: $output" ;;
+      "$phase_abs"/*)
+        phase_child="${output_abs#"$phase_abs"/}"
+        qa_is_allowed_phase_real_surface_dir "$phase_child" ||
+          qa_fail_usage "refusing non-dedicated real-surface --out-dir under phase evidence: $output"
+        return 0
+        ;;
+    esac
+  done
+
+  return 2
+}
+
 qa_has_dedicated_tmp_leaf() {
   local output_abs="$1"
   local leaf
