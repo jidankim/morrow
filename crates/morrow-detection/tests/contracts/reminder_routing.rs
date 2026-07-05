@@ -1,9 +1,22 @@
 use std::error::Error;
 
-use morrow_detection::DetectionPipeline;
+use morrow_detection::{
+    AiProvider, DetectionPipeline, ProviderError, ProviderRequest, ProviderResponse,
+};
 use morrow_storage::CandidateKind;
 
 use crate::support::{config, message, only_candidate, only_quiet, FakeProvider};
+
+#[derive(Debug, Clone, Copy)]
+struct UnavailableProvider;
+
+impl AiProvider for UnavailableProvider {
+    fn extract(&self, _request: ProviderRequest<'_>) -> Result<ProviderResponse, ProviderError> {
+        Err(ProviderError::Unavailable {
+            reason: "codex provider command timed out".to_owned(),
+        })
+    }
+}
 
 #[test]
 fn finish_by_date_wording_routes_to_provider_as_reminder() -> Result<(), Box<dyn Error>> {
@@ -33,6 +46,35 @@ fn finish_by_date_wording_routes_to_provider_as_reminder() -> Result<(), Box<dyn
     assert_eq!(candidate.kind, CandidateKind::TaskReminder);
     assert_eq!(candidate.title, "Finish review of the essay");
     assert_eq!(candidate.normalized_time, "2026-07-25T09:00:00[Asia/Seoul]");
+    Ok(())
+}
+
+#[test]
+fn finish_by_date_wording_creates_reminder_when_provider_unavailable() -> Result<(), Box<dyn Error>>
+{
+    // Given
+    let provider = UnavailableProvider;
+    let pipeline = DetectionPipeline::new(&provider);
+    let messages = vec![message(
+        "chat-1",
+        "msg-finish-review-timeout-1",
+        "Finish review of the essay by July 25, 2026",
+        false,
+    )?];
+    let config = config(550)?;
+
+    // When
+    let report = pipeline.detect(&messages, &config);
+
+    // Then
+    let candidate = only_candidate(&report.outcomes)?;
+    assert_eq!(candidate.kind, CandidateKind::TaskReminder);
+    assert_eq!(
+        candidate.title,
+        "Finish review of the essay by July 25, 2026"
+    );
+    assert_eq!(candidate.normalized_time, "2026-07-25T23:59:00[Asia/Seoul]");
+    assert_eq!(report.quiet_logs().count(), 0);
     Ok(())
 }
 

@@ -113,14 +113,16 @@ impl<'a, R: TraceRecorder + ?Sized> MessageTrace<'a, R> {
         });
     }
 
-    pub(crate) fn provider_unavailable(&self, config: &DetectionConfig) {
+    pub(crate) fn provider_unavailable(&self, fallback_confidence: Option<i64>, config: &DetectionConfig) {
+        let outcome = fallback_confidence
+            .map_or(TraceOutcome::QuietLogged, |_| TraceOutcome::CandidateCreated);
         self.record_child(TraceEvent {
             component: TraceComponent::Provider,
             operation: TraceOperation::ProviderResult,
             decision: Some(TraceDecision::ProviderUnavailable),
-            outcome: TraceOutcome::QuietLogged,
+            outcome,
             reason_code: Some("provider_unavailable"),
-            confidence_millis: None,
+            confidence_millis: fallback_confidence.and_then(bounded_confidence),
             title: None,
             privacy_tier: TracePrivacyTier::InternalMetadata,
             provider: Some(&config.provider),

@@ -5,13 +5,13 @@ use crate::outcome::{
     candidate_from_parsed, candidate_from_provider, quiet, quiet_with_provider_diagnostic,
     DetectionOutcome, DetectionReport,
 };
-use crate::parser::{classify, GateDecision};
+use crate::parser::{classify, GateDecision, ParsedCandidate};
 use crate::provider::{AiProvider, ProviderError, ProviderRequest};
 use crate::provider_route_cache::{
     NoopProviderRouteCache, NoopProviderRouteCacheError, ProviderRouteCache, ProviderRouteDecision,
     ProviderRouteRequest as CacheRequest, ProviderRouteWriteIntent,
 };
-use crate::schema::{parse_provider_candidate, SchemaRejection};
+use crate::schema::parse_provider_candidate;
 use crate::trace::MessageTrace;
 use crate::types::{CivilDateTime, DetectionConfig};
 
@@ -100,9 +100,19 @@ impl<'a, P: AiProvider> DetectionPipeline<'a, P> {
                 trace.outcome_materialized(&outcome, config.source_excerpts);
                 Ok(DetectionStep::new(outcome, None))
             }
-            GateDecision::ProviderRoute { parser_time } => {
+            GateDecision::ProviderRoute {
+                parser_time,
+                fallback,
+            } => {
                 trace.parser_provider_route(config);
-                self.detect_with_provider_cache(message, parser_time, config, trace, cache)
+                self.detect_with_provider_cache(
+                    message,
+                    parser_time,
+                    fallback,
+                    config,
+                    trace,
+                    cache,
+                )
             }
         }
     }
@@ -111,6 +121,7 @@ impl<'a, P: AiProvider> DetectionPipeline<'a, P> {
         &self,
         message: &MessageEvidence,
         parser_time: Option<CivilDateTime>,
+        fallback: Option<ParsedCandidate>,
         config: &DetectionConfig,
         trace: &MessageTrace<'_, R>,
         cache: &C,
@@ -140,6 +151,7 @@ impl<'a, P: AiProvider> DetectionPipeline<'a, P> {
             ProviderRouteDecision::Miss { write_intent } => Ok(self.detect_with_provider(
                 message,
                 parser_time,
+                fallback,
                 config,
                 trace,
                 write_intent.map(|intent| *intent),
@@ -151,6 +163,7 @@ impl<'a, P: AiProvider> DetectionPipeline<'a, P> {
         &self,
         message: &MessageEvidence,
         parser_time: Option<CivilDateTime>,
+        fallback: Option<ParsedCandidate>,
         config: &DetectionConfig,
         trace: &MessageTrace<'_, R>,
         write_intent: Option<ProviderRouteWriteIntent>,
@@ -167,7 +180,13 @@ impl<'a, P: AiProvider> DetectionPipeline<'a, P> {
                 response
             }
             Err(ProviderError::Unavailable { reason }) => {
-                trace.provider_unavailable(config);
+                if let Some(parsed) = fallback {
+                    trace.provider_unavailable(Some(parsed.confidence_millis), config);
+                    let outcome = candidate_from_parsed(message, parsed, &message.excerpt, config);
+                    trace.outcome_materialized(&outcome, config.source_excerpts);
+                    return DetectionStep::new(outcome, None);
+                }
+                trace.provider_unavailable(None, config);
                 let outcome = quiet_with_provider_diagnostic(
                     message,
                     "provider_unavailable",
@@ -241,14 +260,3 @@ impl DetectionStep {
 
 const _: fn(NoopProviderRouteCacheError) -> DetectionPipelineError<NoopProviderRouteCacheError> =
     DetectionPipelineError::ProviderRouteCache;
-
-impl SchemaRejection {
-    const fn reason(self) -> &'static str {
-        match self {
-            Self::InvalidJson => "provider_invalid_json",
-            Self::InvalidSchema => "provider_schema_rejected",
-            Self::HallucinatedEvidence => "provider_hallucinated_evidence",
-            Self::ParserConflict => "parser_provider_time_conflict",
-        }
-    }
-}

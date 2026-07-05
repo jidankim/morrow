@@ -6,6 +6,15 @@ pub const NATIVE_CHAT_ID: &str = "iMessage;-;+15555550103";
 pub const NATIVE_MESSAGE_ID: &str = "beta-provider-route";
 
 pub fn create_messages_fixture(db_path: &Path, message_unix_seconds: i64) -> Result<(), String> {
+    create_messages_fixture_with_text(db_path, message_unix_seconds, FIXTURE_MESSAGE_TEXT)
+}
+
+pub fn create_messages_fixture_with_text(
+    db_path: &Path,
+    message_unix_seconds: i64,
+    message_text: &str,
+) -> Result<(), String> {
+    let excerpt = sql_text(&format!("{message_text} {PRIVACY_CANARY}"));
     let sql = format!(
         "
         CREATE TABLE chat (ROWID INTEGER PRIMARY KEY, guid TEXT NOT NULL, display_name TEXT);
@@ -25,15 +34,18 @@ pub fn create_messages_fixture(db_path: &Path, message_unix_seconds: i64) -> Res
         INSERT INTO handle (ROWID, id) VALUES (3, '+15555550103');
         INSERT INTO chat_handle_join (chat_id, handle_id) VALUES (1, 3);
         INSERT INTO message (ROWID, guid, date, text, attributedBody, handle_id)
-            VALUES (1, '{}', {}, '{} {}', NULL, 3);
+            VALUES (1, '{}', {}, {}, NULL, 3);
         INSERT INTO chat_message_join (chat_id, message_id) VALUES (1, 1);
         ",
         NATIVE_MESSAGE_ID,
         apple_nanoseconds(message_unix_seconds),
-        FIXTURE_MESSAGE_TEXT,
-        PRIVACY_CANARY
+        excerpt
     );
     run_sqlite(db_path, &sql)
+}
+
+fn sql_text(value: &str) -> String {
+    format!("'{}'", value.replace('\'', "''"))
 }
 
 fn run_sqlite(db_path: &Path, sql: &str) -> Result<(), String> {

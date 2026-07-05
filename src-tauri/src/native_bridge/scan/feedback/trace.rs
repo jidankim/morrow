@@ -65,10 +65,17 @@ pub(in crate::native_bridge::scan) struct TraceGroup {
 impl TraceGroup {
     pub(super) fn candidate_record(&self, route: CandidateRoute) -> Option<&TraceRecord> {
         match route {
-            CandidateRoute::Provider => self.find_record(
-                TraceOperation::ThresholdDecision,
-                Some(TraceDecision::ConfidenceAccepted),
-            ),
+            CandidateRoute::Provider => self
+                .find_record(
+                    TraceOperation::ThresholdDecision,
+                    Some(TraceDecision::ConfidenceAccepted),
+                )
+                .or_else(|| {
+                    self.find_record(
+                        TraceOperation::ProviderResult,
+                        Some(TraceDecision::ProviderUnavailable),
+                    )
+                }),
             CandidateRoute::Deterministic => self.find_record(
                 TraceOperation::ParserDecision,
                 Some(TraceDecision::Candidate),

@@ -21,6 +21,17 @@ pub(crate) enum SchemaRejection {
     ParserConflict,
 }
 
+impl SchemaRejection {
+    pub(crate) const fn reason(self) -> &'static str {
+        match self {
+            Self::InvalidJson => "provider_invalid_json",
+            Self::InvalidSchema => "provider_schema_rejected",
+            Self::HallucinatedEvidence => "provider_hallucinated_evidence",
+            Self::ParserConflict => "parser_provider_time_conflict",
+        }
+    }
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct ProviderCandidatePayload {

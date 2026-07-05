@@ -12,7 +12,7 @@ use serde_json::json;
 
 mod messages_fixture;
 
-use messages_fixture::create_messages_fixture;
+use messages_fixture::{create_messages_fixture, create_messages_fixture_with_text};
 pub use messages_fixture::{
     FIXTURE_MESSAGE_TEXT, NATIVE_CHAT_ID, NATIVE_MESSAGE_ID, PRIVACY_CANARY,
 };
@@ -103,6 +103,20 @@ impl ScanFixture {
         let messages_db_path = dir.path().join(format!("{name}-chat.db"));
         let app_data_dir = dir.path().join("app-data");
         create_messages_fixture(&messages_db_path, message_unix_seconds)?;
+        Ok(Self {
+            _dir: dir,
+            store_path,
+            messages_db_path,
+            app_data_dir,
+        })
+    }
+
+    pub fn new_with_message_text(name: &str, message_text: &str) -> Result<Self, String> {
+        let dir = tempfile::tempdir().map_err(|error| error.to_string())?;
+        let store_path = dir.path().join(format!("{name}-morrow.sqlite"));
+        let messages_db_path = dir.path().join(format!("{name}-chat.db"));
+        let app_data_dir = dir.path().join("app-data");
+        create_messages_fixture_with_text(&messages_db_path, 1_782_352_400, message_text)?;
         Ok(Self {
             _dir: dir,
             store_path,

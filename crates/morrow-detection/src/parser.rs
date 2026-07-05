@@ -5,9 +5,14 @@ use crate::types::{CivilDateTime, DetectionConfig, DetectionError};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum GateDecision {
-    Stop { reason: &'static str },
+    Stop {
+        reason: &'static str,
+    },
     Candidate(ParsedCandidate),
-    ProviderRoute { parser_time: Option<CivilDateTime> },
+    ProviderRoute {
+        parser_time: Option<CivilDateTime>,
+        fallback: Option<ParsedCandidate>,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -41,13 +46,17 @@ pub(crate) fn classify(message: &MessageEvidence, config: &DetectionConfig) -> G
         },
         Ok(Some(time)) if is_ambiguous(&lowered) => GateDecision::ProviderRoute {
             parser_time: Some(time),
+            fallback: None,
         },
         Ok(Some(time)) => GateDecision::Candidate(ParsedCandidate {
             kind: kind_for(&lowered),
             time,
             confidence_millis: deterministic_confidence(message.tapback_signal),
         }),
-        Ok(None) => GateDecision::ProviderRoute { parser_time: None },
+        Ok(None) => GateDecision::ProviderRoute {
+            parser_time: None,
+            fallback: deadline_fallback(&message.excerpt, &lowered, config),
+        },
         Err(()) => GateDecision::Stop {
             reason: "deterministic_stop:past_or_invalid_time",
         },
@@ -118,11 +127,101 @@ fn deterministic_confidence(tapback_signal: bool) -> i64 {
     }
 }
 
+fn deadline_fallback(
+    excerpt: &str,
+    lowered: &str,
+    config: &DetectionConfig,
+) -> Option<ParsedCandidate> {
+    if !has_task_scheduling_signal(lowered) {
+        return None;
+    }
+    match parse_natural_deadline(excerpt) {
+        Ok(Some(time)) if time > config.reference.observed => Some(ParsedCandidate {
+            kind: CandidateKind::TaskReminder,
+            time,
+            confidence_millis: 700,
+        }),
+        Ok(Some(_)) | Ok(None) | Err(()) => None,
+    }
+}
+
 fn kind_for(lowered: &str) -> CandidateKind {
     if has_task_scheduling_signal(lowered) {
         CandidateKind::TaskReminder
     } else {
         CandidateKind::CalendarEvent
+    }
+}
+
+fn parse_natural_deadline(text: &str) -> Result<Option<CivilDateTime>, ()> {
+    let words = sanitized_words(text);
+    for window in words.windows(3) {
+        let [month, day, year] = window else {
+            continue;
+        };
+        let Some(month) = month_number(month) else {
+            continue;
+        };
+        let Some(day) = parse_day(day) else {
+            continue;
+        };
+        let Some(year) = parse_year(year) else {
+            continue;
+        };
+        return parse_deadline_date(year, month, day).map(Some);
+    }
+    Ok(None)
+}
+
+fn parse_deadline_date(year: u16, month: u8, day: u8) -> Result<CivilDateTime, ()> {
+    let normalized = format!("{year:04}-{month:02}-{day:02}T23:59:00");
+    CivilDateTime::parse_reference(&normalized).map_err(|err| match err {
+        DetectionError::InvalidInput {
+            field: _,
+            reason: _,
+        } => (),
+    })
+}
+
+fn month_number(word: &str) -> Option<u8> {
+    if word.eq_ignore_ascii_case("january") || word.eq_ignore_ascii_case("jan") {
+        Some(1)
+    } else if word.eq_ignore_ascii_case("february") || word.eq_ignore_ascii_case("feb") {
+        Some(2)
+    } else if word.eq_ignore_ascii_case("march") || word.eq_ignore_ascii_case("mar") {
+        Some(3)
+    } else if word.eq_ignore_ascii_case("april") || word.eq_ignore_ascii_case("apr") {
+        Some(4)
+    } else if word.eq_ignore_ascii_case("may") {
+        Some(5)
+    } else if word.eq_ignore_ascii_case("june") || word.eq_ignore_ascii_case("jun") {
+        Some(6)
+    } else if word.eq_ignore_ascii_case("july") || word.eq_ignore_ascii_case("jul") {
+        Some(7)
+    } else if word.eq_ignore_ascii_case("august") || word.eq_ignore_ascii_case("aug") {
+        Some(8)
+    } else if word.eq_ignore_ascii_case("september") || word.eq_ignore_ascii_case("sep") {
+        Some(9)
+    } else if word.eq_ignore_ascii_case("october") || word.eq_ignore_ascii_case("oct") {
+        Some(10)
+    } else if word.eq_ignore_ascii_case("november") || word.eq_ignore_ascii_case("nov") {
+        Some(11)
+    } else if word.eq_ignore_ascii_case("december") || word.eq_ignore_ascii_case("dec") {
+        Some(12)
+    } else {
+        None
+    }
+}
+
+fn parse_day(word: &str) -> Option<u8> {
+    word.parse::<u8>().ok()
+}
+
+fn parse_year(word: &str) -> Option<u16> {
+    if word.len() == 4 {
+        word.parse::<u16>().ok()
+    } else {
+        None
     }
 }
 

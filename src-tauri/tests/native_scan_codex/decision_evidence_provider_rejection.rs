@@ -2,7 +2,8 @@ use std::fs;
 
 use morrow_lib::native_bridge::{
     load_decision_evidence_at, CodexAuthStatus, DecisionEvidenceItem,
-    DecisionEvidenceTraceRetention, LoadDecisionEvidenceRequest, NativeDecisionEvidenceSubjectType,
+    DecisionEvidenceTraceRetention as TraceRetention, LoadDecisionEvidenceRequest,
+    NativeDecisionEvidenceSubjectType as SubjectType,
 };
 use serde_json::{json, Value};
 
@@ -45,10 +46,7 @@ fn decision_evidence_retains_quiet_provider_rejection_trace() -> Result<(), Stri
     assert_eq!(report.items.len(), 1, "{report:#?}");
     assert_eq!(report.skipped_trace_line_count, 0);
     let item = only_item(&report.items)?;
-    assert_eq!(
-        item.subject_type,
-        NativeDecisionEvidenceSubjectType::QuietLog
-    );
+    assert_eq!(item.subject_type, SubjectType::QuietLog);
     assert_eq!(item.candidate_id, None);
     assert_eq!(item.route.as_deref(), Some("provider_rejection"));
     assert_eq!(
@@ -61,10 +59,7 @@ fn decision_evidence_retains_quiet_provider_rejection_trace() -> Result<(), Stri
     assert_eq!(item.provider_diagnostic, None);
     assert_eq!(provider_diagnostic_from_item(item)?, None);
     assert!(item.has_diagnostics_hashes);
-    assert_eq!(
-        item.trace_retention,
-        DecisionEvidenceTraceRetention::Retained
-    );
+    assert_eq!(item.trace_retention, TraceRetention::Retained);
     assert_trace_sequence(
         item,
         &[
@@ -113,10 +108,7 @@ fn decision_evidence_surfaces_provider_unavailable_diagnostic() -> Result<(), St
     assert_eq!(report.items.len(), 1, "{report:#?}");
     assert_eq!(report.skipped_trace_line_count, 0);
     let item = only_item(&report.items)?;
-    assert_eq!(
-        item.subject_type,
-        NativeDecisionEvidenceSubjectType::QuietLog
-    );
+    assert_eq!(item.subject_type, SubjectType::QuietLog);
     assert_eq!(item.candidate_id, None);
     assert_eq!(item.route.as_deref(), Some("provider_rejection"));
     assert_eq!(item.reason_code.as_deref(), Some("provider_unavailable"));
@@ -130,10 +122,7 @@ fn decision_evidence_surfaces_provider_unavailable_diagnostic() -> Result<(), St
         Some("codex provider command timed out".to_owned())
     );
     assert!(item.has_diagnostics_hashes);
-    assert_eq!(
-        item.trace_retention,
-        DecisionEvidenceTraceRetention::Retained
-    );
+    assert_eq!(item.trace_retention, TraceRetention::Retained);
     assert_trace_sequence(
         item,
         &[
@@ -144,6 +133,65 @@ fn decision_evidence_surfaces_provider_unavailable_diagnostic() -> Result<(), St
             "outcome_materialized",
         ],
         "quiet_logged",
+    )
+}
+
+#[test]
+fn deadline_fallback_candidate_surfaces_when_provider_unavailable() -> Result<(), String> {
+    // Given
+    let fixture = ScanFixture::new_with_message_text(
+        "codex-decision-evidence-provider-unavailable-fallback-candidate",
+        "Finish review of the essay by July 25, 2026",
+    )?;
+    let mut request = scan_request_at(1_782_352_400)?;
+    request.source_excerpts_enabled = false;
+    request.local_diagnostics_enabled = true;
+    request.local_diagnostics_retention_days = 30;
+    let runner = RecordingCodexRunner::new(vec![FakeCodexOutcome::TimedOut]);
+    let adapter = RejectingProposalAdapter;
+    let scan = fixture.scan_with_request_and_app_data_dir(
+        request,
+        auth_readiness(CodexAuthStatus::LoggedInUsingChatGpt, true),
+        &runner,
+        &adapter,
+    )?;
+    assert_eq!(scan.created_candidate_count, 1);
+    assert_eq!(scan.quiet_log_count, 0);
+
+    // When
+    let report = load_decision_evidence_at(
+        fixture.store_path(),
+        fixture.app_data_dir(),
+        LoadDecisionEvidenceRequest {
+            limit: 10,
+            created_candidate_ids: scan.created_candidate_ids,
+        },
+    )?;
+
+    // Then
+    assert_eq!(report.items.len(), 1, "{report:#?}");
+    let item = only_item(&report.items)?;
+    assert_eq!(item.subject_type, SubjectType::Candidate);
+    assert_eq!(item.candidate_kind.as_deref(), Some("task_reminder"));
+    assert_eq!(item.route.as_deref(), Some("provider_candidate"));
+    assert_eq!(item.reason_code.as_deref(), Some("provider_unavailable"));
+    assert_eq!(item.confidence_millis, Some(700));
+    assert_eq!(
+        item.source_excerpt.as_deref(),
+        Some("Source excerpt hidden by settings.")
+    );
+    assert_eq!(item.provider_diagnostic, None);
+    assert_eq!(item.trace_retention, TraceRetention::Retained);
+    assert_trace_sequence(
+        item,
+        &[
+            "parser_decision",
+            "provider_route",
+            "provider_result",
+            "outcome_materialized",
+            "outcome_materialized",
+        ],
+        "candidate_created",
     )
 }
 
