@@ -18,6 +18,7 @@ mod feedback_eval_validation;
 mod feedback_privacy_metadata;
 mod provider_route_invalidation;
 mod provider_routes;
+mod provider_usage;
 mod sync_scheduler;
 
 const QUIET_LOG_RETENTION_SECONDS: i64 = 30 * 24 * 60 * 60;

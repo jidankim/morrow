@@ -12,6 +12,7 @@ mod ids;
 mod migrations;
 mod normalized_time;
 mod privacy;
+mod provider_usage;
 mod sqlite_cli;
 mod store;
 mod sync_scheduler;
@@ -37,6 +38,11 @@ pub use feedback_eval::{
 };
 pub use ids::CandidateId;
 pub use normalized_time::validate_normalized_time;
+pub use provider_usage::{
+    ProviderUsageModel, ProviderUsagePromptVersion, ProviderUsageProvider,
+    ProviderUsageRecentOutcome, ProviderUsageReport, ProviderUsageTotals, ProviderUsageWindow,
+    ProviderUsageWindowKey,
+};
 pub use store::Store;
 pub use sync_scheduler::{
     SyncSchedulerIntervalSeconds, SyncSchedulerLastResult, SyncSchedulerState, SyncSchedulerStatus,
