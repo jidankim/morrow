@@ -1,9 +1,8 @@
 use std::cell::RefCell;
 
 use morrow_calendar::ProposedEvent;
+use morrow_reminders::{ReminderDraft, SourceId};
 use morrow_storage::{ExternalObjectMapping, QueuedProposal};
-
-use crate::native_bridge::eventkit_proposal::ReminderProposalRecord;
 
 use super::calendar::CalendarProposalReceipt;
 use super::*;
@@ -44,10 +43,14 @@ impl ProposalReplayAdapter for FakeProposalAdapter {
 
     fn create_reminder_proposal(
         &self,
-        reminder: ReminderProposalRecord,
+        _candidate_id: &morrow_storage::CandidateId,
+        _selected_source_id: SourceId,
+        _due_components: ReminderDueComponents,
+        reminder: ReminderDraft,
     ) -> Result<ReminderProposalReceipt, ScanSelectedChatsError> {
+        let _ = reminder;
         Ok(ReminderProposalReceipt {
-            reminder_id: format!("fake-reminder-{}", reminder.candidate_id.as_str()),
+            reminder_id: "fake-reminder-1".to_owned(),
             list_id: "fake-list-1".to_owned(),
         })
     }

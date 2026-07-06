@@ -3,8 +3,8 @@ use std::error::Error;
 
 use morrow_detection::{
     AiProvider, ConfidenceThreshold, DetectionConfig, DetectionOutcome, DetectionPipeline,
-    ProviderError, ProviderIdentity, ProviderRequest, ProviderResponse, ReferenceTime,
-    SourceExcerptPolicy,
+    ListReminderProfile, ProviderError, ProviderIdentity, ProviderRequest, ProviderResponse,
+    ReferenceTime, SourceExcerptPolicy,
 };
 use morrow_messages::{ChatGuid, MessageEvidence, MessageGuid, MessageTimestamp};
 use serde::Deserialize;
@@ -87,6 +87,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         reference: ReferenceTime::parse(&fixture.reference_time, &fixture.timezone)?,
         threshold: ConfidenceThreshold::new(fixture.threshold_millis)?,
         provider: ProviderIdentity::new("fake-provider", "offline-contract", "prompt-v1")?,
+        profile: ListReminderProfile::disabled(),
         source_excerpts: SourceExcerptPolicy::Include,
     };
 

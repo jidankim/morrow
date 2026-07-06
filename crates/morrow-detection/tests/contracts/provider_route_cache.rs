@@ -120,12 +120,15 @@ fn provider_route_cache_miss_stages_write_intent_and_calls_provider() -> Result<
     );
     assert_eq!(
         staged.provider_candidate_schema_version,
-        "provider-candidate-schema-v2"
+        "provider-candidate-schema-v3"
     );
     assert_eq!(staged.evidence_payload_hash, "hash-miss-1");
     assert_eq!(staged.provider_id, "fake-provider");
     assert_eq!(staged.model_id, "offline-contract");
     assert_eq!(staged.prompt_version, "prompt-v1");
+    assert_eq!(config.profile.profile_id.as_str(), "list-reminders");
+    assert_eq!(config.profile.profile_version.as_str(), "list-reminders-v1");
+    assert_eq!(config.profile.routing_mode.as_str(), "explicitOnly");
     assert_eq!(staged.source_excerpt_policy, "include");
     assert_eq!(staged.reference_observed, "2026-06-25T09:00:00[Asia/Seoul]");
     assert_eq!(staged.reference_timezone, "Asia/Seoul");

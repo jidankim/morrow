@@ -2,8 +2,11 @@ use std::cell::{Cell, RefCell};
 use std::error::Error;
 
 use morrow_detection::{
-    AiProvider, ConfidenceThreshold, DetectionConfig, DetectionOutcome, ProviderError,
-    ProviderIdentity, ProviderRequest, ProviderResponse, ReferenceTime, SourceExcerptPolicy,
+    AiProvider, ConfidenceThreshold, DetectionConfig, DetectionOutcome, ListReminderDefaultDueMode,
+    ListReminderDefaultDueTime, ListReminderItemOutputMode, ListReminderProfile,
+    ListReminderProfileId, ListReminderProfileVersion, ListReminderRecurrenceMode,
+    ListReminderRoutingMode, ProviderError, ProviderIdentity, ProviderRequest, ProviderResponse,
+    ReferenceTime, SourceExcerptPolicy,
 };
 use morrow_diagnostics::{
     validate_trace_record_privacy, TraceComponent, TraceDecision, TraceOperation, TraceOutcome,
@@ -140,8 +143,26 @@ pub fn config(threshold_millis: i64) -> Result<DetectionConfig, Box<dyn Error>> 
         reference: ReferenceTime::parse("2026-06-25T09:00:00", "Asia/Seoul")?,
         threshold: ConfidenceThreshold::new(threshold_millis)?,
         provider: ProviderIdentity::new("fake-provider", "offline-contract", "prompt-v1")?,
+        profile: ListReminderProfile::disabled(),
         source_excerpts: SourceExcerptPolicy::Include,
     })
+}
+
+pub fn config_with_profile_bare_quantity_lists(
+    threshold_millis: i64,
+) -> Result<DetectionConfig, Box<dyn Error>> {
+    let mut config = config(threshold_millis)?;
+    config.profile = ListReminderProfile {
+        enabled: true,
+        profile_id: ListReminderProfileId::ListReminders,
+        profile_version: ListReminderProfileVersion::ListRemindersV1,
+        routing_mode: ListReminderRoutingMode::ProfileBareQuantityLists,
+        default_due_mode: ListReminderDefaultDueMode::NextLocalDayAtDefaultTime,
+        default_due_time: ListReminderDefaultDueTime::TwentyThreeFiftyNine,
+        recurrence_mode: ListReminderRecurrenceMode::None,
+        item_output_mode: ListReminderItemOutputMode::SingleReminderTitle,
+    };
+    Ok(config)
 }
 
 pub fn config_from_fixture(fixture: &Fixture) -> Result<DetectionConfig, Box<dyn Error>> {
@@ -149,6 +170,7 @@ pub fn config_from_fixture(fixture: &Fixture) -> Result<DetectionConfig, Box<dyn
         reference: ReferenceTime::parse(&fixture.reference_time, &fixture.timezone)?,
         threshold: ConfidenceThreshold::new(fixture.threshold_millis)?,
         provider: ProviderIdentity::new("fake-provider", "offline-contract", "prompt-v1")?,
+        profile: ListReminderProfile::disabled(),
         source_excerpts: SourceExcerptPolicy::Include,
     })
 }

@@ -1789,6 +1789,7 @@ dependencies = [
  "morrow-detection",
  "morrow-diagnostics",
  "morrow-messages",
+ "morrow-reminders",
  "morrow-storage",
  "regex",
  "reqwest",
@@ -1833,6 +1834,10 @@ dependencies = [
 
 [[package]]
 name = "morrow-messages"
+version = "0.1.0"
+
+[[package]]
+name = "morrow-reminders"
 version = "0.1.0"
 
 [[package]]

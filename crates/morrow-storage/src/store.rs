@@ -2,8 +2,8 @@ use crate::ids::CandidateId;
 use crate::privacy::summarize_privacy;
 use crate::sqlite_cli::{row_value, sql_text, Sqlite};
 use crate::types::{
-    AuditEntry, CandidateDraft, CandidateState, ExternalObjectMapping, ExternalSource,
-    PrivacySummary, QuietLogDraft, ReplayStream,
+    AuditEntry, CandidateDraft, CandidateKind, CandidateState, ExternalObjectMapping,
+    ExternalSource, PrivacySummary, QuietLogDraft, ReplayStream,
 };
 use crate::validation::{
     transition_allowed, validate_candidate_draft, validate_mapping, validate_quiet_log,
@@ -160,8 +160,13 @@ impl Store {
         stream: ReplayStream,
         limit: usize,
     ) -> Result<Vec<CandidateId>, StorageError> {
-        let source = match stream {
-            ReplayStream::CalendarProposals => ExternalSource::Calendar,
+        let (source, kind) = match stream {
+            ReplayStream::CalendarProposals => {
+                (ExternalSource::Calendar, CandidateKind::CalendarEvent)
+            }
+            ReplayStream::ReminderProposals => {
+                (ExternalSource::Reminders, CandidateKind::TaskReminder)
+            }
         };
         let sql = format!(
             "SELECT c.id
@@ -169,11 +174,12 @@ impl Store {
              LEFT JOIN external_object_mappings m
                ON m.candidate_id = c.id AND m.source = {source}
              WHERE c.state = 'visible'
-               AND c.kind = 'calendar_event'
+               AND c.kind = {kind}
                AND m.id IS NULL
              ORDER BY c.created_at, c.id
              LIMIT {limit};",
             source = sql_text(source.as_str())?,
+            kind = sql_text(kind.as_str())?,
         );
         self.sqlite
             .query_first_column(&sql)?

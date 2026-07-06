@@ -11,7 +11,7 @@ mod rejection_cases;
 use crate::support::openai_provider::{
     assert_allowed_evidence_keys, assert_request_omits_forbidden, completed_response, MockTransport,
 };
-use crate::support::provider::{candidate_json, config, message};
+use crate::support::provider::{candidate_json, config, list_candidate_json, message};
 use rejection_cases::rejection_cases;
 
 #[test]
@@ -57,9 +57,32 @@ fn openai_provider_builds_schema_request_and_payload_allowlist() -> Result<(), S
             "confidence_millis",
             "normalized_time",
             "anchor_evidence_id",
-            "evidence_ids"
+            "evidence_ids",
+            "items"
         ])
     );
+    let items_schema = &format["schema"]["properties"]["items"];
+    assert_eq!(items_schema["type"], json!(["array", "null"]));
+    assert_eq!(items_schema["minItems"], 1);
+    assert_eq!(items_schema["maxItems"], 20);
+    assert_eq!(items_schema["items"]["additionalProperties"], false);
+    assert_eq!(
+        items_schema["items"]["required"],
+        json!(["name", "quantity", "unit", "evidence_ids"])
+    );
+    assert_eq!(
+        items_schema["items"]["properties"]["quantity"]["type"],
+        "number"
+    );
+    assert_eq!(
+        items_schema["items"]["properties"]["quantity"]["exclusiveMinimum"],
+        0
+    );
+    assert_eq!(
+        items_schema["items"]["properties"]["unit"]["type"],
+        json!(["string", "null"])
+    );
+    assert_eq!(items_schema["items"]["properties"]["unit"]["maxLength"], 24);
     let normalized_time_schema = &format["schema"]["properties"]["normalized_time"];
     assert_eq!(normalized_time_schema["type"], "string");
     let normalized_time_description = normalized_time_schema["description"]
@@ -117,6 +140,30 @@ fn openai_provider_builds_schema_request_and_payload_allowlist() -> Result<(), S
             "participant_ids",
         ],
     );
+    Ok(())
+}
+
+#[test]
+fn openai_provider_localizes_structured_list_items_into_flat_title() -> Result<(), String> {
+    // Given
+    let transport =
+        MockTransport::with_responses(vec![Ok(completed_response(list_candidate_json()))]);
+    let provider = OpenAiProvider::new("sk-test-token", &transport);
+    let evidence = [message("chat-a", "msg-list-1", "2 anchovies, 3 salmon")?];
+
+    // When
+    let response = provider
+        .extract_response(&evidence)
+        .map_err(|error| error.to_string())?;
+
+    // Then
+    let localized: Value =
+        serde_json::from_str(response.raw_json()).map_err(|error| error.to_string())?;
+    assert_eq!(localized["kind"], "task_reminder");
+    assert_eq!(localized["title"], "Daily list: 2 anchovies; 3 salmon");
+    assert!(localized.get("items").is_none());
+    assert_eq!(localized["anchor_message_guid"], "msg-list-1");
+    assert_eq!(localized["evidence_message_guids"], json!(["msg-list-1"]));
     Ok(())
 }
 

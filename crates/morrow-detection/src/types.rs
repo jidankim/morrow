@@ -2,11 +2,22 @@ use std::fmt::{Display, Formatter};
 
 use morrow_storage::validate_normalized_time as storage_validate_normalized_time;
 
+mod list_reminder_profile;
+mod provider_identity;
+
+pub use list_reminder_profile::{
+    ListReminderDefaultDueMode, ListReminderDefaultDueTime, ListReminderItemOutputMode,
+    ListReminderProfile, ListReminderProfileId, ListReminderProfileVersion,
+    ListReminderRecurrenceMode, ListReminderRoutingMode,
+};
+pub use provider_identity::ProviderIdentity;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DetectionConfig {
     pub reference: ReferenceTime,
     pub threshold: ConfidenceThreshold,
     pub provider: ProviderIdentity,
+    pub profile: ListReminderProfile,
     pub source_excerpts: SourceExcerptPolicy,
 }
 
@@ -14,27 +25,6 @@ pub struct DetectionConfig {
 pub enum SourceExcerptPolicy {
     Include,
     Hide,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ProviderIdentity {
-    pub provider_id: String,
-    pub model_id: String,
-    pub prompt_version: String,
-}
-
-impl ProviderIdentity {
-    pub fn new(
-        provider_id: &str,
-        model_id: &str,
-        prompt_version: &str,
-    ) -> Result<Self, DetectionError> {
-        Ok(Self {
-            provider_id: bounded("provider_id", provider_id, 80)?,
-            model_id: bounded("model_id", model_id, 120)?,
-            prompt_version: bounded("prompt_version", prompt_version, 80)?,
-        })
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

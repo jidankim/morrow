@@ -13,18 +13,18 @@ pub(super) struct NormalizedProposalTime {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(super) struct ReminderDueComponents {
-    pub(super) year: i32,
-    pub(super) month: u8,
-    pub(super) day: u8,
-    pub(super) hour: u8,
-    pub(super) minute: u8,
-    pub(super) second: u8,
-    pub(super) time_zone: ReminderDueTimeZone,
+pub struct ReminderDueComponents {
+    pub year: i32,
+    pub month: u8,
+    pub day: u8,
+    pub hour: u8,
+    pub minute: u8,
+    pub second: u8,
+    pub time_zone: ReminderDueTimeZone,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(super) enum ReminderDueTimeZone {
+pub enum ReminderDueTimeZone {
     Named(String),
     Utc,
 }

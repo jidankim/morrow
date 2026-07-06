@@ -1,7 +1,11 @@
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 
-use morrow_detection::{ProviderRouteRequest, ProviderRouteWriteIntent, SourceExcerptPolicy};
+use morrow_detection::{
+    ListReminderDefaultDueMode, ListReminderDefaultDueTime, ListReminderItemOutputMode,
+    ListReminderProfile, ListReminderProfileVersion, ListReminderRecurrenceMode,
+    ListReminderRoutingMode, ProviderRouteRequest, ProviderRouteWriteIntent, SourceExcerptPolicy,
+};
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 
@@ -30,11 +34,17 @@ pub(super) fn route_metadata(
         None => request.parser_route_reason.to_owned(),
     };
     let source_excerpt_policy = source_excerpt_policy(request.config.source_excerpts);
+    let profile_schema_version = profile_schema_version(&request.config.profile);
+    let profile_policy_version = profile_policy_version(&request.config.profile);
     let canonical = CanonicalRouteMetadata {
         evidence_payload_hash: &evidence_payload_hash,
         model_id: &request.config.provider.model_id,
         parser_route: &parser_route,
         prompt_version: &request.config.provider.prompt_version,
+        profile_id: request.config.provider.profile_id.as_str(),
+        profile_policy_version,
+        profile_schema_version,
+        profile_version: request.config.provider.profile_version.as_str(),
         provider_candidate_schema_version: PROVIDER_CANDIDATE_SCHEMA_VERSION,
         provider_id: &request.config.provider.provider_id,
         provider_route_contract_version: PROVIDER_ROUTE_LEDGER_CONTRACT_VERSION,
@@ -56,6 +66,10 @@ pub(super) fn route_metadata(
         provider_id: request.config.provider.provider_id.clone(),
         model_id: request.config.provider.model_id.clone(),
         prompt_version: request.config.provider.prompt_version.clone(),
+        profile_id: request.config.provider.profile_id.as_str().to_owned(),
+        profile_version: request.config.provider.profile_version.as_str().to_owned(),
+        profile_schema_version: profile_schema_version.to_owned(),
+        profile_policy_version: profile_policy_version.to_owned(),
         source_excerpt_policy: source_excerpt_policy.to_owned(),
         reference_observed,
         reference_timezone,
@@ -68,6 +82,82 @@ fn source_excerpt_policy(policy: SourceExcerptPolicy) -> &'static str {
     match policy {
         SourceExcerptPolicy::Include => "include",
         SourceExcerptPolicy::Hide => "hide",
+    }
+}
+
+fn profile_schema_version(profile: &ListReminderProfile) -> &'static str {
+    match (profile.profile_version, profile.item_output_mode) {
+        (
+            ListReminderProfileVersion::ListRemindersV1,
+            ListReminderItemOutputMode::SingleReminderTitle,
+        ) => "single-reminder-title-v1",
+    }
+}
+
+fn profile_policy_version(profile: &ListReminderProfile) -> &'static str {
+    match (
+        profile.enabled,
+        profile.routing_mode,
+        profile.default_due_mode,
+        profile.default_due_time,
+        profile.recurrence_mode,
+    ) {
+        (
+            false,
+            ListReminderRoutingMode::ExplicitOnly,
+            ListReminderDefaultDueMode::ExplicitOnly,
+            ListReminderDefaultDueTime::TwentyThreeFiftyNine,
+            ListReminderRecurrenceMode::None,
+        ) => "explicit-only-disabled-v1",
+        (
+            true,
+            ListReminderRoutingMode::ProfileBareQuantityLists,
+            ListReminderDefaultDueMode::NextLocalDayAtDefaultTime,
+            ListReminderDefaultDueTime::TwentyThreeFiftyNine,
+            ListReminderRecurrenceMode::None,
+        ) => "bare-quantity-lists-next-day-v1",
+        (
+            true,
+            ListReminderRoutingMode::ExplicitOnly,
+            ListReminderDefaultDueMode::ExplicitOnly,
+            ListReminderDefaultDueTime::TwentyThreeFiftyNine,
+            ListReminderRecurrenceMode::None,
+        ) => "explicit-only-enabled-v1",
+        (
+            false,
+            ListReminderRoutingMode::ProfileBareQuantityLists,
+            ListReminderDefaultDueMode::ExplicitOnly,
+            ListReminderDefaultDueTime::TwentyThreeFiftyNine,
+            ListReminderRecurrenceMode::None,
+        ) => "bare-quantity-lists-disabled-explicit-due-v1",
+        (
+            false,
+            ListReminderRoutingMode::ProfileBareQuantityLists,
+            ListReminderDefaultDueMode::NextLocalDayAtDefaultTime,
+            ListReminderDefaultDueTime::TwentyThreeFiftyNine,
+            ListReminderRecurrenceMode::None,
+        ) => "bare-quantity-lists-disabled-next-day-v1",
+        (
+            true,
+            ListReminderRoutingMode::ProfileBareQuantityLists,
+            ListReminderDefaultDueMode::ExplicitOnly,
+            ListReminderDefaultDueTime::TwentyThreeFiftyNine,
+            ListReminderRecurrenceMode::None,
+        ) => "bare-quantity-lists-explicit-due-v1",
+        (
+            false,
+            ListReminderRoutingMode::ExplicitOnly,
+            ListReminderDefaultDueMode::NextLocalDayAtDefaultTime,
+            ListReminderDefaultDueTime::TwentyThreeFiftyNine,
+            ListReminderRecurrenceMode::None,
+        ) => "explicit-route-disabled-next-day-v1",
+        (
+            true,
+            ListReminderRoutingMode::ExplicitOnly,
+            ListReminderDefaultDueMode::NextLocalDayAtDefaultTime,
+            ListReminderDefaultDueTime::TwentyThreeFiftyNine,
+            ListReminderRecurrenceMode::None,
+        ) => "explicit-route-next-day-v1",
     }
 }
 
@@ -86,6 +176,10 @@ struct CanonicalRouteMetadata<'a> {
     model_id: &'a str,
     parser_route: &'a str,
     prompt_version: &'a str,
+    profile_id: &'a str,
+    profile_policy_version: &'a str,
+    profile_schema_version: &'a str,
+    profile_version: &'a str,
     provider_candidate_schema_version: &'a str,
     provider_id: &'a str,
     provider_route_contract_version: &'a str,

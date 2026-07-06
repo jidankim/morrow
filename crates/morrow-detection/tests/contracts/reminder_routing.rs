@@ -7,6 +7,9 @@ use morrow_storage::CandidateKind;
 
 use crate::support::{config, message, only_candidate, only_quiet, FakeProvider};
 
+#[path = "reminder_routing/quantity_lists.rs"]
+mod quantity_lists;
+
 #[derive(Debug, Clone, Copy)]
 struct UnavailableProvider;
 

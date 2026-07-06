@@ -18,6 +18,9 @@ pub use provider_route_cache::{
     ProviderRouteRequest, ProviderRouteWriteIntent,
 };
 pub use types::{
-    CivilDateTime, ConfidenceThreshold, DetectionConfig, DetectionError, ProviderIdentity,
-    ReferenceTime, SourceExcerptPolicy,
+    CivilDateTime, ConfidenceThreshold, DetectionConfig, DetectionError,
+    ListReminderDefaultDueMode, ListReminderDefaultDueTime, ListReminderItemOutputMode,
+    ListReminderProfile, ListReminderProfileId, ListReminderProfileVersion,
+    ListReminderRecurrenceMode, ListReminderRoutingMode, ProviderIdentity, ReferenceTime,
+    SourceExcerptPolicy,
 };

@@ -1,4 +1,6 @@
-use morrow_detection::{ConfidenceThreshold, ProviderIdentity, ReferenceTime, SourceExcerptPolicy};
+use morrow_detection::{
+    ConfidenceThreshold, ListReminderProfile, ProviderIdentity, ReferenceTime, SourceExcerptPolicy,
+};
 use morrow_lib::native_bridge::OPENAI_MODEL;
 use morrow_messages::{ChatGuid, MessageEvidence, MessageGuid, MessageTimestamp};
 
@@ -32,6 +34,7 @@ pub fn config() -> Result<morrow_detection::DetectionConfig, String> {
         threshold: ConfidenceThreshold::new(550).map_err(|error| error.to_string())?,
         provider: ProviderIdentity::new("openai", OPENAI_MODEL, "native-provider-v1")
             .map_err(|error| error.to_string())?,
+        profile: ListReminderProfile::disabled(),
         source_excerpts: SourceExcerptPolicy::Include,
     })
 }

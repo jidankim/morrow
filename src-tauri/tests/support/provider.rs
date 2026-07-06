@@ -1,4 +1,6 @@
-use morrow_detection::{ConfidenceThreshold, ProviderIdentity, ReferenceTime, SourceExcerptPolicy};
+use morrow_detection::{
+    ConfidenceThreshold, ListReminderProfile, ProviderIdentity, ReferenceTime, SourceExcerptPolicy,
+};
 use morrow_lib::native_bridge::OPENAI_MODEL;
 use morrow_messages::{ChatGuid, MessageEvidence, MessageGuid, MessageTimestamp};
 
@@ -6,7 +8,18 @@ pub fn candidate_json() -> &'static str {
     "{\"kind\":\"calendar_event\",\"title\":\"Provider meeting\",\"confidence_millis\":800,\
      \"normalized_time\":\"2026-06-26T15:00:00[Asia/Seoul]\",\
      \"anchor_evidence_id\":\"evidence://selected/0\",\
-     \"evidence_ids\":[\"evidence://selected/0\"]}"
+     \"evidence_ids\":[\"evidence://selected/0\"],\"items\":null}"
+}
+
+pub fn list_candidate_json() -> &'static str {
+    "{\"kind\":\"task_reminder\",\"title\":\"List reminder\",\"confidence_millis\":800,\
+     \"normalized_time\":\"2026-06-26T23:59:00[Asia/Seoul]\",\
+     \"anchor_evidence_id\":\"evidence://selected/0\",\
+     \"evidence_ids\":[\"evidence://selected/0\"],\
+     \"items\":[\
+       {\"name\":\"anchovies\",\"quantity\":2,\"unit\":null,\"evidence_ids\":[\"evidence://selected/0\"]},\
+       {\"name\":\"salmon\",\"quantity\":3,\"unit\":null,\"evidence_ids\":[\"evidence://selected/0\"]}\
+     ]}"
 }
 
 pub fn message(
@@ -32,6 +45,7 @@ pub fn config() -> Result<morrow_detection::DetectionConfig, String> {
         threshold: ConfidenceThreshold::new(550).map_err(|error| error.to_string())?,
         provider: ProviderIdentity::new("openai", OPENAI_MODEL, "native-provider-v1")
             .map_err(|error| error.to_string())?,
+        profile: ListReminderProfile::disabled(),
         source_excerpts: SourceExcerptPolicy::Include,
     })
 }

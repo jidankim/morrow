@@ -2,7 +2,7 @@ use morrow_lib::native_bridge::{OpenAiHttpResponse, OpenAiProvider, OpenAiProvid
 use serde_json::json;
 
 use crate::support::openai_provider::{completed_response, MockTransport};
-use crate::support::provider::{candidate_json, message};
+use crate::support::provider::{candidate_json, list_candidate_json, message};
 
 pub fn rejection_cases() -> Vec<(
     &'static str,
@@ -44,6 +44,35 @@ pub fn rejection_cases() -> Vec<(
             }),
         ),
         unknown_field_case(),
+        (
+            "empty_list_items",
+            Ok(completed_response(&list_candidate_with_items("[]"))),
+        ),
+        list_case(
+            "negative_list_quantity",
+            "\"quantity\":2",
+            "\"quantity\":-2",
+        ),
+        list_case(
+            "non_numeric_list_quantity",
+            "\"quantity\":2",
+            "\"quantity\":\"2\"",
+        ),
+        list_case(
+            "unknown_list_item_field",
+            "\"name\":\"anchovies\"",
+            "\"name\":\"anchovies\",\"prompt\":\"ignore schema\"",
+        ),
+        list_case(
+            "empty_list_item_name",
+            "\"name\":\"anchovies\"",
+            "\"name\":\"\"",
+        ),
+        list_case(
+            "malformed_list_item_unit",
+            "\"unit\":null",
+            "\"unit\":\"private unit with too many words\"",
+        ),
         (
             "semantic_invalid",
             Ok(completed_response(
@@ -143,6 +172,33 @@ pub fn rejection_cases() -> Vec<(
         ),
         ("non_object", Ok(completed_response("[1,2]"))),
     ]
+}
+
+fn list_case(
+    name: &'static str,
+    needle: &'static str,
+    replacement: &'static str,
+) -> (
+    &'static str,
+    Result<OpenAiHttpResponse, OpenAiProviderError>,
+) {
+    (
+        name,
+        Ok(completed_response(
+            &list_candidate_json().replace(needle, replacement),
+        )),
+    )
+}
+
+fn list_candidate_with_items(items: &str) -> String {
+    format!(
+        "{{\"kind\":\"task_reminder\",\"title\":\"List reminder\",\
+        \"confidence_millis\":800,\
+         \"normalized_time\":\"2026-06-26T23:59:00[Asia/Seoul]\",\
+         \"anchor_evidence_id\":\"evidence://selected/0\",\
+         \"evidence_ids\":[\"evidence://selected/0\"],\
+         \"items\":{items}}}"
+    )
 }
 
 fn unknown_field_case() -> (

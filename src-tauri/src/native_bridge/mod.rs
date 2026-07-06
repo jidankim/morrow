@@ -74,8 +74,12 @@ pub use runtime_identity::{
 };
 pub use scan::{
     scan_selected_chats_with_dependencies, CalendarProposalReceipt, CapPolicyRequest,
-    ProposalReplayAdapter, ReminderProposalReceipt, ScanSelectedChatsDependencies,
-    ScanSelectedChatsError, ScanSelectedChatsRequest, ScanSelectedChatsResult,
+    ListReminderDefaultDueMode, ListReminderDefaultDueTime, ListReminderItemOutputMode,
+    ListReminderProfile, ListReminderProfileId, ListReminderProfileVersion,
+    ListReminderRecurrenceMode, ListReminderRoutingMode, ProposalReplayAdapter,
+    ReminderDueComponents, ReminderDueTimeZone, ReminderProposalReceipt,
+    ScanSelectedChatsDependencies, ScanSelectedChatsError, ScanSelectedChatsRequest,
+    ScanSelectedChatsResult,
 };
 pub use scheduler::{
     SyncSchedulerLastResultCommand, SyncSchedulerStateCommand, SyncSchedulerStatusCommand,

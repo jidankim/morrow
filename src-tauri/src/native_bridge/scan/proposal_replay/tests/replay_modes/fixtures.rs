@@ -1,12 +1,11 @@
 use std::cell::{Cell, RefCell};
 
 use morrow_calendar::ProposedEvent;
+use morrow_reminders::{ReminderDraft, SourceId};
 use morrow_storage::{
     CandidateDraft, CandidateId as StorageCandidateId, CandidateKind, ExternalObjectMapping,
     ExternalSource, QueuedProposal, Store,
 };
-
-use crate::native_bridge::eventkit_proposal::ReminderProposalRecord;
 
 use super::super::*;
 
@@ -16,7 +15,7 @@ pub(super) struct CountingProposalAdapter {
     reminder_calls: Cell<usize>,
     legacy_calls: Cell<usize>,
     calendar_events: RefCell<Vec<ProposedEvent>>,
-    reminders: RefCell<Vec<ReminderProposalRecord>>,
+    reminders: RefCell<Vec<ReminderDraft>>,
 }
 
 impl CountingProposalAdapter {
@@ -30,6 +29,10 @@ impl CountingProposalAdapter {
 
     pub(super) fn reminder_calls(&self) -> usize {
         self.reminder_calls.get()
+    }
+
+    pub(super) fn reminder_drafts(&self) -> Vec<ReminderDraft> {
+        self.reminders.borrow().clone()
     }
 }
 
@@ -48,7 +51,10 @@ impl ProposalReplayAdapter for CountingProposalAdapter {
 
     fn create_reminder_proposal(
         &self,
-        reminder: ReminderProposalRecord,
+        _candidate_id: &StorageCandidateId,
+        _selected_source_id: SourceId,
+        _due_components: ReminderDueComponents,
+        reminder: ReminderDraft,
     ) -> Result<ReminderProposalReceipt, ScanSelectedChatsError> {
         self.reminder_calls.set(self.reminder_calls.get() + 1);
         self.reminders.borrow_mut().push(reminder);
@@ -129,9 +135,9 @@ pub(super) fn reminder_draft(anchor_message_guid: &str) -> CandidateDraft {
         kind: CandidateKind::TaskReminder,
         chat_guid: "public-chat".to_owned(),
         anchor_message_guid: anchor_message_guid.to_owned(),
-        title: "Finish review of the essay".to_owned(),
+        title: "Daily list: 2 anchovies; 3 salmon".to_owned(),
         confidence_millis: 900,
-        normalized_time: "2026-07-25T09:00:00[Asia/Seoul]".to_owned(),
+        normalized_time: "2026-07-07T23:59:00[Asia/Seoul]".to_owned(),
         evidence_excerpt: "source hidden".to_owned(),
         observed_at: 1_782_352_398,
     }

@@ -1,10 +1,97 @@
+use morrow_reminders::{ReminderDate, ReminderDraft, ReminderTime, SourceId};
 use morrow_storage::{CandidateKind, CandidateState, ExternalObjectMapping, ExternalSource, Store};
+
+use crate::native_bridge::eventkit_proposal::{
+    EventKitReminderProposalError, EventKitReminderProposalReceipt, ReminderProposalRecord,
+};
+use crate::native_bridge::scan::proposal_replay::adapter::{
+    ReminderProposalClient, RemindersProposalBridge,
+};
 
 use super::super::*;
 use super::fixtures::{
     assert_same_mapping, queued_reminder, queued_reminder_update, reminder_draft, reminder_mapping,
     reminder_update_draft, CountingProposalAdapter,
 };
+
+#[test]
+fn reminders_proposal_bridge_maps_eventkit_reminder_receipt() {
+    // Given
+    let bridge = RemindersProposalBridge::new(FakeReminderProposalClient);
+    let candidate_id =
+        morrow_storage::CandidateId::from_storage("morrow_0000000000000001").expect("candidate id");
+    let source_id = SourceId::parse("source-reminders-local").expect("source id");
+    let draft = ReminderDraft::new(
+        "Daily list: 2 anchovies; 3 salmon",
+        ReminderDate::parse("2026-07-07").expect("due date"),
+        Some(ReminderTime::parse("23:59").expect("due time")),
+    )
+    .expect("draft");
+
+    // When
+    let created = bridge
+        .create_proposal(
+            &candidate_id,
+            source_id,
+            ReminderDueComponents {
+                year: 2026,
+                month: 7,
+                day: 7,
+                hour: 23,
+                minute: 59,
+                second: 0,
+                time_zone: ReminderDueTimeZone::Named("Asia/Seoul".to_owned()),
+            },
+            draft,
+        )
+        .expect("reminder proposal");
+
+    // Then
+    assert_eq!(created.reminder_id.as_str(), "eventkit-reminder-1");
+    assert_eq!(created.list_id.as_str(), "eventkit-list-1");
+    assert_eq!(
+        created.list_name,
+        morrow_reminders::MORROW_PROPOSED_LIST_NAME
+    );
+    assert_eq!(created.due_date.as_str(), "2026-07-07");
+    assert_eq!(
+        created.due_time.as_ref().map(|time| time.as_str()),
+        Some("23:59".to_owned())
+    );
+}
+
+#[derive(Debug, Clone, Copy)]
+struct FakeReminderProposalClient;
+
+impl ReminderProposalClient for FakeReminderProposalClient {
+    fn propose_reminder(
+        &self,
+        reminder: ReminderProposalRecord,
+    ) -> Result<EventKitReminderProposalReceipt, EventKitReminderProposalError> {
+        assert_eq!(reminder.candidate_id.as_str(), "morrow_0000000000000001");
+        assert_eq!(
+            reminder.selected_source_id.as_str(),
+            "source-reminders-local"
+        );
+        assert_eq!(reminder.title, "Daily list: 2 anchovies; 3 salmon");
+        assert_eq!(reminder.due.year, 2026);
+        assert_eq!(reminder.due.month, 7);
+        assert_eq!(reminder.due.day, 7);
+        assert_eq!(reminder.due.hour, 23);
+        assert_eq!(reminder.due.minute, 59);
+        assert_eq!(
+            reminder.due.time_zone,
+            crate::native_bridge::eventkit_proposal::ReminderDueTimeZone::Named(
+                "Asia/Seoul".to_owned()
+            )
+        );
+        Ok(EventKitReminderProposalReceipt {
+            reminder_id: "eventkit-reminder-1".to_owned(),
+            list_id: "eventkit-list-1".to_owned(),
+            source_id: "source-reminders-local".to_owned(),
+        })
+    }
+}
 
 #[test]
 fn task_reminder_replay_creates_reminders_mapping_without_legacy_branch() {
@@ -33,6 +120,15 @@ fn task_reminder_replay_creates_reminders_mapping_without_legacy_branch() {
     assert_eq!(summary.failed, 0);
     assert_eq!(adapter.reminder_calls(), 1);
     assert_eq!(adapter.legacy_calls(), 0);
+    let drafts = adapter.reminder_drafts();
+    assert_eq!(drafts.len(), 1);
+    let draft = &drafts[0];
+    assert_eq!(draft.title, "Daily list: 2 anchovies; 3 salmon");
+    assert_eq!(draft.due_date.as_str(), "2026-07-07");
+    assert_eq!(
+        draft.due_time.as_ref().map(|time| time.as_str()),
+        Some("23:59".to_owned())
+    );
     assert_eq!(
         store.candidate_state(&candidate_id).expect("state"),
         CandidateState::Visible

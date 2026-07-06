@@ -38,8 +38,14 @@ pub(super) fn scan_config(
             reference: ReferenceTime::parse(&reference_time, &request.reference_timezone)
                 .map_err(detection_error)?,
             threshold: ConfidenceThreshold::new(550).map_err(detection_error)?,
-            provider: ProviderIdentity::new("native-bridge", "deterministic", "scan-v2")
-                .map_err(detection_error)?,
+            provider: ProviderIdentity::new_with_profile(
+                "native-bridge",
+                "deterministic",
+                "scan-v2",
+                &request.list_reminder_profile,
+            )
+            .map_err(detection_error)?,
+            profile: request.list_reminder_profile.clone(),
             source_excerpts,
         },
         feedback_text_snapshots_enabled: request.source_excerpts_enabled

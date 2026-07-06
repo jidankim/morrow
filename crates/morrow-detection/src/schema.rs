@@ -5,6 +5,13 @@ use serde::Deserialize;
 use crate::parser::ParsedCandidate;
 use crate::types::{CivilDateTime, DetectionConfig};
 
+mod list_reminder;
+
+use list_reminder::{
+    default_list_reminder_due_time, rendered_list_title, validate_list_item_evidence,
+    ListReminderItem,
+};
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct ProviderCandidate {
     pub parsed: ParsedCandidate,
@@ -39,8 +46,16 @@ struct ProviderCandidatePayload {
     title: String,
     confidence_millis: i64,
     normalized_time: String,
-    anchor_message_guid: String,
-    evidence_message_guids: Vec<String>,
+    #[serde(default)]
+    anchor_message_guid: Option<String>,
+    #[serde(default)]
+    evidence_message_guids: Option<Vec<String>>,
+    #[serde(default)]
+    anchor_evidence_id: Option<String>,
+    #[serde(default)]
+    evidence_ids: Option<Vec<String>>,
+    #[serde(default)]
+    items: Option<Vec<ListReminderItem>>,
 }
 
 pub(crate) fn parse_provider_candidate(
@@ -59,31 +74,35 @@ pub(crate) fn parse_provider_candidate(
     let kind = parse_kind(&payload.kind)?;
     if payload.title.is_empty()
         || payload.title.len() > 160
-        || payload.anchor_message_guid.is_empty()
-        || payload.evidence_message_guids.is_empty()
         || payload.confidence_millis < 0
         || payload.confidence_millis > 1000
     {
         return Err(SchemaRejection::InvalidSchema);
     }
-    storage_validate_normalized_time(&payload.normalized_time)
-        .map_err(|_| SchemaRejection::InvalidSchema)?;
-    let provider_time = CivilDateTime::parse_normalized(&payload.normalized_time)
-        .map_err(|_| SchemaRejection::InvalidSchema)?;
-    if provider_time <= config.reference.observed {
-        return Err(SchemaRejection::InvalidSchema);
-    }
-    if !evidence_contains(evidence, &payload.anchor_message_guid)
-        || payload
-            .evidence_message_guids
-            .iter()
-            .any(|guid| !evidence_contains(evidence, guid))
-    {
-        return Err(SchemaRejection::HallucinatedEvidence);
-    }
-    if parser_time.is_some_and(|time| time != provider_time) {
-        return Err(SchemaRejection::ParserConflict);
-    }
+    let (anchor_message_guid, _evidence_message_guids) =
+        provider_evidence_guids(&payload, evidence)?;
+    validate_list_item_evidence(payload.items.as_deref(), evidence)?;
+    let locally_computed_time = default_list_reminder_due_time(&payload, config);
+    let title = match payload.items.as_deref() {
+        Some(items) => rendered_list_title(kind, items)?,
+        None => payload.title,
+    };
+    let (provider_time, normalized_time) = match locally_computed_time {
+        Some(time) => (time, time.normalized(&config.reference.timezone)),
+        None => {
+            storage_validate_normalized_time(&payload.normalized_time)
+                .map_err(|_| SchemaRejection::InvalidSchema)?;
+            let provider_time = CivilDateTime::parse_normalized(&payload.normalized_time)
+                .map_err(|_| SchemaRejection::InvalidSchema)?;
+            if provider_time <= config.reference.observed {
+                return Err(SchemaRejection::InvalidSchema);
+            }
+            if parser_time.is_some_and(|time| time != provider_time) {
+                return Err(SchemaRejection::ParserConflict);
+            }
+            (provider_time, payload.normalized_time)
+        }
+    };
     Ok(ProviderCandidate {
         parsed: ParsedCandidate {
             kind,
@@ -91,10 +110,48 @@ pub(crate) fn parse_provider_candidate(
             confidence_millis: payload.confidence_millis,
             title_source: None,
         },
-        title: payload.title,
-        normalized_time: payload.normalized_time,
-        anchor_message_guid: payload.anchor_message_guid,
+        title,
+        normalized_time,
+        anchor_message_guid,
     })
+}
+
+fn provider_evidence_guids(
+    payload: &ProviderCandidatePayload,
+    evidence: &[MessageEvidence],
+) -> Result<(String, Vec<String>), SchemaRejection> {
+    match (
+        &payload.anchor_message_guid,
+        &payload.evidence_message_guids,
+        &payload.anchor_evidence_id,
+        &payload.evidence_ids,
+    ) {
+        (Some(anchor), Some(evidence_guids), None, None) => {
+            if anchor.is_empty() || evidence_guids.is_empty() {
+                return Err(SchemaRejection::InvalidSchema);
+            }
+            if !evidence_contains(evidence, anchor)
+                || evidence_guids
+                    .iter()
+                    .any(|guid| !evidence_contains(evidence, guid))
+            {
+                return Err(SchemaRejection::HallucinatedEvidence);
+            }
+            Ok((anchor.clone(), evidence_guids.clone()))
+        }
+        (None, None, Some(anchor_id), Some(evidence_ids)) => {
+            if anchor_id.is_empty() || evidence_ids.is_empty() {
+                return Err(SchemaRejection::InvalidSchema);
+            }
+            let anchor = evidence_guid_for_id(evidence, anchor_id)?;
+            let evidence_guids = evidence_ids
+                .iter()
+                .map(|id| evidence_guid_for_id(evidence, id))
+                .collect::<Result<Vec<_>, _>>()?;
+            Ok((anchor, evidence_guids))
+        }
+        _ => Err(SchemaRejection::InvalidSchema),
+    }
 }
 
 fn parse_kind(raw: &str) -> Result<CandidateKind, SchemaRejection> {
@@ -115,4 +172,20 @@ fn evidence_contains(evidence: &[MessageEvidence], message_guid: &str) -> bool {
     evidence
         .iter()
         .any(|message| message.message_guid.as_str() == message_guid)
+}
+
+fn evidence_guid_for_id(
+    evidence: &[MessageEvidence],
+    evidence_id: &str,
+) -> Result<String, SchemaRejection> {
+    let index_text = evidence_id
+        .strip_prefix("evidence://selected/")
+        .ok_or(SchemaRejection::HallucinatedEvidence)?;
+    let index = index_text
+        .parse::<usize>()
+        .map_err(|_| SchemaRejection::HallucinatedEvidence)?;
+    evidence
+        .get(index)
+        .map(|message| message.message_guid.as_str().to_owned())
+        .ok_or(SchemaRejection::HallucinatedEvidence)
 }

@@ -19,6 +19,7 @@ use decision::{
     CandidateReplayDecision, ProposalReplayDelta, ReplayMapping,
 };
 use finalize::{apply_store_decision, finalize_existing_mapping, transition_mapping_visible};
+pub use normalized_time::{ReminderDueComponents, ReminderDueTimeZone};
 use reminder::reminder_mapping_from_store;
 pub use reminder::ReminderProposalReceipt;
 

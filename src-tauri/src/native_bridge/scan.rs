@@ -36,7 +36,8 @@ pub use production::{
 use proposal_replay::replay_external_proposals;
 pub(in crate::native_bridge) use proposal_replay::LocalProposalAdapter;
 pub use proposal_replay::{
-    CalendarProposalReceipt, ProposalReplayAdapter, ReminderProposalReceipt,
+    CalendarProposalReceipt, ProposalReplayAdapter, ReminderDueComponents, ReminderDueTimeZone,
+    ReminderProposalReceipt,
 };
 use provider_route_cache::{
     record_provider_route_ledger_writes, stage_provider_route_ledger_writes,
@@ -46,6 +47,12 @@ use replay_selection::{select_replay_candidates, ReplaySelectionInput};
 use result::count_to_usize;
 pub use result::{LatestEvalStatus, ScanSelectedChatsError, ScanSelectedChatsResult};
 use serde::Deserialize;
+
+pub use morrow_detection::{
+    ListReminderDefaultDueMode, ListReminderDefaultDueTime, ListReminderItemOutputMode,
+    ListReminderProfile, ListReminderProfileId, ListReminderProfileVersion,
+    ListReminderRecurrenceMode, ListReminderRoutingMode,
+};
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -60,6 +67,7 @@ pub struct ScanSelectedChatsRequest {
     pub feedback_text_snapshots_enabled: bool,
     pub local_diagnostics_enabled: bool,
     pub local_diagnostics_retention_days: u16,
+    pub list_reminder_profile: ListReminderProfile,
     pub cap_policy: CapPolicyRequest,
 }
 

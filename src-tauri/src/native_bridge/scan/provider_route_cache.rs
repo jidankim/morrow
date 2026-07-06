@@ -179,6 +179,10 @@ fn base_draft(
         provider_id: write_intent.provider_id.clone(),
         model_id: write_intent.model_id.clone(),
         prompt_version: write_intent.prompt_version.clone(),
+        profile_id: write_intent.profile_id.clone(),
+        profile_version: write_intent.profile_version.clone(),
+        profile_schema_version: write_intent.profile_schema_version.clone(),
+        profile_policy_version: write_intent.profile_policy_version.clone(),
         source_excerpt_policy: ProviderRouteSourceExcerptPolicy::parse(
             &write_intent.source_excerpt_policy,
         )?,
@@ -208,6 +212,10 @@ fn row_matches_intent(row: &ProviderRouteLedgerRow, intent: &ProviderRouteWriteI
         && row.provider_id == intent.provider_id
         && row.model_id == intent.model_id
         && row.prompt_version == intent.prompt_version
+        && row.profile_id == intent.profile_id
+        && row.profile_version == intent.profile_version
+        && row.profile_schema_version == intent.profile_schema_version
+        && row.profile_policy_version == intent.profile_policy_version
         && row.source_excerpt_policy.as_str() == intent.source_excerpt_policy
         && row.reference_observed == intent.reference_observed
         && row.reference_timezone == intent.reference_timezone

@@ -64,6 +64,7 @@ fn migrations_record_versions_when_opening_fresh_database() {
             vec!["4".to_owned(), "sync_scheduler_state".to_owned(),],
             vec!["5".to_owned(), "sync_scheduler_custom_interval".to_owned(),],
             vec!["6".to_owned(), "quiet_log_provider_diagnostic".to_owned(),],
+            vec!["7".to_owned(), "provider_route_profile_metadata".to_owned(),],
         ]
     );
 }
@@ -166,27 +167,46 @@ fn provider_route_schema_requires_version_three_table_and_constraints() {
             "INSERT INTO provider_route_outcomes
              (route_fingerprint, provider_route_contract_version,
               provider_candidate_schema_version, evidence_payload_hash, provider_id, model_id,
-              prompt_version, source_excerpt_policy, reference_observed, reference_timezone,
+              prompt_version, profile_id, profile_version, profile_schema_version,
+              profile_policy_version, source_excerpt_policy, reference_observed, reference_timezone,
               threshold_millis, parser_route, outcome_kind, candidate_kind, candidate_title,
               candidate_confidence_millis, candidate_normalized_time, candidate_evidence_excerpt,
               quiet_reason, created_at, updated_at)
              VALUES
              ('sha256:schema', 'contract', 'candidate-schema', 'sha256:evidence', 'provider',
-              'model', 'prompt', 'include', '2026-07-01T09:00:00', 'Asia/Seoul', 700,
+              'model', 'prompt', 'list-reminders', 'list-reminders-v1', 'single-reminder-title-v1',
+              'explicit-only-disabled-v1', 'include', '2026-07-01T09:00:00', 'Asia/Seoul', 700,
               'none', 'candidate', 'calendar_event', 'Messages event candidate', 900,
               '2026-07-02T18:00:00Z', 'dinner tomorrow at 6', NULL, 1, 1);
              INSERT INTO provider_route_outcomes
              (route_fingerprint, provider_route_contract_version,
               provider_candidate_schema_version, evidence_payload_hash, provider_id, model_id,
-              prompt_version, source_excerpt_policy, reference_observed, reference_timezone,
+              prompt_version, profile_id, profile_version, profile_schema_version,
+              profile_policy_version, source_excerpt_policy, reference_observed, reference_timezone,
               threshold_millis, parser_route, outcome_kind, quiet_reason, created_at, updated_at)
              VALUES
              ('sha256:schema', 'contract', 'candidate-schema', 'sha256:evidence', 'provider',
-              'model', 'prompt', 'include', '2026-07-01T09:00:00', 'Asia/Seoul', 700,
+              'model', 'prompt', 'list-reminders', 'list-reminders-v1', 'single-reminder-title-v1',
+              'explicit-only-disabled-v1', 'include', '2026-07-01T09:00:00', 'Asia/Seoul', 700,
               'none', 'quiet', 'stable quiet', 2, 2);",
         )
         .output()
         .expect("run sqlite3");
+    let legacy_defaults = sqlite_rows(
+        &db_path,
+        "INSERT INTO provider_route_outcomes
+         (route_fingerprint, provider_route_contract_version,
+          provider_candidate_schema_version, evidence_payload_hash, provider_id, model_id,
+          prompt_version, source_excerpt_policy, reference_observed, reference_timezone,
+          threshold_millis, parser_route, outcome_kind, quiet_reason, created_at, updated_at)
+         VALUES
+         ('sha256:legacy-profile-defaults', 'contract', 'candidate-schema', 'sha256:evidence',
+          'provider', 'model', 'prompt', 'include', '2026-07-01T09:00:00', 'Asia/Seoul',
+          700, 'none', 'quiet', 'stable quiet', 3, 3);
+         SELECT profile_id, profile_version, profile_schema_version, profile_policy_version
+         FROM provider_route_outcomes
+         WHERE route_fingerprint = 'sha256:legacy-profile-defaults';",
+    );
     let invalid_quiet = std::process::Command::new("sqlite3")
         .arg("-batch")
         .arg(&db_path)
@@ -213,6 +233,10 @@ fn provider_route_schema_requires_version_three_table_and_constraints() {
         "provider_id",
         "model_id",
         "prompt_version",
+        "profile_id",
+        "profile_version",
+        "profile_schema_version",
+        "profile_policy_version",
         "source_excerpt_policy",
         "reference_observed",
         "reference_timezone",
@@ -228,6 +252,15 @@ fn provider_route_schema_requires_version_three_table_and_constraints() {
     }
     assert!(!duplicate.status.success());
     assert!(!invalid_quiet.status.success());
+    assert_eq!(
+        legacy_defaults,
+        vec![vec![
+            "default".to_owned(),
+            "pre-list-reminders".to_owned(),
+            "none".to_owned(),
+            "none".to_owned(),
+        ]]
+    );
 }
 
 #[test]

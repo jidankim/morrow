@@ -1,17 +1,12 @@
-use morrow_calendar::{CalendarSourceId, CandidateId};
+use morrow_reminders::{ReminderDate, ReminderDraft, ReminderTime, SourceId};
 use morrow_storage::{
     CandidateKind, ExternalObjectMapping, ExternalSource, QueuedProposal, ReminderProposalPayload,
     Store,
 };
 
-use crate::native_bridge::eventkit_proposal::{
-    ReminderDueComponents as EventKitReminderDueComponents,
-    ReminderDueTimeZone as EventKitReminderDueTimeZone, ReminderProposalRecord,
-};
-
 use super::{
     external_proposal_error,
-    normalized_time::{parse_normalized_time, ReminderDueComponents, ReminderDueTimeZone},
+    normalized_time::{parse_normalized_time, ReminderDueComponents},
     storage_error, ProposalReplayAdapter, ScanSelectedChatsError, MAPPED_AT,
 };
 
@@ -42,8 +37,16 @@ pub(super) fn reminder_mapping_from_payload(
     payload: &ReminderProposalPayload,
     adapter: &impl ProposalReplayAdapter,
 ) -> Result<ExternalObjectMapping, ScanSelectedChatsError> {
+    let due_components = reminder_due_from_normalized_time(&payload.normalized_time)?;
     let reminder = proposed_reminder_from_payload(payload)?;
-    let receipt = adapter.create_reminder_proposal(reminder)?;
+    let source_id = SourceId::parse(&payload.source_id)
+        .map_err(|error| external_proposal_error(error.to_string()))?;
+    let receipt = adapter.create_reminder_proposal(
+        &payload.candidate_id,
+        source_id,
+        due_components,
+        reminder,
+    )?;
     Ok(ExternalObjectMapping {
         candidate_id: payload.candidate_id.clone(),
         source: ExternalSource::Reminders,
@@ -55,7 +58,7 @@ pub(super) fn reminder_mapping_from_payload(
 
 pub(super) fn proposed_reminder_from_payload(
     payload: &ReminderProposalPayload,
-) -> Result<ReminderProposalRecord, ScanSelectedChatsError> {
+) -> Result<ReminderDraft, ScanSelectedChatsError> {
     match payload.kind {
         CandidateKind::TaskReminder => {}
         CandidateKind::CalendarEvent
@@ -71,37 +74,22 @@ pub(super) fn proposed_reminder_from_payload(
             )));
         }
     }
-    Ok(ReminderProposalRecord {
-        candidate_id: CandidateId::new(payload.candidate_id.as_str())
-            .map_err(|error| external_proposal_error(error.to_string()))?,
-        selected_source_id: CalendarSourceId::new(&payload.source_id)
-            .map_err(|error| external_proposal_error(error.to_string()))?,
-        title: payload.title.clone(),
-        notes: String::new(),
-        due: reminder_due_from_normalized_time(&payload.normalized_time)?,
-    })
+    let components = reminder_due_from_normalized_time(&payload.normalized_time)?;
+    let due_date = ReminderDate::parse(&format!(
+        "{:04}-{:02}-{:02}",
+        components.year, components.month, components.day
+    ))
+    .map_err(|error| external_proposal_error(error.to_string()))?;
+    let due_time = ReminderTime::parse(&format!("{:02}:{:02}", components.hour, components.minute))
+        .map(Some)
+        .map_err(|error| external_proposal_error(error.to_string()))?;
+    ReminderDraft::new(&payload.title, due_date, due_time)
+        .map_err(|error| external_proposal_error(error.to_string()))
 }
 
 fn reminder_due_from_normalized_time(
     value: &str,
-) -> Result<EventKitReminderDueComponents, ScanSelectedChatsError> {
+) -> Result<ReminderDueComponents, ScanSelectedChatsError> {
     let parsed = parse_normalized_time(value)?;
-    Ok(reminder_due_from_components(parsed.reminder_due_components))
-}
-
-fn reminder_due_from_components(
-    components: ReminderDueComponents,
-) -> EventKitReminderDueComponents {
-    EventKitReminderDueComponents {
-        year: components.year,
-        month: components.month,
-        day: components.day,
-        hour: components.hour,
-        minute: components.minute,
-        second: components.second,
-        time_zone: match components.time_zone {
-            ReminderDueTimeZone::Named(name) => EventKitReminderDueTimeZone::Named(name),
-            ReminderDueTimeZone::Utc => EventKitReminderDueTimeZone::Utc,
-        },
-    }
+    Ok(parsed.reminder_due_components)
 }

@@ -5,10 +5,10 @@ use std::{
 
 use morrow_calendar::ProposedEvent;
 use morrow_detection::{AiProvider, ProviderError, ProviderRequest, ProviderResponse};
-use morrow_lib::native_bridge::eventkit_proposal::ReminderProposalRecord;
 use morrow_lib::native_bridge::{
     CalendarProposalReceipt, ProposalReplayAdapter, ReminderProposalReceipt, ScanSelectedChatsError,
 };
+use morrow_reminders::{ReminderDraft, SourceId};
 use morrow_storage::{ExternalObjectMapping, QueuedProposal};
 
 #[derive(Debug, Clone, Copy)]
@@ -154,17 +154,20 @@ impl ProposalReplayAdapter for RecordingProposalAdapter {
 
     fn create_reminder_proposal(
         &self,
-        reminder: ReminderProposalRecord,
+        _candidate_id: &morrow_storage::CandidateId,
+        _selected_source_id: SourceId,
+        _due_components: morrow_lib::native_bridge::ReminderDueComponents,
+        reminder: ReminderDraft,
     ) -> Result<ReminderProposalReceipt, ScanSelectedChatsError> {
         if let Some(reason) = &self.reminder_failure {
             return Err(ScanSelectedChatsError::ExternalProposal(reason.clone()));
         }
-        let candidate_id = reminder.candidate_id.as_str().to_owned();
+        let reminder_key = reminder.title.clone();
         let reminder_id = {
             let mut created = self.created_reminders_by_candidate.borrow_mut();
             let next = created.len() + 1;
             created
-                .entry(candidate_id)
+                .entry(reminder_key)
                 .or_insert_with(|| format!("reminder-injected-{next}"))
                 .clone()
         };

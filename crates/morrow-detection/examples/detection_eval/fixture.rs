@@ -79,6 +79,7 @@ pub fn config_from_fixture(fixture: &Fixture) -> Result<DetectionConfig, Box<dyn
         reference: ReferenceTime::parse(&fixture.reference_time, &fixture.timezone)?,
         threshold: ConfidenceThreshold::new(fixture.threshold_millis)?,
         provider: ProviderIdentity::new("fake-provider", "offline-contract", "prompt-v1")?,
+        profile: morrow_detection::ListReminderProfile::disabled(),
         source_excerpts: SourceExcerptPolicy::Hide,
     })
 }

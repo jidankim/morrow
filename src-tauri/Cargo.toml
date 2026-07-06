@@ -26,6 +26,7 @@ morrow-detection = { path = "../crates/morrow-detection" }
 morrow-diagnostics = { path = "../crates/morrow-diagnostics" }
 morrow-calendar = { path = "../crates/morrow-calendar" }
 morrow-messages = { path = "../crates/morrow-messages" }
+morrow-reminders = { path = "../crates/morrow-reminders" }
 morrow-storage = { path = "../crates/morrow-storage" }
 reqwest = { version = "0.13.4", default-features = false, features = ["json", "native-tls"] }
 serde = { version = "1", features = ["derive"] }

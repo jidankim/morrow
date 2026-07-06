@@ -1,11 +1,24 @@
+mod reminders;
+
 use morrow_calendar::ProposedEvent;
-use morrow_storage::{CandidateKind, ExternalObjectMapping, QueuedProposal};
+use morrow_reminders::{
+    CreatedReminder, FakeReminders, ReminderAdapter, ReminderDraft, RemindersError, SourceId,
+};
+use morrow_storage::{
+    CandidateId as StorageCandidateId, CandidateKind, ExternalObjectMapping, QueuedProposal,
+};
 
-use crate::native_bridge::eventkit_proposal::{EventKitProposalBridge, ReminderProposalRecord};
+use crate::native_bridge::eventkit_proposal::EventKitProposalBridge;
 
+use super::normalized_time::ReminderDueComponents;
 use super::{
     external_proposal_error, CalendarProposalReceipt, ReminderProposalReceipt,
     ScanSelectedChatsError,
+};
+#[cfg(test)]
+pub(in crate::native_bridge) use reminders::ReminderProposalClient;
+pub(in crate::native_bridge) use reminders::{
+    RemindersProposalBridge, RemindersProposalBridgeError,
 };
 
 pub(in crate::native_bridge) struct LocalProposalAdapter;
@@ -18,7 +31,10 @@ pub trait ProposalReplayAdapter {
 
     fn create_reminder_proposal(
         &self,
-        reminder: ReminderProposalRecord,
+        candidate_id: &StorageCandidateId,
+        selected_source_id: SourceId,
+        due_components: ReminderDueComponents,
+        reminder: ReminderDraft,
     ) -> Result<ReminderProposalReceipt, ScanSelectedChatsError>;
 
     fn create_legacy_proposal(
@@ -43,11 +59,18 @@ impl ProposalReplayAdapter for LocalProposalAdapter {
 
     fn create_reminder_proposal(
         &self,
-        reminder: ReminderProposalRecord,
+        _candidate_id: &StorageCandidateId,
+        selected_source_id: SourceId,
+        _due_components: ReminderDueComponents,
+        reminder: ReminderDraft,
     ) -> Result<ReminderProposalReceipt, ScanSelectedChatsError> {
+        let mut reminders = FakeReminders::allowed();
+        let created = ReminderAdapter::new(selected_source_id)
+            .create_proposal(&mut reminders, reminder)
+            .map_err(reminders_bridge_error)?;
         Ok(ReminderProposalReceipt {
-            reminder_id: format!("morrow-local-reminder-{}", reminder.candidate_id.as_str()),
-            list_id: "morrow-local-reminders".to_owned(),
+            reminder_id: created.reminder_id.to_string(),
+            list_id: created.list_id.to_string(),
         })
     }
 
@@ -89,13 +112,14 @@ impl ProposalReplayAdapter for EventKitProposalBridge {
 
     fn create_reminder_proposal(
         &self,
-        reminder: ReminderProposalRecord,
+        candidate_id: &StorageCandidateId,
+        selected_source_id: SourceId,
+        due_components: ReminderDueComponents,
+        reminder: ReminderDraft,
     ) -> Result<ReminderProposalReceipt, ScanSelectedChatsError> {
-        self.propose_reminder(reminder)
-            .map(|receipt| ReminderProposalReceipt {
-                reminder_id: receipt.reminder_id,
-                list_id: receipt.list_id,
-            })
+        RemindersProposalBridge::default()
+            .create_proposal(candidate_id, selected_source_id, due_components, reminder)
+            .map(reminder_receipt)
             .map_err(|error| external_proposal_error(error.to_string()))
     }
 
@@ -107,4 +131,15 @@ impl ProposalReplayAdapter for EventKitProposalBridge {
             "EventKit proposal adapter cannot create legacy proposal kinds",
         ))
     }
+}
+
+fn reminder_receipt(created: CreatedReminder) -> ReminderProposalReceipt {
+    ReminderProposalReceipt {
+        reminder_id: created.reminder_id.to_string(),
+        list_id: created.list_id.to_string(),
+    }
+}
+
+fn reminders_bridge_error(error: RemindersError) -> ScanSelectedChatsError {
+    external_proposal_error(RemindersProposalBridgeError::from(error).to_string())
 }

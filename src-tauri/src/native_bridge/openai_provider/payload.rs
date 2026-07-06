@@ -29,47 +29,8 @@ pub(super) fn request_body(evidence: &[MessageEvidence]) -> Result<Value, OpenAi
                 "type": "json_schema",
                 "name": "morrow_provider_candidate",
                 "strict": true,
-                "schema": candidate_schema()
+                "schema": provider_contract::candidate_schema()
             }
         }
     }))
-}
-
-fn candidate_schema() -> Value {
-    json!({
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-            "kind",
-            "title",
-            "confidence_millis",
-            "normalized_time",
-            "anchor_evidence_id",
-            "evidence_ids"
-        ],
-        "properties": {
-            "kind": {
-                "type": "string",
-                "enum": [
-                    "calendar_event",
-                    "task_reminder",
-                    "event_update",
-                    "event_reschedule",
-                    "event_cancellation",
-                    "reminder_update",
-                    "reminder_reschedule",
-                    "reminder_cancellation"
-                ]
-            },
-            "title": { "type": "string" },
-            "confidence_millis": { "type": "integer", "minimum": 0, "maximum": 1000 },
-            "normalized_time": provider_contract::normalized_time_schema(),
-            "anchor_evidence_id": { "type": "string" },
-            "evidence_ids": {
-                "type": "array",
-                "minItems": 1,
-                "items": { "type": "string" }
-            }
-        }
-    })
 }

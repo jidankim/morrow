@@ -1,7 +1,7 @@
 use std::cell::Cell;
 
-use crate::native_bridge::eventkit_proposal::ReminderProposalRecord;
 use morrow_calendar::ProposedEvent;
+use morrow_reminders::{ReminderDraft, SourceId};
 use morrow_storage::{
     CandidateDraft, CandidateKind, CandidateState, ExternalObjectMapping, QueuedProposal, Store,
 };
@@ -90,7 +90,10 @@ impl ProposalReplayAdapter for RejectingAdapter {
 
     fn create_reminder_proposal(
         &self,
-        _reminder: ReminderProposalRecord,
+        _candidate_id: &morrow_storage::CandidateId,
+        _selected_source_id: SourceId,
+        _due_components: super::ReminderDueComponents,
+        _reminder: ReminderDraft,
     ) -> Result<super::super::ReminderProposalReceipt, ScanSelectedChatsError> {
         Err(ScanSelectedChatsError::ExternalProposal(
             "reminder proposal unsupported by normalized_time tests".to_owned(),

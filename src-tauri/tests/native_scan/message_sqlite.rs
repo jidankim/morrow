@@ -68,6 +68,10 @@ pub(super) fn provider_route_outcome_dump(db_path: &Path) -> Result<String, Stri
                 provider_id || '|' ||
                 model_id || '|' ||
                 prompt_version || '|' ||
+                profile_id || '|' ||
+                profile_version || '|' ||
+                profile_schema_version || '|' ||
+                profile_policy_version || '|' ||
                 source_excerpt_policy || '|' ||
                 reference_observed || '|' ||
                 reference_timezone || '|' ||

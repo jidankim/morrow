@@ -1,12 +1,12 @@
 use std::path::Path;
 
 use morrow_calendar::ProposedEvent;
-use morrow_lib::native_bridge::eventkit_proposal::ReminderProposalRecord;
 use morrow_lib::native_bridge::{
     CalendarProposalReceipt, CodexAuthStatus, CodexProviderAuthReadiness, NativeBridgeState,
     ProductionScanCodexDependencies, ProposalReplayAdapter, ReminderProposalReceipt,
     ScanSelectedChatsError, ScanSelectedChatsRequest, ScanSelectedChatsResult,
 };
+use morrow_reminders::{ReminderDraft, SourceId};
 use morrow_storage::{EvalCase, ExternalObjectMapping, QueuedProposal, Store};
 use serde_json::json;
 
@@ -35,7 +35,10 @@ impl ProposalReplayAdapter for RejectingProposalAdapter {
 
     fn create_reminder_proposal(
         &self,
-        _reminder: ReminderProposalRecord,
+        _candidate_id: &morrow_storage::CandidateId,
+        _selected_source_id: SourceId,
+        _due_components: morrow_lib::native_bridge::ReminderDueComponents,
+        _reminder: ReminderDraft,
     ) -> Result<ReminderProposalReceipt, ScanSelectedChatsError> {
         Err(ScanSelectedChatsError::ExternalProposal(
             "reminder proposals are outside this scan provider test".to_owned(),

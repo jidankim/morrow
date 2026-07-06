@@ -1,7 +1,4 @@
-use std::{
-    path::{Path, PathBuf},
-    process::Command,
-};
+use std::path::{Path, PathBuf};
 
 use morrow_lib::native_bridge::{
     FakeNativeBridge, NativeBridgeState, ScanSelectedChatsRequest, ScanSelectedChatsResult,
@@ -12,6 +9,13 @@ use morrow_messages::{
 };
 use morrow_storage::{CandidateId, CandidateState, Store};
 use serde_json::{json, Value};
+
+#[path = "support/sqlite.rs"]
+mod sqlite;
+
+pub(super) use sqlite::query_sqlite;
+
+const DISABLED_LIST_REMINDER_PROFILE_JSON: &str = r#"{"enabled":false,"profileId":"list-reminders","profileVersion":"list-reminders-v1","routingMode":"explicitOnly","defaultDueMode":"explicitOnly","defaultDueTime":"23:59","recurrenceMode":"none","itemOutputMode":"singleReminderTitle"}"#;
 
 pub(super) fn temp_db(name: &str) -> Result<(tempfile::TempDir, PathBuf), String> {
     let dir = tempfile::tempdir().map_err(|error| error.to_string())?;
@@ -198,6 +202,8 @@ fn request_value(
     max_visible: usize,
     pending_count: usize,
 ) -> Result<ScanSelectedChatsRequest, String> {
+    let list_reminder_profile = serde_json::from_str::<Value>(DISABLED_LIST_REMINDER_PROFILE_JSON)
+        .map_err(|error| error.to_string())?;
     serde_json::from_value(json!({
         "selectedChatIds": selected_chat_ids,
         "selectedChats": selected_chats,
@@ -208,6 +214,7 @@ fn request_value(
         "feedbackTextSnapshotsEnabled": feedback_text_snapshots_enabled,
         "localDiagnosticsEnabled": false,
         "localDiagnosticsRetentionDays": 30,
+        "listReminderProfile": list_reminder_profile,
         "capPolicy": {
             "mode": "refillForPending",
             "maxVisible": max_visible,
@@ -248,19 +255,4 @@ pub(super) struct ChatFixture<'a> {
     id: &'a str,
     participant_count: u16,
     participant_ids: &'a [&'a str],
-}
-
-pub(super) fn query_sqlite(db_path: &Path, sql: &str) -> Result<String, String> {
-    let output = Command::new("sqlite3")
-        .arg("-batch")
-        .arg("-noheader")
-        .arg(db_path)
-        .arg(sql)
-        .output()
-        .map_err(|error| error.to_string())?;
-    if output.status.success() {
-        Ok(String::from_utf8_lossy(&output.stdout).to_string())
-    } else {
-        Err(String::from_utf8_lossy(&output.stderr).trim().to_owned())
-    }
 }
