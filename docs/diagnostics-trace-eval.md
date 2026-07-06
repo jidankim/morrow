@@ -193,6 +193,17 @@ Expected live receipt artifacts:
 
 Live receipt status remains PASS or sanitized BLOCKED. PASS proves the bounded live Messages-to-Calendar approval trajectory for that run only when the receipt reports `overall_status=PASS`, controlled proposal creation, approval or rejection observation, idempotency, privacy inspection, cleanup, and `full_live_claim_allowed=true`. Sanitized BLOCKED means a prerequisite stopped the run before mutation or after cleanup; it must keep `full_live_claim_allowed=false`. A FAIL receipt is not acceptable.
 
+Full live PASS is deliberately opt-in. The wrapper requires `MORROW_REAL_QA_CHAT_PUBLIC_ID`, `MORROW_REAL_QA_EXPECTED_TITLE_CONTAINS`, `MORROW_REAL_QA_FUTURE_ISO_LOCAL`, `MORROW_APPROVAL_LIVE_RECEIPT_ALLOW_SURFACE_QA=true`, `MORROW_APPROVAL_LIVE_RECEIPT_ALLOW_MUTATION=true`, and `MORROW_APPROVAL_LIVE_RECEIPT_MANUAL_PROOF_FILE`. The proof file is an operator attestation created after the controlled manual QA flow has actually been observed, and must contain:
+
+```text
+schema=phase5_messages_calendar_approval_manual_proof_v1
+approval_or_rejection_observed=PASS
+reconcile_observed=PASS
+idempotency_observed=PASS
+cleanup_confirmed=PASS
+privacy_confirmed=PASS
+```
+
 Remaining Phase 5 gaps:
 
 - The correction UI remains future work.

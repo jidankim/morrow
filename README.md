@@ -254,6 +254,27 @@ scripts/run-messages-calendar-approval-live-receipt.sh --out-dir .omo/evidence/p
 
 Expected Phase 5 live receipt artifacts include `.omo/evidence/phase-5-messages-calendar-approval-trajectory-eval/live-receipt/summary.txt`, `.omo/evidence/phase-5-messages-calendar-approval-trajectory-eval/live-receipt/cleanup-receipt.txt`, and `.omo/evidence/phase-5-messages-calendar-approval-trajectory-eval/live-receipt/privacy-inspect.txt`. A PASS receipt is required before claiming a full live Messages-to-Calendar approval trajectory pass. A sanitized BLOCKED receipt must keep `full_live_claim_allowed=false` and must not be treated as live trajectory completion.
 
+Full live PASS requires explicit mutation opt-in, a controlled real QA chat, a future scheduling message expectation, and a manual proof file for the approval/reconcile/idempotency observations. Create the proof file only after the manual QA flow below has actually been completed against the controlled test chat:
+
+```bash
+cat > /tmp/morrow-phase5-live-proof.env <<'EOF'
+schema=phase5_messages_calendar_approval_manual_proof_v1
+approval_or_rejection_observed=PASS
+reconcile_observed=PASS
+idempotency_observed=PASS
+cleanup_confirmed=PASS
+privacy_confirmed=PASS
+EOF
+
+MORROW_REAL_QA_CHAT_PUBLIC_ID=<selected-test-chat-id> \
+MORROW_REAL_QA_EXPECTED_TITLE_CONTAINS=<expected-title-fragment> \
+MORROW_REAL_QA_FUTURE_ISO_LOCAL=<YYYY-MM-DDTHH:MM:SS> \
+MORROW_APPROVAL_LIVE_RECEIPT_ALLOW_SURFACE_QA=true \
+MORROW_APPROVAL_LIVE_RECEIPT_ALLOW_MUTATION=true \
+MORROW_APPROVAL_LIVE_RECEIPT_MANUAL_PROOF_FILE=/tmp/morrow-phase5-live-proof.env \
+scripts/run-messages-calendar-approval-live-receipt.sh --out-dir .omo/evidence/phase-5-messages-calendar-approval-trajectory-eval/live-receipt
+```
+
 ## Manual QA Flow Once Production Wiring Exists
 
 1. For packaged beta QA, open the installed `Morrow.app`. For local source-build QA, run `npm run tauri:build` and open `src-tauri/target/release/bundle/macos/Morrow.app`. For unbundled maintainer debugging, start the app with `npm run tauri:dev`.

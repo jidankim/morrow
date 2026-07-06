@@ -14,6 +14,14 @@ usage: scripts/run-messages-calendar-approval-live-receipt.sh --out-dir <path> [
 
 Records a bounded live Messages-to-Calendar approval trajectory receipt.
 Live PASS is allowed only with real controlled proof; missing prerequisites are BLOCKED.
+
+Full live PASS also requires:
+  MORROW_REAL_QA_CHAT_PUBLIC_ID
+  MORROW_REAL_QA_EXPECTED_TITLE_CONTAINS
+  MORROW_REAL_QA_FUTURE_ISO_LOCAL
+  MORROW_APPROVAL_LIVE_RECEIPT_ALLOW_SURFACE_QA=true
+  MORROW_APPROVAL_LIVE_RECEIPT_ALLOW_MUTATION=true
+  MORROW_APPROVAL_LIVE_RECEIPT_MANUAL_PROOF_FILE=<proof file>
 USAGE
 }
 
@@ -61,6 +69,8 @@ messages_file="$repo_root/$out_dir/messages-access.txt"
 calendar_file="$repo_root/$out_dir/calendar-reminders-access.txt"
 cleanup_file="$repo_root/$out_dir/cleanup-receipt.txt"
 privacy_file="$repo_root/$out_dir/privacy-inspect.txt"
+real_qa_file="$repo_root/$out_dir/messages-calendar-real-qa.txt"
+manual_proof_receipt_file="$repo_root/$out_dir/manual-proof-receipt.txt"
 work_dir=""
 lifecycle_work_dir=""
 source "$repo_root/scripts/messages-calendar-approval-live-receipt-lib.sh"
@@ -84,6 +94,8 @@ prepare_out_dir() {
   : > "$provider_file"
   : > "$messages_file"
   : > "$calendar_file"
+  : > "$real_qa_file"
+  : > "$manual_proof_receipt_file"
   rm -f -- "$cleanup_file" "$privacy_file" "$repo_root/$out_dir/provider-raw.txt" "$repo_root/$out_dir/provider-raw.json"
 }
 
@@ -180,6 +192,82 @@ probe_calendar_reminders() {
   [[ "$calendar_status" != "FAIL" && "$reminders_status" != "FAIL" ]]
 }
 
+missing_real_qa_envs() {
+  local missing=()
+  for name in \
+    MORROW_REAL_QA_CHAT_PUBLIC_ID \
+    MORROW_REAL_QA_EXPECTED_TITLE_CONTAINS \
+    MORROW_REAL_QA_FUTURE_ISO_LOCAL; do
+    if [[ -z "$(printenv "$name")" ]]; then
+      missing+=("$name")
+    fi
+  done
+  local IFS=","
+  printf '%s\n' "${missing[*]}"
+}
+
+run_messages_calendar_real_qa() {
+  local status
+  run_bounded 420 "$real_qa_file" env \
+    MORROW_REAL_QA_EVIDENCE_DIR="$out_dir/messages-calendar-real-qa" \
+    "$repo_root/scripts/messages-calendar-real-qa.sh"
+  status=$?
+
+  if grep -q '^PASS created_event_id=redacted-' "$real_qa_file"; then
+    proposal_status=PASS
+    readback_status=PASS
+    controlled_proposal_created=true
+    return 0
+  fi
+
+  if grep -q '^BLOCKED:' "$real_qa_file"; then
+    proposal_status=BLOCKED
+    readback_status=BLOCKED
+    return 10
+  fi
+
+  proposal_status=FAIL
+  readback_status=FAIL
+  printf 'real_qa_command_exit=%s\n' "$status" >> "$real_qa_file"
+  return 1
+}
+
+validate_manual_proof() {
+  local proof_file="${MORROW_APPROVAL_LIVE_RECEIPT_MANUAL_PROOF_FILE:-}"
+  if [[ -z "$proof_file" ]]; then
+    printf 'manual_proof_status=BLOCKED\nreason=missing_MORROW_APPROVAL_LIVE_RECEIPT_MANUAL_PROOF_FILE\nproof_path_recorded=false\n' > "$manual_proof_receipt_file"
+    return 10
+  fi
+  if [[ ! -f "$proof_file" ]]; then
+    printf 'manual_proof_status=BLOCKED\nreason=manual_proof_file_not_found\nproof_path_recorded=false\n' > "$manual_proof_receipt_file"
+    return 10
+  fi
+  if ! grep -q '^schema=phase5_messages_calendar_approval_manual_proof_v1$' "$proof_file" ||
+     ! grep -q '^approval_or_rejection_observed=PASS$' "$proof_file" ||
+     ! grep -q '^reconcile_observed=PASS$' "$proof_file" ||
+     ! grep -q '^idempotency_observed=PASS$' "$proof_file" ||
+     ! grep -q '^cleanup_confirmed=PASS$' "$proof_file" ||
+     ! grep -q '^privacy_confirmed=PASS$' "$proof_file"; then
+    printf 'manual_proof_status=BLOCKED\nreason=manual_proof_missing_required_pass_fields\nproof_path_recorded=false\n' > "$manual_proof_receipt_file"
+    return 10
+  fi
+
+  {
+    printf 'manual_proof_status=PASS\n'
+    printf 'schema=phase5_messages_calendar_approval_manual_proof_v1\n'
+    printf 'approval_or_rejection_observed=PASS\n'
+    printf 'reconcile_observed=PASS\n'
+    printf 'idempotency_observed=PASS\n'
+    printf 'cleanup_confirmed=PASS\n'
+    printf 'privacy_confirmed=PASS\n'
+    printf 'proof_path_recorded=false\n'
+  } > "$manual_proof_receipt_file"
+  qa_action_status=PASS
+  reconcile_status=PASS
+  idempotency_status=PASS
+  controlled_live_proof_marker_present=true
+}
+
 run_live() {
   work_dir="$(mktemp -d)"
   provider_status=BLOCKED
@@ -220,7 +308,24 @@ run_live() {
   if [[ "${MORROW_APPROVAL_LIVE_RECEIPT_ALLOW_MUTATION:-false}" != "true" ]]; then
     finalize_blocked "proposal_creation:live_mutation_opt_in_missing" false PASS lifecycle_surface_cleanup_completed
   fi
-  finalize_blocked "controlled_approval_rejection_observation:not_implemented_without_manual_proof" false PASS lifecycle_surface_cleanup_completed
+  local missing_envs
+  missing_envs="$(missing_real_qa_envs)"
+  if [[ -n "$missing_envs" ]]; then
+    finalize_blocked "proposal_creation:missing_real_qa_env:$missing_envs" true BLOCKED_BEFORE_MUTATION no_live_mutation_attempted
+  fi
+  if ! run_messages_calendar_real_qa; then
+    [[ "$proposal_status" == "FAIL" ]] && finalize_fail "messages_calendar_real_qa_failed"
+    finalize_blocked "proposal_creation:messages_calendar_real_qa_blocked" false PASS lifecycle_surface_cleanup_completed
+  fi
+  if ! validate_manual_proof; then
+    finalize_blocked "controlled_approval_rejection_observation:manual_proof_missing_or_incomplete" false PASS lifecycle_surface_cleanup_completed
+  fi
+  write_cleanup PASS lifecycle_surface_and_messages_calendar_real_qa_cleanup_completed
+  write_privacy PASS
+  write_summary PASS none false PASS PASS
+  validate_receipt || exit 1
+  cat "$summary_file"
+  exit 0
 }
 
 prepare_out_dir
