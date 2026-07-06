@@ -26,6 +26,8 @@ mod proposal_replay_decision;
 mod provider_eventkit;
 #[path = "native_scan/provider_eventkit_reminders.rs"]
 mod provider_eventkit_reminders;
+#[path = "native_scan/provider_eventkit_task_reminders.rs"]
+mod provider_eventkit_task_reminders;
 #[path = "native_scan/provider_feedback.rs"]
 mod provider_feedback;
 #[path = "native_scan/provider_route_ledger.rs"]
@@ -38,6 +40,10 @@ mod provider_route_ledger_invalidation;
 mod provider_route_ledger_privacy;
 #[path = "native_scan/replay_selection.rs"]
 mod replay_selection;
+#[path = "native_scan/scheduling_intent_eventkit.rs"]
+mod scheduling_intent_eventkit;
+#[path = "native_scan/scheduling_intent_provider_route.rs"]
+mod scheduling_intent_provider_route;
 #[path = "native_scan/support.rs"]
 mod support;
 #[path = "native_scan/trace.rs"]

@@ -10,7 +10,7 @@ use super::message_sqlite::{
     create_messages_fixture, drop_candidate_failure_trigger, drop_external_mapping_failure_trigger,
     drop_quiet_log_failure_trigger, install_candidate_failure_trigger,
     install_external_mapping_failure_trigger, install_quiet_log_failure_trigger,
-    provider_route_outcome_count,
+    provider_route_outcome_count, update_provider_route_message_text,
 };
 use super::support::{assert_counts, chat, scan_request};
 
@@ -223,18 +223,23 @@ fn provider_route_ledger_records_after_local_side_effects_only() -> Result<(), S
     Ok(())
 }
 
-struct ProviderRouteFixture {
+pub(crate) struct ProviderRouteFixture {
     _dir: tempfile::TempDir,
-    store_path: std::path::PathBuf,
-    source: morrow_lib::native_bridge::messages_sqlite::MessagesSqliteAdapter,
+    pub(crate) store_path: std::path::PathBuf,
+    pub(crate) source: morrow_lib::native_bridge::messages_sqlite::MessagesSqliteAdapter,
 }
 
 impl ProviderRouteFixture {
     fn new() -> Result<Self, String> {
+        Self::with_text("Maybe meet tomorrow?")
+    }
+
+    pub(crate) fn with_text(text: &str) -> Result<Self, String> {
         let dir = tempfile::tempdir().map_err(|error| error.to_string())?;
         let store_path = dir.path().join("morrow.sqlite");
         let messages_db_path = dir.path().join("chat.db");
         create_messages_fixture(&messages_db_path)?;
+        update_provider_route_message_text(&messages_db_path, text)?;
         Ok(Self {
             source: morrow_lib::native_bridge::messages_sqlite::MessagesSqliteAdapter::new(
                 messages_db_path,
@@ -245,7 +250,8 @@ impl ProviderRouteFixture {
     }
 }
 
-fn provider_route_request() -> Result<morrow_lib::native_bridge::ScanSelectedChatsRequest, String> {
+pub(crate) fn provider_route_request(
+) -> Result<morrow_lib::native_bridge::ScanSelectedChatsRequest, String> {
     scan_request(
         &[chat(
             "iMessage;-;+15555550103",
