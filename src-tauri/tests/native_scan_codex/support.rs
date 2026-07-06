@@ -225,6 +225,16 @@ pub fn scan_request_at(reference_unix_seconds: i64) -> Result<ScanSelectedChatsR
         "feedbackTextSnapshotsEnabled": false,
         "localDiagnosticsEnabled": false,
         "localDiagnosticsRetentionDays": 30,
+        "listReminderProfile": {
+            "enabled": false,
+            "profileId": "list-reminders",
+            "profileVersion": "list-reminders-v1",
+            "routingMode": "explicitOnly",
+            "defaultDueMode": "explicitOnly",
+            "defaultDueTime": "23:59",
+            "recurrenceMode": "none",
+            "itemOutputMode": "singleReminderTitle",
+        },
         "capPolicy": {
             "mode": "refillForPending",
             "maxVisible": 0,
