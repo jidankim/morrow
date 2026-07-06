@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { DEFAULT_LIST_REMINDER_PROFILE } from "./domain/appConfig"
 
 const tauriMock = vi.hoisted(() => ({
   invoke: vi.fn(async (): Promise<unknown> => ({ pendingProposalCount: 3 })),
@@ -45,6 +46,7 @@ describe("createNativeShellBridge scan command", () => {
       backfillPromptChatIds: ["messages-chat-11111111111111111111111111111111"],
       sourceExcerptsEnabled: false,
       feedbackTextSnapshotsEnabled: false, localDiagnosticsEnabled: false, localDiagnosticsRetentionDays: 30,
+      listReminderProfile: DEFAULT_LIST_REMINDER_PROFILE,
       capPolicy: {
         mode: "refillForPending",
         maxVisible: 10,
@@ -92,6 +94,7 @@ describe("createNativeShellBridge scan command", () => {
       backfillPromptChatIds: ["messages-chat-33333333333333333333333333333333"],
       sourceExcerptsEnabled: false,
       feedbackTextSnapshotsEnabled: false, localDiagnosticsEnabled: false, localDiagnosticsRetentionDays: 30,
+      listReminderProfile: DEFAULT_LIST_REMINDER_PROFILE,
       capPolicy: {
         mode: "refillForPending",
         maxVisible: 10,

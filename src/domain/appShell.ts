@@ -48,7 +48,7 @@ export type { ShellStorage } from "./appShellStorage"
 export type AppMode = "scanning" | "paused" | "error"
 export type AutomaticSyncStatusLabel = "Off" | "On" | "Cooling Down" | "Needs Action"
 export type ProviderCredentialStatus = "unchecked" | "configured" | "missing"
-export type { AppConfig, CalendarSource } from "./appConfig"
+export type { AppConfig, CalendarSource, ListReminderProfile } from "./appConfig"
 export type {
   ChatDiscovery,
   ChatDiscoveryStatus,

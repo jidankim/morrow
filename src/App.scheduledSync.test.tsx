@@ -7,6 +7,7 @@ import {
   seedReadyState
 } from "./AppShellBridgeTestHarness"
 import { App } from "./App"
+import { DEFAULT_LIST_REMINDER_PROFILE } from "./domain/appConfig"
 
 const NOW = 1_783_000_000
 
@@ -86,6 +87,7 @@ describe("App scheduled sync", () => {
       feedbackTextSnapshotsEnabled: false,
       localDiagnosticsEnabled: false,
       localDiagnosticsRetentionDays: 30,
+      listReminderProfile: DEFAULT_LIST_REMINDER_PROFILE,
       capPolicy: {
         mode: "refillForPending",
         maxVisible: 10,

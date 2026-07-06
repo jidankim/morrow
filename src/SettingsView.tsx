@@ -46,6 +46,7 @@ export function SettingsView({
   onToggleAutomaticSync
 }: SettingsViewProps): JSX.Element {
   const timeZoneOptions = referenceTimeZoneOptions(Intl.DateTimeFormat().resolvedOptions().timeZone)
+  const listReminderDescription = "list-reminder-profile-description"
   return (
     <div className="panel">
       <div className="panel-header">
@@ -104,6 +105,47 @@ export function SettingsView({
         />
         <span>Show first-proposal guidance</span>
       </label>
+      <section className="settings-section" aria-labelledby="list-reminder-profile-heading">
+        <div>
+          <p className="eyebrow">Reminder profile</p>
+          <h3 id="list-reminder-profile-heading">Daily list reminders</h3>
+        </div>
+        <p className="settings-copy" id={listReminderDescription}>
+          Treat bare quantity lists as one local reminder due the next day at 23:59.
+        </p>
+        <label className="check-row">
+          <input
+            aria-describedby={listReminderDescription}
+            checked={config.listReminderProfile.enabled}
+            onChange={(event) =>
+              onChange({
+                ...config,
+                listReminderProfile: event.currentTarget.checked
+                  ? {
+                      ...config.listReminderProfile,
+                      enabled: true,
+                      routingMode: "profileBareQuantityLists",
+                      defaultDueMode: "nextLocalDayAtDefaultTime",
+                      defaultDueTime: "23:59",
+                      recurrenceMode: "none",
+                      itemOutputMode: "singleReminderTitle"
+                    }
+                  : {
+                      ...config.listReminderProfile,
+                      enabled: false,
+                      routingMode: "explicitOnly",
+                      defaultDueMode: "explicitOnly",
+                      defaultDueTime: "23:59",
+                      recurrenceMode: "none",
+                      itemOutputMode: "singleReminderTitle"
+                    }
+              })
+            }
+            type="checkbox"
+          />
+          <span>Enable daily list reminders</span>
+        </label>
+      </section>
       <SyncSchedulerControls
         nowUnixSeconds={syncSchedulerNowUnixSeconds}
         scheduler={syncScheduler}

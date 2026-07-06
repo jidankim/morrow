@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
+import { DEFAULT_LIST_REMINDER_PROFILE } from "./domain/appConfig"
 import { parseSyncScanRequest, syncScanRequestFromState } from "./messagesDiscoveryBridge"
 
 const selectedChat = {
@@ -23,7 +24,8 @@ function syncScanRequestState(referenceTimezone: string) {
       telemetryEnabled: false,
       crashLogExcerptsEnabled: false,
       localDiagnosticsEnabled: false,
-      localDiagnosticsRetentionDays: 30
+      localDiagnosticsRetentionDays: 30,
+      listReminderProfile: DEFAULT_LIST_REMINDER_PROFILE
     },
     pendingProposalCount: 0,
     selectedChats: [selectedChat]
@@ -53,7 +55,8 @@ describe("syncScanRequestFromState", () => {
         telemetryEnabled: false,
         crashLogExcerptsEnabled: false,
         localDiagnosticsEnabled: false,
-        localDiagnosticsRetentionDays: 30
+        localDiagnosticsRetentionDays: 30,
+        listReminderProfile: DEFAULT_LIST_REMINDER_PROFILE
       },
       pendingProposalCount: 0,
       selectedChats: [selectedChat]
@@ -62,6 +65,30 @@ describe("syncScanRequestFromState", () => {
     // Then
     expect(request.referenceUnixSeconds).toBe(1_783_000_200)
     expect(request.feedbackTextSnapshotsEnabled).toBe(true)
+    expect(request.listReminderProfile).toEqual(DEFAULT_LIST_REMINDER_PROFILE)
+  })
+
+  it("forwards enabled list reminder profile settings from app state", () => {
+    // Given
+    const listReminderProfile = {
+      ...DEFAULT_LIST_REMINDER_PROFILE,
+      enabled: true,
+      routingMode: "profileBareQuantityLists",
+      defaultDueMode: "nextLocalDayAtDefaultTime"
+    } as const
+    const state = {
+      ...syncScanRequestState("Asia/Seoul"),
+      config: {
+        ...syncScanRequestState("Asia/Seoul").config,
+        listReminderProfile
+      }
+    } as const
+
+    // When
+    const request = syncScanRequestFromState(state)
+
+    // Then
+    expect(request.listReminderProfile).toEqual(listReminderProfile)
   })
 
   it("forwards persisted local diagnostics scan settings", () => {
@@ -77,7 +104,8 @@ describe("syncScanRequestFromState", () => {
       telemetryEnabled: false,
       crashLogExcerptsEnabled: false,
       localDiagnosticsEnabled: true,
-      localDiagnosticsRetentionDays: 45
+      localDiagnosticsRetentionDays: 45,
+      listReminderProfile: DEFAULT_LIST_REMINDER_PROFILE
     } as const
 
     // When
@@ -136,6 +164,7 @@ describe("syncScanRequestFromState", () => {
       feedbackTextSnapshotsEnabled: true,
       localDiagnosticsEnabled: false,
       localDiagnosticsRetentionDays: 30,
+      listReminderProfile: DEFAULT_LIST_REMINDER_PROFILE,
       capPolicy: { mode: "refillForPending", maxVisible: 10, pendingCount: 0 }
     } as const
 
@@ -171,6 +200,7 @@ describe("syncScanRequestFromState", () => {
       feedbackTextSnapshotsEnabled: true,
       localDiagnosticsEnabled: false,
       localDiagnosticsRetentionDays: 30,
+      listReminderProfile: DEFAULT_LIST_REMINDER_PROFILE,
       capPolicy: { mode: "refillForPending", maxVisible: 10, pendingCount: 0 }
     } as const
 
@@ -182,6 +212,61 @@ describe("syncScanRequestFromState", () => {
       parseSyncScanRequest({
         ...baseRequest,
         selectedChats: [{ ...baseRequest.selectedChats[0], messagePreview: "private clinic visit" }]
+      })
+    ).toThrow()
+  })
+
+  it("rejects malformed list reminder profiles and private profile fields", () => {
+    // Given
+    const baseRequest = {
+      selectedChatIds: ["messages-chat-11111111111111111111111111111111"],
+      selectedChats: [
+        {
+          id: "messages-chat-11111111111111111111111111111111",
+          label: "Team planning",
+          participantCount: 1,
+          participantIds: ["messages-participant-11111111111111111111111111111111"],
+          latestActivityTimestamp: 1_783_000_000
+        }
+      ],
+      referenceTimezone: "Asia/Seoul",
+      referenceUnixSeconds: 1_783_000_200,
+      backfillPromptChatIds: ["messages-chat-11111111111111111111111111111111"],
+      sourceExcerptsEnabled: true,
+      feedbackTextSnapshotsEnabled: true,
+      localDiagnosticsEnabled: false,
+      localDiagnosticsRetentionDays: 30,
+      listReminderProfile: DEFAULT_LIST_REMINDER_PROFILE,
+      capPolicy: { mode: "refillForPending", maxVisible: 10, pendingCount: 0 }
+    } as const
+
+    // When / Then
+    expect(parseSyncScanRequest(baseRequest).listReminderProfile).toEqual(DEFAULT_LIST_REMINDER_PROFILE)
+    expect(() =>
+      parseSyncScanRequest({
+        ...baseRequest,
+        listReminderProfile: {
+          ...DEFAULT_LIST_REMINDER_PROFILE,
+          routingMode: "alwaysSendBareLists"
+        }
+      })
+    ).toThrow()
+    expect(() =>
+      parseSyncScanRequest({
+        ...baseRequest,
+        listReminderProfile: {
+          ...DEFAULT_LIST_REMINDER_PROFILE,
+          defaultDueTime: "08:30"
+        }
+      })
+    ).toThrow()
+    expect(() =>
+      parseSyncScanRequest({
+        ...baseRequest,
+        listReminderProfile: {
+          ...DEFAULT_LIST_REMINDER_PROFILE,
+          participantIds: ["messages-participant-11111111111111111111111111111111"]
+        }
       })
     ).toThrow()
   })

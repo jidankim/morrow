@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest"
+import { DEFAULT_LIST_REMINDER_PROFILE } from "./domain/appConfig"
 import { parseSyncScanRequest } from "./messagesDiscoveryBridge"
 
 describe("sync scan local diagnostics parsing", () => {
@@ -22,6 +23,7 @@ describe("sync scan local diagnostics parsing", () => {
       feedbackTextSnapshotsEnabled: true,
       localDiagnosticsEnabled: true,
       localDiagnosticsRetentionDays: 90,
+      listReminderProfile: DEFAULT_LIST_REMINDER_PROFILE,
       capPolicy: { mode: "refillForPending", maxVisible: 10, pendingCount: 0 }
     } as const
 

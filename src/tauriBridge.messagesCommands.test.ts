@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { DEFAULT_LIST_REMINDER_PROFILE } from "./domain/appConfig"
 
 const tauriMock = vi.hoisted(() => ({
   invoke: vi.fn(async (): Promise<unknown> => ({ pendingProposalCount: 3 }))
@@ -41,6 +42,7 @@ describe("messagesTauriCommands boundary parsing", () => {
       feedbackTextSnapshotsEnabled: true,
       localDiagnosticsEnabled: true,
       localDiagnosticsRetentionDays: 45,
+      listReminderProfile: DEFAULT_LIST_REMINDER_PROFILE,
       capPolicy: { mode: "refillForPending", maxVisible: 10, pendingCount: 0 }
     } as const
     const discoveryReport = {
@@ -84,7 +86,10 @@ describe("messagesTauriCommands boundary parsing", () => {
     })
     expect(discoveredChats).toEqual(discoveryReport)
     expect(previewRows).toEqual(previewReport)
-    expect(tauriMock.invoke).toHaveBeenNthCalledWith(1, "scan_selected_chats", { request: scanRequest })
+    expect(tauriMock.invoke).toHaveBeenCalledTimes(3)
+    expect(tauriMock.invoke).toHaveBeenNthCalledWith(1, "scan_selected_chats", {
+      request: { ...scanRequest, listReminderProfile: DEFAULT_LIST_REMINDER_PROFILE }
+    })
     expect(tauriMock.invoke).toHaveBeenNthCalledWith(2, "discover_messages_chats")
     expect(tauriMock.invoke).toHaveBeenNthCalledWith(3, "load_messages_chat_previews", {
       request: previewRequest
@@ -115,6 +120,7 @@ describe("messagesTauriCommands boundary parsing", () => {
       feedbackTextSnapshotsEnabled: true,
       localDiagnosticsEnabled: false,
       localDiagnosticsRetentionDays: 30,
+      listReminderProfile: DEFAULT_LIST_REMINDER_PROFILE,
       capPolicy: { mode: "refillForPending", maxVisible: 10, pendingCount: 0 }
     } as const
     const previewRequest = { chatIds: [selectedChat.id] } as const
