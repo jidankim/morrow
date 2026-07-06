@@ -7,6 +7,7 @@ import type { ChatPreviewDisclosure } from "./ChatPreviewControls"
 import { createDefaultAppShellState, getMenuModel, getOnboardingWarnings, isSyncNowEnabled, reduceAppShellState, type AppShellState, type ChatId } from "./domain/appShell"
 import { createDefaultSyncSchedulerState, type SyncSchedulerIntervalSeconds } from "./domain/syncScheduler"
 import type { RuntimeIdentity } from "./tauriBridge"
+import { VisualProviderCredentialSetupHarness, isVisualProviderCredentialSetupState, type VisualProviderCredentialSetupState } from "./VisualProviderCredentialSetupHarness"
 import { VisualSyncSchedulerHarness, isVisualSyncSchedulerState, type VisualSyncSchedulerState } from "./VisualSyncSchedulerHarness"
 import {
   selectedVisualChat,
@@ -47,6 +48,7 @@ type VisualFullDiskAccessRecoveryState = keyof typeof visualFullDiskAccessRecove
 
 type VisualQaState = { readonly kind: "chatDiscovery"; readonly stateName: VisualChatDiscoveryState }
   | { readonly kind: "fullDiskAccessRecovery"; readonly stateName: VisualFullDiskAccessRecoveryState }
+  | { readonly kind: "providerCredentialSetup"; readonly stateName: VisualProviderCredentialSetupState }
   | { readonly kind: "providerUsage"; readonly stateName: VisualProviderUsageState }
   | { readonly kind: "syncScheduler"; readonly stateName: VisualSyncSchedulerState }
 
@@ -62,14 +64,12 @@ function VisualQaHarness({ state }: { readonly state: VisualQaState }): JSX.Elem
       return <VisualChatDiscoveryHarness stateName={state.stateName} />
     case "fullDiskAccessRecovery":
       return <VisualFullDiskAccessRecoveryHarness stateName={state.stateName} />
+    case "providerCredentialSetup":
+      return <VisualQaShell stateName={state.stateName} lede="Codex provider setup visual QA"><VisualProviderCredentialSetupHarness stateName={state.stateName} /></VisualQaShell>
     case "providerUsage":
       return <VisualProviderUsageHarness stateName={state.stateName} />
     case "syncScheduler":
-      return (
-        <VisualQaShell stateName={state.stateName} lede="Automatic sync visual QA">
-          <VisualSyncSchedulerHarness stateName={state.stateName} />
-        </VisualQaShell>
-      )
+      return <VisualQaShell stateName={state.stateName} lede="Automatic sync visual QA"><VisualSyncSchedulerHarness stateName={state.stateName} /></VisualQaShell>
     default:
       return assertNever(state)
   }
@@ -161,6 +161,11 @@ function getVisualQaState(search: string): VisualQaState | undefined {
         throw new Error(`Unsupported visual QA Full Disk Access recovery state: ${stateName}`)
       }
       return { kind: "fullDiskAccessRecovery", stateName }
+    case "provider-credential-setup":
+      if (!isVisualProviderCredentialSetupState(stateName)) {
+        throw new Error(`Unsupported visual QA provider credential setup state: ${stateName}`)
+      }
+      return { kind: "providerCredentialSetup", stateName }
     case "provider-usage":
       if (!isVisualProviderUsageState(stateName)) {
         throw new Error(`Unsupported visual QA provider usage state: ${stateName}`)
