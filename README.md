@@ -9,7 +9,8 @@ This repository is prepared as a v0.1 source snapshot. Local OMO planning and ev
 1. Synthetic pipeline QA passes: fake Messages fixtures can become typed candidates and fake Calendar/Reminders proposals.
 2. Real Calendar surface QA passes: this machine can create, read back, and clean up a synthetic EventKit event in `Morrow Proposed`.
 3. Real Messages discovery, selected-chat scanning, the Codex provider path, and EventKit proposal creation are wired through the production Tauri path. "Production-wired" means the app can use the native Tauri path after local permissions and Codex CLI login are complete. It does not mean real Messages-to-Calendar event creation is verified end to end yet: live QA still needs a real environment that allows EventKit readback and cleanup after `Sync Now` creates a proposed event from a real message.
-4. The local Phase 4 approval/correction evidence loop is covered by local smoke artifacts only. It proves sanitized local evidence for accepted, rejected, pending-edited, unknown, and `user_correction` outcomes with no live network, vendor, Messages, Calendar, or Reminders access. The correction UI remains future work, cloud telemetry remains future work, the full live Messages-to-Calendar approval trajectory eval remains future work, and real-surface status remains PASS or sanitized BLOCKED.
+4. The local Phase 4 approval/correction evidence loop is covered by local smoke artifacts only. It proves sanitized local evidence for accepted, rejected, pending-edited, unknown, and `user_correction` outcomes with no live network, vendor, Messages, Calendar, or Reminders access.
+5. The local Phase 5 trajectory eval hardening is covered by final-smoke artifacts only. It proves fixture-backed multi-step Messages-to-Calendar approval trajectory scoring, collateral-damage checks, replay scoring, privacy inspection, canary rejection, and cleanup under `.omo/evidence/phase-5-messages-calendar-approval-trajectory-eval/final-smoke`. It does not prove a full live Messages-to-Calendar approval trajectory. The correction UI remains future work, cloud telemetry remains future work, deployed rollout remains future work, the full live Messages-to-Calendar approval trajectory eval remains future work, and live receipt status remains PASS or sanitized BLOCKED.
 
 Because of that, do not treat synthetic e2e success as proof that a real message has created a real Calendar event.
 
@@ -225,6 +226,33 @@ scripts/run-lifecycle-real-surface-qa.sh --out-dir .omo/evidence/phase-4-human-a
 Expected Phase 4 real-surface receipts include `.omo/evidence/phase-4-human-approval-correction/real-surface/summary.txt` and `.omo/evidence/phase-4-human-approval-correction/real-surface/cleanup-receipt.txt`. A PASS receipt proves that bounded surface; a sanitized BLOCKED receipt means host permission or tooling stopped the run before mutation or after cleanup. A FAIL receipt is not acceptable.
 
 This path must use the local Codex CLI session and must not require an OpenAI API key. It can still block on external setup: missing Codex CLI login, missing Full Disk Access for Messages, missing Calendar access, or missing real QA chat environment variables.
+
+Phase 5 local Messages-to-Calendar approval trajectory eval smoke:
+
+```bash
+scripts/run-messages-calendar-approval-trajectory-eval-smoke.sh --out-dir .omo/evidence/phase-5-messages-calendar-approval-trajectory-eval/final-smoke --assert-canary-rejection
+```
+
+Expected Phase 5 local smoke artifacts:
+
+- `.omo/evidence/phase-5-messages-calendar-approval-trajectory-eval/final-smoke/summary.txt`
+- `.omo/evidence/phase-5-messages-calendar-approval-trajectory-eval/final-smoke/trajectory-report.json`
+- `.omo/evidence/phase-5-messages-calendar-approval-trajectory-eval/final-smoke/trace.jsonl`
+- `.omo/evidence/phase-5-messages-calendar-approval-trajectory-eval/final-smoke/storage-readback.json`
+- `.omo/evidence/phase-5-messages-calendar-approval-trajectory-eval/final-smoke/decision-evidence.json`
+- `.omo/evidence/phase-5-messages-calendar-approval-trajectory-eval/final-smoke/privacy-inspect.txt`
+- `.omo/evidence/phase-5-messages-calendar-approval-trajectory-eval/final-smoke/canary-rejection.txt`
+- `.omo/evidence/phase-5-messages-calendar-approval-trajectory-eval/final-smoke/cleanup-receipt.txt`
+
+The Phase 5 local smoke reports `result: PASS` only for the local evidence boundary: required trajectory case families, command pass counts, collateral-damage checks, replay scoring, privacy inspection, canary rejection, and cleanup. The backend observable is no live backend, provider network, EventKit, Messages, Calendar, Reminders, Phoenix, Langfuse, or vendor backend; the smoke uses local fixtures/fakes and synthetic privacy surfaces.
+
+Phase 5 live receipt command:
+
+```bash
+scripts/run-messages-calendar-approval-live-receipt.sh --out-dir .omo/evidence/phase-5-messages-calendar-approval-trajectory-eval/live-receipt
+```
+
+Expected Phase 5 live receipt artifacts include `.omo/evidence/phase-5-messages-calendar-approval-trajectory-eval/live-receipt/summary.txt`, `.omo/evidence/phase-5-messages-calendar-approval-trajectory-eval/live-receipt/cleanup-receipt.txt`, and `.omo/evidence/phase-5-messages-calendar-approval-trajectory-eval/live-receipt/privacy-inspect.txt`. A PASS receipt is required before claiming a full live Messages-to-Calendar approval trajectory pass. A sanitized BLOCKED receipt must keep `full_live_claim_allowed=false` and must not be treated as live trajectory completion.
 
 ## Manual QA Flow Once Production Wiring Exists
 

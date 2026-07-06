@@ -44,7 +44,7 @@ Privacy rules for this phase:
 Remaining gaps:
 
 - Phase 4 local approval/correction evidence is documented below and is outside the Phase 2 product-correlation claim.
-- Phase 5 trajectory-level eval hardening remains future work for multi-step Messages-to-Calendar approval paths, collateral-damage checks, and replay scoring.
+- Local Phase 5 trajectory eval hardening is documented below and is outside the Phase 2 product-correlation claim.
 - Cloud telemetry rollout remains future work; Phase 2 does not upload diagnostics or require Phoenix, Langfuse, LangSmith, Braintrust, LiteLLM, Helicone, or any vendor backend.
 
 ## Phase 3 Lifecycle Replay Coverage Smoke
@@ -103,7 +103,7 @@ Privacy rules for Phase 3:
 Remaining gaps:
 
 - Phase 4 local approval/correction evidence is documented below and is outside the Phase 3 lifecycle-replay claim.
-- Phase 5 trajectory eval hardening remains future work for multi-step Messages-to-Calendar approval paths, collateral-damage checks, and replay scoring.
+- Local Phase 5 trajectory eval hardening is documented below and is outside the Phase 3 lifecycle-replay claim.
 - The full Messages -> Calendar -> approval trajectory eval remains future work.
 - Cloud telemetry remains future work; Phase 3 does not upload diagnostics or require Phoenix, Langfuse, LangSmith, Braintrust, LiteLLM, Helicone, or any vendor backend.
 
@@ -153,6 +153,52 @@ Remaining Phase 4 gaps:
 - Cloud telemetry remains future work.
 - The full live Messages-to-Calendar approval trajectory eval remains future work.
 - Real-surface status remains PASS or sanitized BLOCKED and is not implied by the local smoke.
+
+## Phase 5 Messages-to-Calendar Approval Trajectory Eval Smoke
+
+The local Phase 5 trajectory eval hardening is covered by local final-smoke artifacts for the narrowed evidence claim only. It covers fixture-backed multi-step Messages-to-Calendar approval trajectory scoring, required case-family coverage, collateral-damage checks, replay scoring, privacy inspection, canary rejection, and cleanup. It does not prove a correction UI, cloud telemetry, deployed rollout, live vendor behavior, real Messages access, real Calendar/Reminders mutation, or the full live Messages-to-Calendar approval trajectory eval.
+
+Run the Phase 5 local smoke with:
+
+```bash
+scripts/run-messages-calendar-approval-trajectory-eval-smoke.sh --out-dir .omo/evidence/phase-5-messages-calendar-approval-trajectory-eval/final-smoke --assert-canary-rejection
+```
+
+Expected local smoke artifacts:
+
+- `.omo/evidence/phase-5-messages-calendar-approval-trajectory-eval/final-smoke/summary.txt`
+- `.omo/evidence/phase-5-messages-calendar-approval-trajectory-eval/final-smoke/trajectory-report.json`
+- `.omo/evidence/phase-5-messages-calendar-approval-trajectory-eval/final-smoke/trace.jsonl`
+- `.omo/evidence/phase-5-messages-calendar-approval-trajectory-eval/final-smoke/storage-readback.json`
+- `.omo/evidence/phase-5-messages-calendar-approval-trajectory-eval/final-smoke/decision-evidence.json`
+- `.omo/evidence/phase-5-messages-calendar-approval-trajectory-eval/final-smoke/privacy-inspect.txt`
+- `.omo/evidence/phase-5-messages-calendar-approval-trajectory-eval/final-smoke/canary-rejection.txt`
+- `.omo/evidence/phase-5-messages-calendar-approval-trajectory-eval/final-smoke/cleanup-receipt.txt`
+- `.omo/evidence/phase-5-messages-calendar-approval-trajectory-eval/final-smoke/command-log-pass-counts.txt`
+- `.omo/evidence/phase-5-messages-calendar-approval-trajectory-eval/final-smoke/command-logs/`
+
+The recorded smoke receipt reports `result: PASS` for scheduled meeting accepted, scheduled meeting rejected, scheduled meeting edited before approval, task/reminder accepted, task/reminder rejected, provider quiet/low-confidence, collateral-damage non-target preserved, replay-idempotent retry, and privacy-canary rejection families. The backend observable is no live backend, provider network, EventKit, Messages, Calendar, Reminders, Phoenix, Langfuse, or vendor backend; the smoke uses local fixtures/fakes and synthetic privacy surfaces.
+
+Run the bounded live receipt wrapper with:
+
+```bash
+scripts/run-messages-calendar-approval-live-receipt.sh --out-dir .omo/evidence/phase-5-messages-calendar-approval-trajectory-eval/live-receipt
+```
+
+Expected live receipt artifacts:
+
+- `.omo/evidence/phase-5-messages-calendar-approval-trajectory-eval/live-receipt/summary.txt`
+- `.omo/evidence/phase-5-messages-calendar-approval-trajectory-eval/live-receipt/cleanup-receipt.txt`
+- `.omo/evidence/phase-5-messages-calendar-approval-trajectory-eval/live-receipt/privacy-inspect.txt`
+
+Live receipt status remains PASS or sanitized BLOCKED. PASS proves the bounded live Messages-to-Calendar approval trajectory for that run only when the receipt reports `overall_status=PASS`, controlled proposal creation, approval or rejection observation, idempotency, privacy inspection, cleanup, and `full_live_claim_allowed=true`. Sanitized BLOCKED means a prerequisite stopped the run before mutation or after cleanup; it must keep `full_live_claim_allowed=false`. A FAIL receipt is not acceptable.
+
+Remaining Phase 5 gaps:
+
+- The correction UI remains future work.
+- Cloud telemetry remains future work.
+- Deployed rollout remains future work.
+- The full live Messages-to-Calendar approval trajectory eval remains future work unless the live receipt summary is PASS.
 
 ## Provider-Backed Messages-to-Calendar Flow
 

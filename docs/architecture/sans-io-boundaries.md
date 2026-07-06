@@ -40,3 +40,24 @@ The evidence boundary is:
 - It must not imply EventKit/Reminders mutation, Messages access, provider calls, cloud upload, or user-facing correction interaction; the smoke runs with no live network, vendor, Messages, Calendar, or Reminders access.
 - The correction UI remains future work, cloud telemetry remains future work, and the full live Messages-to-Calendar approval trajectory eval remains future work.
 - Real-surface status remains PASS or sanitized BLOCKED and is recorded separately under `.omo/evidence/phase-4-human-approval-correction/real-surface/summary.txt` and `.omo/evidence/phase-4-human-approval-correction/real-surface/cleanup-receipt.txt`.
+
+## Phase 5 Evidence Boundary
+
+The local Phase 5 trajectory eval hardening is covered by local smoke artifacts, not by new native adapters, cloud telemetry, deployed rollout, or UI runtime behavior. The smoke command is:
+
+```bash
+scripts/run-messages-calendar-approval-trajectory-eval-smoke.sh --out-dir .omo/evidence/phase-5-messages-calendar-approval-trajectory-eval/final-smoke --assert-canary-rejection
+```
+
+The bounded live receipt command is:
+
+```bash
+scripts/run-messages-calendar-approval-live-receipt.sh --out-dir .omo/evidence/phase-5-messages-calendar-approval-trajectory-eval/live-receipt
+```
+
+The evidence boundary is:
+
+- The smoke may prove sanitized local trajectory trace, storage, decision-evidence, scoring, collateral-damage, replay, privacy, canary rejection, and cleanup receipts under `.omo/evidence/phase-5-messages-calendar-approval-trajectory-eval/final-smoke/summary.txt`, `.omo/evidence/phase-5-messages-calendar-approval-trajectory-eval/final-smoke/trajectory-report.json`, `.omo/evidence/phase-5-messages-calendar-approval-trajectory-eval/final-smoke/trace.jsonl`, `.omo/evidence/phase-5-messages-calendar-approval-trajectory-eval/final-smoke/storage-readback.json`, `.omo/evidence/phase-5-messages-calendar-approval-trajectory-eval/final-smoke/decision-evidence.json`, `.omo/evidence/phase-5-messages-calendar-approval-trajectory-eval/final-smoke/privacy-inspect.txt`, `.omo/evidence/phase-5-messages-calendar-approval-trajectory-eval/final-smoke/canary-rejection.txt`, and `.omo/evidence/phase-5-messages-calendar-approval-trajectory-eval/final-smoke/cleanup-receipt.txt`.
+- It must not imply EventKit/Reminders mutation, Messages access, provider calls, cloud upload, deployed rollout, approval queue, auto-approval, or user-facing correction interaction; the backend observable is no live backend, provider network, EventKit, Messages, Calendar, Reminders, Phoenix, Langfuse, or vendor backend.
+- The correction UI remains future work, cloud telemetry remains future work, deployed rollout remains future work, and the full live Messages-to-Calendar approval trajectory eval remains future work unless the live receipt summary is PASS.
+- Live receipt status remains PASS or sanitized BLOCKED and is recorded separately under `.omo/evidence/phase-5-messages-calendar-approval-trajectory-eval/live-receipt/summary.txt`, `.omo/evidence/phase-5-messages-calendar-approval-trajectory-eval/live-receipt/cleanup-receipt.txt`, and `.omo/evidence/phase-5-messages-calendar-approval-trajectory-eval/live-receipt/privacy-inspect.txt`.

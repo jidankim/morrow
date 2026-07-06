@@ -2,6 +2,7 @@ pub mod export;
 pub mod privacy;
 pub mod sink;
 pub mod trace;
+mod trace_trajectory;
 
 pub use export::{
     export_langfuse_payload, prove_langfuse_backend_absent, read_trace_input, write_json_file,
@@ -17,6 +18,9 @@ pub use trace::{
     NoopTraceRecorder, OpaqueIdError, TraceComponent, TraceDecision, TraceIds, TraceOperation,
     TraceOutcome, TracePrivacyTier, TraceRecord, TraceRecorder, TraceRecorderError,
     TraceSchemaVersion, TraceSpan,
+};
+pub use trace_trajectory::{
+    TrajectoryAnchorError, TrajectoryAnchorReport, TrajectoryAnchorStep, TrajectoryAnchorStepInput,
 };
 
 #[cfg(test)]

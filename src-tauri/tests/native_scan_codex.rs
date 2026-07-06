@@ -18,6 +18,10 @@ mod support;
 mod trace_linkage;
 #[path = "native_scan_codex/trace_sink.rs"]
 mod trace_sink;
+#[path = "native_scan_codex/trajectory_eval.rs"]
+mod trajectory_eval;
+#[path = "native_scan_codex/trajectory_eval_support.rs"]
+mod trajectory_eval_support;
 
 use support::{
     assert_counts, auth_readiness, candidate_json, candidate_json_at, scan_request_at,
