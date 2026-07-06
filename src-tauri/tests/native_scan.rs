@@ -10,6 +10,8 @@ mod contract;
 mod dependencies;
 #[path = "native_scan/feedback.rs"]
 mod feedback;
+#[path = "native_scan/list_reminder_profile.rs"]
+mod list_reminder_profile;
 #[path = "native_scan/local_diagnostics.rs"]
 mod local_diagnostics;
 #[path = "native_scan/message_sqlite.rs"]
