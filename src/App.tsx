@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from "react"
+import { assertNeverRoute } from "./appRuntime"
+import { ProviderUsageDashboard } from "./ProviderUsageDashboard"
 import { SettingsView } from "./SettingsView"
 import { ShellNavigation } from "./ShellNavigation"
 import { StatusView } from "./StatusView"
@@ -35,50 +37,71 @@ export function App(): JSX.Element {
     }
   }, [runtimeIdentityBridge])
 
+  let content: JSX.Element
+  switch (shell.route) {
+    case "settings":
+      content = (
+        <SettingsView
+          config={shell.state.config}
+          deleteAllState={shell.deleteAllState}
+          providerCredentialState={shell.providerCredentialState}
+          runtimeIdentity={runtimeIdentity}
+          syncScheduler={shell.syncScheduler}
+          syncSchedulerNowUnixSeconds={shell.syncSchedulerNowUnixSeconds}
+          onChangeAutomaticSyncInterval={shell.changeAutomaticSyncInterval}
+          onChange={shell.updateConfig}
+          onCheckProviderCredential={shell.checkProviderCredential}
+          onDeleteAll={shell.deleteAllMorrowData}
+          onOpenPrivacySettings={shell.openPrivacySettings}
+          onToggleAutomaticSync={shell.toggleAutomaticSync}
+        />
+      )
+      break
+    case "usage":
+      content = (
+        <ProviderUsageDashboard
+          selectedWindowKey={shell.providerUsage.selectedWindowKey}
+          state={shell.providerUsage.state}
+          onWindowChange={shell.providerUsage.changeWindow}
+        />
+      )
+      break
+    case "status":
+      content = (
+        <StatusView
+          menu={shell.menu}
+          state={shell.state}
+          warnings={shell.warnings}
+          syncing={shell.syncing}
+          syncEnabled={shell.syncEnabled}
+          runtimeIdentity={runtimeIdentity}
+          previewDisclosure={shell.previewDisclosure}
+          syncScheduler={shell.syncScheduler}
+          syncSchedulerNowUnixSeconds={shell.syncSchedulerNowUnixSeconds}
+          onChangeAutomaticSyncInterval={shell.changeAutomaticSyncInterval}
+          onPause={() => shell.setMode("paused")}
+          onResume={() => shell.setMode("scanning")}
+          onSyncNow={shell.runSyncNow}
+          onToggleAutomaticSync={shell.toggleAutomaticSync}
+          onHidePreviews={shell.hidePreviews}
+          onRetryChatDiscovery={shell.loadMessagesDiscovery}
+          onRevealPreviews={shell.revealPreviews}
+          onOpenFullDiskAccess={shell.openFullDiskAccess}
+          onOpenSettings={shell.openSettingsRoute}
+          onToggleChat={shell.toggleChat}
+          onToggleBackfillPrompt={shell.toggleBackfillPrompt}
+        />
+      )
+      break
+    default:
+      assertNeverRoute(shell.route)
+  }
+
   return (
     <main className="app-shell">
       <ShellNavigation route={shell.route} />
       <section className="content" aria-live="polite">
-        {shell.route === "settings" ? (
-          <SettingsView
-            config={shell.state.config}
-            deleteAllState={shell.deleteAllState}
-            providerCredentialState={shell.providerCredentialState}
-            runtimeIdentity={runtimeIdentity}
-            syncScheduler={shell.syncScheduler}
-            syncSchedulerNowUnixSeconds={shell.syncSchedulerNowUnixSeconds}
-            onChangeAutomaticSyncInterval={shell.changeAutomaticSyncInterval}
-            onChange={shell.updateConfig}
-            onCheckProviderCredential={shell.checkProviderCredential}
-            onDeleteAll={shell.deleteAllMorrowData}
-            onOpenPrivacySettings={shell.openPrivacySettings}
-            onToggleAutomaticSync={shell.toggleAutomaticSync}
-          />
-        ) : (
-          <StatusView
-            menu={shell.menu}
-            state={shell.state}
-            warnings={shell.warnings}
-            syncing={shell.syncing}
-            syncEnabled={shell.syncEnabled}
-            runtimeIdentity={runtimeIdentity}
-            previewDisclosure={shell.previewDisclosure}
-            syncScheduler={shell.syncScheduler}
-            syncSchedulerNowUnixSeconds={shell.syncSchedulerNowUnixSeconds}
-            onChangeAutomaticSyncInterval={shell.changeAutomaticSyncInterval}
-            onPause={() => shell.setMode("paused")}
-            onResume={() => shell.setMode("scanning")}
-            onSyncNow={shell.runSyncNow}
-            onToggleAutomaticSync={shell.toggleAutomaticSync}
-            onHidePreviews={shell.hidePreviews}
-            onRetryChatDiscovery={shell.loadMessagesDiscovery}
-            onRevealPreviews={shell.revealPreviews}
-            onOpenFullDiskAccess={shell.openFullDiskAccess}
-            onOpenSettings={shell.openSettingsRoute}
-            onToggleChat={shell.toggleChat}
-            onToggleBackfillPrompt={shell.toggleBackfillPrompt}
-          />
-        )}
+        {content}
       </section>
     </main>
   )

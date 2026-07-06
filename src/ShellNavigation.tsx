@@ -1,6 +1,5 @@
-import { Settings, SlidersHorizontal } from "lucide-react"
-
-type Route = "status" | "settings"
+import { ChartColumnIncreasing, Settings, SlidersHorizontal } from "lucide-react"
+import type { Route } from "./appRuntime"
 
 type ShellNavigationProps = {
   readonly route: Route
@@ -20,6 +19,14 @@ export function ShellNavigation({ route }: ShellNavigationProps): JSX.Element {
       >
         <SlidersHorizontal aria-hidden="true" size={17} />
         Status
+      </a>
+      <a
+        aria-current={route === "usage" ? "page" : undefined}
+        className={route === "usage" ? "nav-link active" : "nav-link"}
+        href="#usage"
+      >
+        <ChartColumnIncreasing aria-hidden="true" size={17} />
+        Usage
       </a>
       <a
         aria-current={route === "settings" ? "page" : undefined}

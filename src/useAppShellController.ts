@@ -31,6 +31,7 @@ import { nativeErrorMessage } from "./nativeErrors"
 import { useMessagesDiscoveryActions } from "./useMessagesDiscovery"
 import { useMessagesPreviewDisclosure } from "./useMessagesPreviewDisclosure"
 import { useNativeShellState } from "./useNativeShellState"
+import { useProviderUsageController } from "./useProviderUsageController"
 import { useProviderCredentialActions } from "./useProviderCredentialActions"
 import { useSyncSchedulerOrchestrator } from "./useSyncSchedulerOrchestrator"
 
@@ -58,6 +59,7 @@ export function useAppShellController() {
     setSyncing,
     syncInFlight
   })
+  const providerUsage = useProviderUsageController(route, nativeBridge)
 
   const openSettingsRoute = useCallback((): void => {
     window.location.hash = "#settings"
@@ -84,7 +86,7 @@ export function useAppShellController() {
       syncNowRunning: syncing,
       ...syncSchedulerActions.schedulerShellState
     })
-  }, [nativeBridge, state, storage, syncSchedulerActions.schedulerShellState, syncing])
+  }, [nativeBridge, state, storage, syncing, syncSchedulerActions.schedulerShellState])
 
   const setMode = (mode: AppMode): void => {
     setState((current) => {
@@ -240,6 +242,7 @@ export function useAppShellController() {
     openPrivacySettings,
     openSettingsRoute,
     providerCredentialState,
+    providerUsage,
     previewDisclosure: previewDisclosureActions.previewDisclosure,
     route,
     hidePreviews: previewDisclosureActions.hidePreviews,

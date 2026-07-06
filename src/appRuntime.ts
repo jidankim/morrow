@@ -5,12 +5,28 @@ import {
   type AppShellState,
   type createBrowserShellStorage
 } from "./domain/appShell"
+import type { ProviderUsageLoadRequest } from "./domain/providerUsage"
 import type { NativeMenuCommand } from "./tauriBridge"
 
-export type Route = "status" | "settings"
+export type Route = "status" | "settings" | "usage"
 
-export const routeFromHash = (): Route =>
-  window.location.hash === "#settings" ? "settings" : "status"
+export const DEFAULT_PROVIDER_USAGE_REQUEST = {
+  windowKey: "30d"
+} as const satisfies ProviderUsageLoadRequest
+
+export const routeFromHash = (): Route => {
+  switch (window.location.hash) {
+    case "#settings":
+      return "settings"
+    case "#usage":
+      return "usage"
+    case "":
+    case "#status":
+      return "status"
+    default:
+      return "status"
+  }
+}
 
 export function loadInitialState(
   storage: ReturnType<typeof createBrowserShellStorage>
@@ -32,6 +48,10 @@ export function assertNeverNativeMenuCommand(command: never): never {
   throw new UnsupportedNativeMenuCommandError(command)
 }
 
+export function assertNeverRoute(route: never): never {
+  throw new UnsupportedRouteError(route)
+}
+
 class UnsupportedNativeMenuCommandError extends Error {
   readonly command: NativeMenuCommand
 
@@ -39,5 +59,15 @@ class UnsupportedNativeMenuCommandError extends Error {
     super(`Unsupported native menu command: ${command}`)
     this.name = "UnsupportedNativeMenuCommandError"
     this.command = command
+  }
+}
+
+class UnsupportedRouteError extends Error {
+  readonly route: Route
+
+  constructor(route: Route) {
+    super(`Unsupported app route: ${route}`)
+    this.name = "UnsupportedRouteError"
+    this.route = route
   }
 }
