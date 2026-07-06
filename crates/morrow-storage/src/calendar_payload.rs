@@ -1,12 +1,12 @@
 use crate::sqlite_cli::{row_value, sql_text};
 use crate::types::{
-    CalendarProposalPayload, CandidateKind, CandidateState, ExternalSource, ReminderProposalPayload,
+    CalendarProposalPayload, CandidateKind, CandidateState, ExternalSource,
+    ReminderProposalPayload, PROVIDER_ROUTE_NATIVE_CANDIDATE_TITLE,
 };
 use crate::{CandidateId, StorageError, Store};
 
 const SELECTED_MESSAGES_SOURCE_ID: &str = "morrow-selected-messages";
 const SELECTED_REMINDERS_SOURCE_ID: &str = "morrow-selected-reminders";
-const NATIVE_SCAN_TITLE: &str = "Messages event candidate";
 const NATIVE_SCAN_REMINDER_TITLE: &str = "Messages reminder candidate";
 
 impl Store {
@@ -51,7 +51,7 @@ impl Store {
         }
         let title = payload_title(
             row_value(row, 3, "calendar_payload.title")?,
-            NATIVE_SCAN_TITLE,
+            PROVIDER_ROUTE_NATIVE_CANDIDATE_TITLE,
         );
         Ok(Some(CalendarProposalPayload {
             candidate_id: CandidateId::from_storage(row_value(row, 0, "calendar_payload.id")?)?,
@@ -115,7 +115,7 @@ impl Store {
     }
 }
 
-fn payload_title(raw: &str, fallback: &str) -> String {
+pub fn privacy_safe_native_scan_title(raw: &str, fallback: &str) -> String {
     let title = raw.trim();
     if title.is_empty() || title_has_private_marker(title) {
         fallback.to_owned()
@@ -124,13 +124,27 @@ fn payload_title(raw: &str, fallback: &str) -> String {
     }
 }
 
+fn payload_title(raw: &str, fallback: &str) -> String {
+    privacy_safe_native_scan_title(raw, fallback)
+}
+
 fn title_has_private_marker(title: &str) -> bool {
     let lowered = title.to_ascii_lowercase();
     title.contains('@')
         || title.contains('+')
         || lowered.contains("private")
         || lowered.contains("raw-")
+        || title_looks_like_provider_contract(title)
         || has_phone_like_digit_sequence(title, 7)
+}
+
+fn title_looks_like_provider_contract(title: &str) -> bool {
+    let lowered = title.to_ascii_lowercase();
+    title.starts_with('{')
+        && title.ends_with('}')
+        && lowered.contains("\"kind\"")
+        && lowered.contains("\"title\"")
+        && (lowered.contains("\"calendar_event\"") || lowered.contains("\"task_reminder\""))
 }
 
 fn has_phone_like_digit_sequence(value: &str, threshold: usize) -> bool {

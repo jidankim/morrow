@@ -73,7 +73,7 @@ fn trajectory_anchor_report_links_case_snapshot_trace_label_and_decision_evidenc
 }
 
 #[test]
-fn trajectory_anchor_report_rejects_mismatched_case_id_and_raw_title() {
+fn trajectory_anchor_report_rejects_mismatched_case_id_and_private_title_marker() {
     // Given: malformed anchors with a mismatched case id and a forbidden raw title token.
     let record = provider_route_record();
     let mut mismatched_case = report_with_step(&record);
@@ -98,7 +98,7 @@ fn trajectory_anchor_report_rejects_mismatched_case_id_and_raw_title() {
     assert_eq!(mismatched_case.validate(), Ok(()));
     assert_eq!(raw_title.validate(), Ok(()));
     println!("malformed_case_id_rejected=true");
-    println!("forbidden_raw_title_rejected=true");
+    println!("private_title_marker_rejected=true");
 }
 
 #[test]

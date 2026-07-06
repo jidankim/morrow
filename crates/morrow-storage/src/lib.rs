@@ -19,6 +19,7 @@ mod types;
 mod validation;
 mod visibility;
 
+pub use calendar_payload::privacy_safe_native_scan_title;
 pub use caps::{plan_visibility, CapPlan, CapPolicy, QueuedProposal};
 pub use decision_evidence::{
     DecisionEvidenceSubjectType, DecisionEvidenceSummary, DecisionEvidenceTraceRetention,

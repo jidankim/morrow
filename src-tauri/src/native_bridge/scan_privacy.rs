@@ -2,9 +2,11 @@ use super::public_chat_id::{public_chat_id, public_message_id};
 use super::scan::ScanSelectedChatsError;
 use morrow_detection::SourceExcerptPolicy;
 use morrow_messages::ChatGuid;
-use morrow_storage::{CandidateDraft, CandidateId, QuietLogDraft};
+use morrow_storage::{
+    privacy_safe_native_scan_title, CandidateDraft, CandidateId, QuietLogDraft,
+    PROVIDER_ROUTE_NATIVE_CANDIDATE_TITLE,
+};
 
-const NATIVE_CANDIDATE_TITLE: &str = "Messages event candidate";
 const HIDDEN_SOURCE_EXCERPT: &str = "Source excerpt hidden by settings.";
 
 pub(super) fn privacy_safe_candidate(
@@ -22,42 +24,7 @@ pub(super) fn privacy_safe_candidate(
 }
 
 fn privacy_safe_candidate_title(raw: &str) -> String {
-    let title = raw.trim();
-    if title.is_empty() || title_has_private_marker(title) {
-        NATIVE_CANDIDATE_TITLE.to_owned()
-    } else {
-        title.to_owned()
-    }
-}
-
-fn title_has_private_marker(title: &str) -> bool {
-    let lowered = title.to_ascii_lowercase();
-    title.contains('@')
-        || title.contains('+')
-        || lowered.contains("private")
-        || lowered.contains("raw-")
-        || has_phone_like_digit_sequence(title, 7)
-}
-
-fn has_phone_like_digit_sequence(value: &str, threshold: usize) -> bool {
-    let mut digits = 0;
-    for ch in value.chars() {
-        if ch.is_ascii_digit() {
-            digits += 1;
-            if digits >= threshold {
-                return true;
-            }
-        } else if is_phone_title_char(ch) {
-            continue;
-        } else {
-            digits = 0;
-        }
-    }
-    false
-}
-
-fn is_phone_title_char(ch: char) -> bool {
-    matches!(ch, '+' | '-' | '(' | ')' | '.' | ' ')
+    privacy_safe_native_scan_title(raw, PROVIDER_ROUTE_NATIVE_CANDIDATE_TITLE)
 }
 
 pub(super) fn privacy_safe_quiet_log(

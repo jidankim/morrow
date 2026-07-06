@@ -119,7 +119,7 @@ fn trajectory_eval_links_case_snapshot_trace_label_outcome_and_decision_evidence
 }
 
 #[test]
-fn trajectory_eval_rejects_mismatched_case_id_or_forbidden_raw_title() {
+fn trajectory_eval_rejects_mismatched_case_id_or_private_title_marker() {
     // Given: malformed local trajectory anchor fixtures.
     let record = provider_route_record();
     let mismatched_case = TrajectoryAnchorReport {
@@ -162,7 +162,7 @@ fn trajectory_eval_rejects_mismatched_case_id_or_forbidden_raw_title() {
         })
     ));
     println!("trajectory_eval_mismatched_case_id_rejected=true");
-    println!("trajectory_eval_forbidden_raw_title_rejected=true");
+    println!("trajectory_eval_private_title_marker_rejected=true");
 }
 
 #[derive(Debug, Clone, Copy)]
