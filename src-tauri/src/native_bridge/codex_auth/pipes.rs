@@ -1,9 +1,19 @@
 use std::{
-    io::{self, Read},
-    thread::{self, JoinHandle},
+    io::Read,
+    sync::mpsc::{self, Receiver, RecvTimeoutError},
+    thread,
+    time::Duration,
 };
 
-type PipeReader = JoinHandle<io::Result<Vec<u8>>>;
+const PIPE_OUTPUT_BYTE_LIMIT: usize = 1024 * 1024;
+
+type PipeReader = Receiver<Result<Vec<u8>, PipeReadError>>;
+
+pub(super) enum PipeReadError {
+    ReadFailed,
+    OutputLimitExceeded,
+    TimedOut,
+}
 
 pub(super) struct PipeReaders {
     stdout: PipeReader,
@@ -22,9 +32,9 @@ impl PipeReaders {
         }
     }
 
-    pub(super) fn join(self) -> Result<(Vec<u8>, Vec<u8>), ()> {
-        let stdout = join_pipe_reader(self.stdout)?;
-        let stderr = join_pipe_reader(self.stderr)?;
+    pub(super) fn join(self, timeout: Duration) -> Result<(Vec<u8>, Vec<u8>), PipeReadError> {
+        let stdout = join_pipe_reader(self.stdout, timeout)?;
+        let stderr = join_pipe_reader(self.stderr, timeout)?;
         Ok((stdout, stderr))
     }
 }
@@ -33,16 +43,41 @@ fn spawn_pipe_reader<R>(mut pipe: R) -> PipeReader
 where
     R: Read + Send + 'static,
 {
+    let (sender, receiver) = mpsc::channel();
     thread::spawn(move || {
-        let mut output = Vec::new();
-        pipe.read_to_end(&mut output)?;
-        Ok(output)
-    })
+        drop(sender.send(read_limited_pipe(&mut pipe)));
+    });
+    receiver
 }
 
-fn join_pipe_reader(reader: PipeReader) -> Result<Vec<u8>, ()> {
-    match reader.join() {
-        Ok(Ok(output)) => Ok(output),
-        Ok(Err(_)) | Err(_) => Err(()),
+fn read_limited_pipe<R>(pipe: &mut R) -> Result<Vec<u8>, PipeReadError>
+where
+    R: Read,
+{
+    let mut output = Vec::new();
+    let mut buffer = [0_u8; 8192];
+    loop {
+        let read = pipe
+            .read(&mut buffer)
+            .map_err(|_error| PipeReadError::ReadFailed)?;
+        if read == 0 {
+            return Ok(output);
+        }
+        let next_len = output
+            .len()
+            .checked_add(read)
+            .ok_or(PipeReadError::OutputLimitExceeded)?;
+        if next_len > PIPE_OUTPUT_BYTE_LIMIT {
+            return Err(PipeReadError::OutputLimitExceeded);
+        }
+        output.extend_from_slice(&buffer[..read]);
+    }
+}
+
+fn join_pipe_reader(reader: PipeReader, timeout: Duration) -> Result<Vec<u8>, PipeReadError> {
+    match reader.recv_timeout(timeout) {
+        Ok(result) => result,
+        Err(RecvTimeoutError::Timeout) => Err(PipeReadError::TimedOut),
+        Err(RecvTimeoutError::Disconnected) => Err(PipeReadError::ReadFailed),
     }
 }

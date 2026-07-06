@@ -4,7 +4,9 @@ mod classification;
 mod discovery;
 mod pipes;
 mod process;
+mod process_control;
 mod readiness;
+mod setup;
 
 use classification::classify_completed_output;
 use discovery::{resolve_executable, search_paths_from_env};
@@ -15,6 +17,11 @@ pub use process::{
     ProcessCodexAuthCommandRunner,
 };
 pub use readiness::{CodexAuthStatus, CodexProviderAuthReadiness};
+pub use setup::{
+    install_codex_cli_with_runner, start_codex_login_with_runner, CodexLoginLaunchReceipt,
+    CodexLoginLaunchRun, CodexLoginLaunchStatus, CodexLoginRunningGuard, CodexSetupActionGuard,
+    CodexSetupActionReceipt, CodexSetupActionRun, CodexSetupActionStatus,
+};
 
 const CODEX_EXECUTABLE: &str = "codex";
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(5);

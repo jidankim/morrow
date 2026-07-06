@@ -1,5 +1,6 @@
 mod codex_auth;
 mod codex_provider;
+mod codex_setup_commands;
 mod crash_log;
 mod decision_evidence;
 mod delete_all;
@@ -29,13 +30,22 @@ use paths::{app_data_dir, messages_database_path, morrow_store_path};
 use tauri::{AppHandle, State};
 
 pub use codex_auth::{
-    probe_codex_provider_auth, probe_codex_provider_auth_with_runner, CodexAuthCommandOutput,
-    CodexAuthCommandRunner, CodexAuthProbeOptions, CodexAuthStatus, CodexLoginStatusRun,
-    CodexProviderAuthReadiness, ProcessCodexAuthCommandRunner,
+    install_codex_cli_with_runner, probe_codex_provider_auth,
+    probe_codex_provider_auth_with_runner, start_codex_login_with_runner, CodexAuthCommandOutput,
+    CodexAuthCommandRunner, CodexAuthProbeOptions, CodexAuthStatus, CodexLoginLaunchReceipt,
+    CodexLoginLaunchRun, CodexLoginLaunchStatus, CodexLoginRunningGuard, CodexLoginStatusRun,
+    CodexProviderAuthReadiness, CodexSetupActionGuard, CodexSetupActionReceipt,
+    CodexSetupActionRun, CodexSetupActionStatus, ProcessCodexAuthCommandRunner,
 };
 pub use codex_provider::{
     CodexCommandOutput, CodexExecRequest, CodexExecRun, CodexExecRunner, CodexProvider,
     CodexProviderError, ProcessCodexExecRunner,
+};
+pub use codex_setup_commands::{
+    __cmd__check_provider_auth, __cmd__install_codex_cli, __cmd__start_codex_login,
+    __tauri_command_name_check_provider_auth, __tauri_command_name_install_codex_cli,
+    __tauri_command_name_start_codex_login, check_provider_auth, install_codex_cli,
+    start_codex_login,
 };
 pub use crash_log::{
     __cmd__record_crash_log, __tauri_command_name_record_crash_log, record_crash_log,
@@ -224,11 +234,6 @@ pub fn load_messages_chat_previews(
     state
         .load_messages_chat_previews_at(&db_path, &request)
         .map_err(|_error| MESSAGES_PREVIEW_UNAVAILABLE_ERROR.to_owned())
-}
-
-#[tauri::command]
-pub fn check_provider_auth() -> CodexProviderAuthReadiness {
-    codex_auth::probe_codex_provider_auth()
 }
 
 #[tauri::command]
