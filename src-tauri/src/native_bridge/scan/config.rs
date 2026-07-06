@@ -38,7 +38,7 @@ pub(super) fn scan_config(
             reference: ReferenceTime::parse(&reference_time, &request.reference_timezone)
                 .map_err(detection_error)?,
             threshold: ConfidenceThreshold::new(550).map_err(detection_error)?,
-            provider: ProviderIdentity::new("native-bridge", "deterministic", "scan-v1")
+            provider: ProviderIdentity::new("native-bridge", "deterministic", "scan-v2")
                 .map_err(detection_error)?,
             source_excerpts,
         },

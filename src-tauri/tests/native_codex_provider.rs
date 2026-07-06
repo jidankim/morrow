@@ -8,6 +8,9 @@ mod support {
     pub use crate::provider;
 }
 
+#[path = "native_codex_provider/scheduling_intent.rs"]
+mod scheduling_intent;
+
 use std::{path::Path, time::Duration};
 
 use morrow_detection::{DetectionOutcome, DetectionPipeline};

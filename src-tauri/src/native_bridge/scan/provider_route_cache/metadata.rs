@@ -27,7 +27,7 @@ pub(super) fn route_metadata(
             "parser_time:{}",
             parser_time.normalized(&reference_timezone)
         ),
-        None => "none".to_owned(),
+        None => request.parser_route_reason.to_owned(),
     };
     let source_excerpt_policy = source_excerpt_policy(request.config.source_excerpts);
     let canonical = CanonicalRouteMetadata {

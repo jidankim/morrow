@@ -105,6 +105,19 @@ pub(super) fn corrupt_provider_candidate_schema_version(db_path: &Path) -> Resul
     )
 }
 
+pub(super) fn set_provider_route_prompt_version(
+    db_path: &Path,
+    prompt_version: &str,
+) -> Result<(), String> {
+    run_sqlite(
+        db_path,
+        &format!(
+            "UPDATE provider_route_outcomes SET prompt_version = {};",
+            sql_text(prompt_version)
+        ),
+    )
+}
+
 pub(super) fn update_provider_route_message_text(db_path: &Path, text: &str) -> Result<(), String> {
     run_sqlite(
         db_path,

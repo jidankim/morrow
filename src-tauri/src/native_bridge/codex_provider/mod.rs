@@ -74,7 +74,9 @@ fn provider_prompt(
     Ok(format!(
         "Return only one JSON object matching the supplied schema. Use only this redacted evidence payload. \
 For an explicit request to create, add, or schedule a calendar event with a date and time, set confidence_millis between 850 and 1000. \
+For weak calendar wording such as catch up Friday afternoon, coffee Friday afternoon, sync Friday afternoon, or touch base Friday afternoon, set kind to calendar_event and set confidence_millis between 850 and 1000 when the date/time is inferable. \
 For a task or reminder request with a clear due date, deadline, or by-date, set kind to task_reminder and set confidence_millis between 700 and 850. \
+For weak task deadline wording such as follow up by July 25, send by July 25, finish by July 25, complete by July 25, due July 25, or deadline July 25, keep kind as task_reminder. \
 If that task/reminder request has a clear deadline date but no clock time, use 23:59:00 in the configured reference timezone. \
 Use confidence_millis below 550 only when the evidence lacks calendar/reminder intent or lacks an inferable date or time after these calendar/reminder rules. \
 normalized_time contract: use exactly YYYY-MM-DDTHH:MM:SS[Area/Location] with the configured reference timezone or YYYY-MM-DDTHH:MM:SSZ for UTC. \

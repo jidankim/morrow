@@ -52,6 +52,12 @@ impl CodexExecRunner for FakeCodexRunner {
         });
         match self.outcomes.borrow_mut().pop() {
             Some(FakeOutcome::WriteOutput(text)) => write_output(request, &text),
+            Some(FakeOutcome::ClassifyWeakCalendarFromPrompt) => {
+                write_output(request, &weak_calendar_output(request.prompt()))
+            }
+            Some(FakeOutcome::ClassifyWeakTaskFromPrompt) => {
+                write_output(request, &weak_task_output(request.prompt()))
+            }
             Some(FakeOutcome::Completed(output)) => CodexExecRun::Completed(output),
             Some(FakeOutcome::MissingCli) => CodexExecRun::MissingCli,
             Some(FakeOutcome::Timeout) => CodexExecRun::TimedOut,
@@ -63,6 +69,8 @@ impl CodexExecRunner for FakeCodexRunner {
 #[derive(Debug, Clone)]
 pub enum FakeOutcome {
     WriteOutput(String),
+    ClassifyWeakCalendarFromPrompt,
+    ClassifyWeakTaskFromPrompt,
     Completed(CodexCommandOutput),
     MissingCli,
     Timeout,
@@ -86,4 +94,94 @@ fn write_output(request: &CodexExecRequest, text: &str) -> CodexExecRun {
         return CodexExecRun::Completed(CodexCommandOutput::new(Some(1), "", &error.to_string()));
     }
     CodexExecRun::Completed(CodexCommandOutput::new(Some(0), "", ""))
+}
+
+fn weak_calendar_output(prompt: &str) -> String {
+    if prompt_supports_weak_calendar(prompt) {
+        candidate_output(CalibratedCandidate {
+            kind: "calendar_event",
+            title: "Prompt-calibrated weak calendar",
+            confidence_millis: 900,
+            normalized_time: "2026-06-26T15:00:00[Asia/Seoul]",
+        })
+    } else {
+        candidate_output(CalibratedCandidate {
+            kind: "task_reminder",
+            title: "Uncalibrated weak calendar",
+            confidence_millis: 500,
+            normalized_time: "2026-06-26T15:00:00[Asia/Seoul]",
+        })
+    }
+}
+
+fn weak_task_output(prompt: &str) -> String {
+    if prompt_supports_weak_task(prompt) {
+        candidate_output(CalibratedCandidate {
+            kind: "task_reminder",
+            title: "Prompt-calibrated weak task",
+            confidence_millis: 760,
+            normalized_time: "2026-07-25T23:59:00[Asia/Seoul]",
+        })
+    } else {
+        candidate_output(CalibratedCandidate {
+            kind: "calendar_event",
+            title: "Uncalibrated weak task",
+            confidence_millis: 500,
+            normalized_time: "2026-07-25T23:59:00[Asia/Seoul]",
+        })
+    }
+}
+
+struct CalibratedCandidate<'a> {
+    kind: &'a str,
+    title: &'a str,
+    confidence_millis: i64,
+    normalized_time: &'a str,
+}
+
+fn candidate_output(candidate: CalibratedCandidate<'_>) -> String {
+    let kind = candidate.kind;
+    let title = candidate.title;
+    let confidence_millis = candidate.confidence_millis;
+    let normalized_time = candidate.normalized_time;
+    format!(
+        "{{\"kind\":\"{kind}\",\"title\":\"{title}\",\"confidence_millis\":{confidence_millis},\
+         \"normalized_time\":\"{normalized_time}\",\
+         \"anchor_evidence_id\":\"evidence://selected/0\",\
+         \"evidence_ids\":[\"evidence://selected/0\"]}}"
+    )
+}
+
+fn prompt_supports_weak_calendar(prompt: &str) -> bool {
+    let prompt = prompt.to_ascii_lowercase();
+    let examples = ["catch up", "coffee", "sync", "touch base"]
+        .iter()
+        .filter(|example| prompt.contains(*example))
+        .count();
+    examples >= 3
+        && prompt.contains("calendar_event")
+        && prompt_contains_confidence_band(&prompt, 850, 1000)
+        && prompt.contains("inferable")
+}
+
+fn prompt_supports_weak_task(prompt: &str) -> bool {
+    let prompt = prompt.to_ascii_lowercase();
+    let examples = [
+        "follow up",
+        "send by",
+        "finish by",
+        "complete by",
+        "due",
+        "deadline",
+    ]
+    .iter()
+    .filter(|example| prompt.contains(*example))
+    .count();
+    examples >= 4
+        && prompt.contains("task_reminder")
+        && prompt_contains_confidence_band(&prompt, 700, 850)
+}
+
+fn prompt_contains_confidence_band(prompt: &str, lower: i64, upper: i64) -> bool {
+    prompt.contains(&lower.to_string()) && prompt.contains(&upper.to_string())
 }
