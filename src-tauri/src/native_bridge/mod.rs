@@ -16,6 +16,7 @@ mod permissions;
 mod preview;
 mod production_scan;
 mod provider_contract;
+mod provider_usage;
 mod public_chat_id;
 mod runtime_identity;
 mod scan;
@@ -68,6 +69,10 @@ pub use preview::{
     MessagesPreviewCommandChat, MessagesPreviewCommandReport, MessagesPreviewRequest,
 };
 pub use production_scan::ProductionScanCodexDependencies;
+pub use provider_usage::{
+    __cmd__load_provider_usage, __tauri_command_name_load_provider_usage, load_provider_usage,
+    load_provider_usage_at, LoadProviderUsageRequest, ProviderUsageCommandReport,
+};
 pub use runtime_identity::{
     __cmd__get_runtime_identity, __tauri_command_name_get_runtime_identity, get_runtime_identity,
     runtime_identity_from_executable_path, RuntimeIdentity, RuntimeKind,
