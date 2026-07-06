@@ -106,7 +106,8 @@ function createBridgeMock() {
     deleteMorrowData: vi.fn(async (_request: MorrowDataDeleteRequest): Promise<MorrowDataDeleteReceipt | undefined> => undefined),
     openPrivacySettings: vi.fn(async (): Promise<PrivacySettingsReceipt | undefined> => undefined),
     recordCrashLog: vi.fn(async () => undefined),
-    loadDecisionEvidence: vi.fn(async () => decisionEvidenceReport)
+    loadDecisionEvidence: vi.fn(async () => decisionEvidenceReport),
+    loadProviderUsage: vi.fn(async () => undefined)
   }
 }
 

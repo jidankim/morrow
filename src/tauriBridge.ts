@@ -36,6 +36,8 @@ import {
   type PrivacySettingsRequest
 } from "./nativePrivacyBridge"
 import { parseCodexProviderAuthReadiness, type CodexProviderAuthReadiness } from "./providerAuthBridge"
+import type { ProviderUsageLoadRequest, ProviderUsageReport, ProviderUsageWindowKey } from "./domain/providerUsage"
+import { loadProviderUsageInTauri } from "./nativeProviderUsageBridge"
 import {
   getSyncSchedulerStateInTauri,
   setSyncSchedulerStateInTauri,
@@ -54,6 +56,11 @@ export type {
 } from "./messagesDiscoveryBridge"
 export type { SyncScanResult } from "./messagesTauriCommands"
 export type { DecisionEvidenceLoadRequest, DecisionEvidenceReport } from "./domain/decisionEvidence"
+export type {
+  ProviderUsageLoadRequest,
+  ProviderUsageReport,
+  ProviderUsageWindowKey
+} from "./domain/providerUsage"
 export type {
   CrashLogReceipt,
   CrashLogRequest,
@@ -100,21 +107,14 @@ export type NativeShellBridge = {
   readonly getState: () => Promise<NativeAppShellState | undefined>
   readonly setShellState: (state: NativeAppShellState) => Promise<MenuModel | undefined>
   readonly getRuntimeIdentity: () => Promise<RuntimeIdentity | undefined>
-  readonly subscribeAppState: (
-    onState: (state: NativeAppShellState) => void
-  ) => Promise<(() => void) | undefined>
-  readonly subscribeMenuCommand: (
-    onCommand: (command: NativeMenuCommand) => void
-  ) => Promise<(() => void) | undefined>
+  readonly subscribeAppState: (onState: (state: NativeAppShellState) => void) => Promise<(() => void) | undefined>
+  readonly subscribeMenuCommand: (onCommand: (command: NativeMenuCommand) => void) => Promise<(() => void) | undefined>
   readonly reconcileNow: () => Promise<void>
   readonly scanSelectedChats: (request: SyncScanRequest) => Promise<SyncScanResult | undefined>
-  readonly loadDecisionEvidence: (
-    request: DecisionEvidenceLoadRequest
-  ) => Promise<DecisionEvidenceReport | undefined>
+  readonly loadDecisionEvidence: (request: DecisionEvidenceLoadRequest) => Promise<DecisionEvidenceReport | undefined>
+  readonly loadProviderUsage: (request?: ProviderUsageLoadRequest) => Promise<ProviderUsageReport | undefined>
   readonly discoverMessagesChats: () => Promise<MessagesDiscoveryReport | undefined>
-  readonly loadMessagesChatPreviews: (
-    request: MessagesChatPreviewRequest
-  ) => Promise<MessagesChatPreviewReport | undefined>
+  readonly loadMessagesChatPreviews: (request: MessagesChatPreviewRequest) => Promise<MessagesChatPreviewReport | undefined>
   readonly getPermissionStatuses: () => Promise<readonly NativePermissionStatus[] | undefined>
   readonly storeMorrowToken: (
     request: MorrowTokenWriteRequest
@@ -187,6 +187,8 @@ export function createNativeShellBridge(): NativeShellBridge {
       isTauriRuntime() ? scanSelectedChatsInTauri(request) : Promise.resolve(undefined),
     loadDecisionEvidence: (request) =>
       isTauriRuntime() ? loadDecisionEvidenceInTauri(request) : Promise.resolve(undefined),
+    loadProviderUsage: (request) =>
+      isTauriRuntime() ? loadProviderUsageInTauri(request) : Promise.resolve(undefined),
     discoverMessagesChats: () =>
       isTauriRuntime() ? discoverMessagesChatsInTauri() : Promise.resolve(undefined),
     loadMessagesChatPreviews: (request) =>

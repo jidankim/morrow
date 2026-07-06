@@ -1,5 +1,6 @@
 import { vi } from "vitest"
 import { APP_SHELL_STATE_KEY, createDefaultAppShellState } from "./domain/appShell"
+import type { ProviderUsageLoadRequest, ProviderUsageReport } from "./domain/providerUsage"
 
 type NativeStateForTest = {
   readonly mode: "scanning" | "paused" | "error"
@@ -83,6 +84,7 @@ const hoistedBridgeMock = vi.hoisted(() => {
     retry_attempt: 0,
     updated_at: 1_783_000_000
   }
+  let providerUsageReport: ProviderUsageReport | undefined
   const syncCalls: string[] = []
   return {
     getState: vi.fn(async () => undefined),
@@ -118,6 +120,7 @@ const hoistedBridgeMock = vi.hoisted(() => {
       skippedTraceLineCount: 0,
       latestEvalStatus: "never_run"
     })),
+    loadProviderUsage: vi.fn(async (_request?: ProviderUsageLoadRequest) => providerUsageReport),
     getSyncSchedulerState: vi.fn(async () => schedulerState),
     setSyncSchedulerState: vi.fn(async (state: NativeSyncSchedulerStateForTest) => {
       schedulerState = state
@@ -158,6 +161,10 @@ const hoistedBridgeMock = vi.hoisted(() => {
     setSchedulerState: (state: NativeSyncSchedulerStateForTest | undefined): void => {
       schedulerState = state
     },
+    setProviderUsageReport: (report: ProviderUsageReport | undefined): void => {
+      providerUsageReport = report
+    },
+    getProviderUsageReport: (): ProviderUsageReport | undefined => providerUsageReport,
     resetSyncCalls: (): void => {
       syncCalls.length = 0
     },
@@ -169,6 +176,7 @@ const hoistedBridgeMock = vi.hoisted(() => {
         retry_attempt: 0,
         updated_at: 1_783_000_000
       }
+      providerUsageReport = undefined
     }
   }
 })
@@ -186,6 +194,10 @@ export const resetAppShellBridgeTestHarness = (): void => {
   bridgeMock.reconcileNow.mockClear()
   bridgeMock.scanSelectedChats.mockClear()
   bridgeMock.loadDecisionEvidence.mockClear()
+  bridgeMock.loadProviderUsage.mockClear()
+  bridgeMock.loadProviderUsage.mockImplementation(
+    async (_request?: ProviderUsageLoadRequest) => bridgeMock.getProviderUsageReport()
+  )
   bridgeMock.getSyncSchedulerState.mockClear()
   bridgeMock.setSyncSchedulerState.mockClear()
   bridgeMock.resetSchedulerState()
@@ -209,6 +221,7 @@ vi.mock("./tauriBridge", () => ({
     reconcileNow: bridgeMock.reconcileNow,
     scanSelectedChats: bridgeMock.scanSelectedChats,
     loadDecisionEvidence: bridgeMock.loadDecisionEvidence,
+    loadProviderUsage: bridgeMock.loadProviderUsage,
     getSyncSchedulerState: bridgeMock.getSyncSchedulerState,
     setSyncSchedulerState: bridgeMock.setSyncSchedulerState,
     checkProviderAuth: bridgeMock.checkProviderAuth,
