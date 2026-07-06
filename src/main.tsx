@@ -14,6 +14,8 @@ import {
   visualChatPreviews,
   visualDiscoveredChats
 } from "./visualQaChatFixtures"
+import { VisualProviderUsageHarness, isVisualProviderUsageState, type VisualProviderUsageState } from "./visualQaProviderUsageRoute"
+import { VisualQaShell } from "./visualQaShell"
 import "./styles.css"
 
 if (import.meta.env.DEV && import.meta.env["VITE_DISABLE_REACT_DEVTOOLS"] !== "1") {
@@ -45,6 +47,7 @@ type VisualFullDiskAccessRecoveryState = keyof typeof visualFullDiskAccessRecove
 
 type VisualQaState = { readonly kind: "chatDiscovery"; readonly stateName: VisualChatDiscoveryState }
   | { readonly kind: "fullDiskAccessRecovery"; readonly stateName: VisualFullDiskAccessRecoveryState }
+  | { readonly kind: "providerUsage"; readonly stateName: VisualProviderUsageState }
   | { readonly kind: "syncScheduler"; readonly stateName: VisualSyncSchedulerState }
 
 const visualQaState = import.meta.env.DEV ? getVisualQaState(window.location.search) : undefined
@@ -59,6 +62,8 @@ function VisualQaHarness({ state }: { readonly state: VisualQaState }): JSX.Elem
       return <VisualChatDiscoveryHarness stateName={state.stateName} />
     case "fullDiskAccessRecovery":
       return <VisualFullDiskAccessRecoveryHarness stateName={state.stateName} />
+    case "providerUsage":
+      return <VisualProviderUsageHarness stateName={state.stateName} />
     case "syncScheduler":
       return (
         <VisualQaShell stateName={state.stateName} lede="Automatic sync visual QA">
@@ -112,18 +117,6 @@ function VisualFullDiskAccessRecoveryHarness({ stateName }: { readonly stateName
   }
 }
 
-function VisualQaShell({ stateName, lede = "Full Disk Access recovery visual QA", children }: {
-  readonly stateName: string; readonly lede?: string | undefined; readonly children: JSX.Element
-}): JSX.Element {
-  return (
-    <main className="app-shell visual-qa-shell" data-visual-qa-state={stateName}>
-      <aside className="sidebar" aria-label="Visual QA fixture">
-        <h1>Morrow</h1><p className="lede">{lede}</p>
-      </aside><section className="content" aria-live="polite">{children}</section>
-    </main>
-  )
-}
-
 function VisualStatusFixture({ state, previewDisclosure, runtimeIdentity }: {
   readonly state: AppShellState
   readonly previewDisclosure?: ChatPreviewDisclosure | undefined
@@ -166,6 +159,11 @@ function getVisualQaState(search: string): VisualQaState | undefined {
         throw new Error(`Unsupported visual QA Full Disk Access recovery state: ${stateName}`)
       }
       return { kind: "fullDiskAccessRecovery", stateName }
+    case "provider-usage":
+      if (!isVisualProviderUsageState(stateName)) {
+        throw new Error(`Unsupported visual QA provider usage state: ${stateName}`)
+      }
+      return { kind: "providerUsage", stateName }
     case "sync-scheduler":
       if (!isVisualSyncSchedulerState(stateName)) {
         throw new Error(`Unsupported visual QA sync scheduler state: ${stateName}`)
