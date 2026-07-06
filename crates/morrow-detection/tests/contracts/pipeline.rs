@@ -62,7 +62,13 @@ fn complete_candidate_is_created_without_provider_call() -> Result<(), Box<dyn E
 fn coffee_sync_with_explicit_meridiem_time_creates_calendar_candidate() -> Result<(), Box<dyn Error>>
 {
     // Given
-    let provider = FakeProvider::new(None);
+    let provider = FakeProvider::new(Some(
+        "{\"kind\":\"calendar_event\",\"title\":\"coffee sync\",\
+         \"confidence_millis\":860,\
+         \"normalized_time\":\"2026-07-17T09:30:00[Asia/Seoul]\",\
+         \"anchor_message_guid\":\"msg-coffee-sync-1\",\
+         \"evidence_message_guids\":[\"msg-coffee-sync-1\"]}",
+    ));
     let pipeline = DetectionPipeline::new(&provider);
     let messages = vec![message(
         "chat-1",
@@ -76,12 +82,13 @@ fn coffee_sync_with_explicit_meridiem_time_creates_calendar_candidate() -> Resul
     let report = pipeline.detect(&messages, &config);
 
     // Then
-    assert_eq!(provider.calls(), 0);
+    assert_eq!(provider.calls(), 1);
     let candidate = only_candidate(&report.outcomes)?;
     assert_eq!(candidate.kind, CandidateKind::CalendarEvent);
     assert_eq!(candidate.anchor_message_guid, "msg-coffee-sync-1");
+    assert_eq!(candidate.title, "coffee sync");
     assert_eq!(candidate.normalized_time, "2026-07-17T09:30:00[Asia/Seoul]");
-    assert_eq!(candidate.confidence_millis, 850);
+    assert_eq!(candidate.confidence_millis, 860);
     Ok(())
 }
 

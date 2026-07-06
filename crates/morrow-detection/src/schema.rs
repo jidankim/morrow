@@ -89,6 +89,7 @@ pub(crate) fn parse_provider_candidate(
             kind,
             time: provider_time,
             confidence_millis: payload.confidence_millis,
+            title_source: None,
         },
         title: payload.title,
         normalized_time: payload.normalized_time,

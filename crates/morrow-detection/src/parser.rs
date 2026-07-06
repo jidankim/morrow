@@ -4,8 +4,10 @@ use morrow_storage::CandidateKind;
 use crate::types::{CivilDateTime, DetectionConfig};
 
 mod clock;
+mod fallback_title;
 
 use clock::{parse_explicit_datetime, parse_natural_deadline};
+use fallback_title::weak_calendar_fallback_title;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum GateDecision {
@@ -20,11 +22,12 @@ pub(crate) enum GateDecision {
     },
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct ParsedCandidate {
     pub kind: CandidateKind,
     pub time: CivilDateTime,
     pub confidence_millis: i64,
+    pub title_source: Option<String>,
 }
 
 pub(crate) fn classify(message: &MessageEvidence, config: &DetectionConfig) -> GateDecision {
@@ -55,11 +58,22 @@ pub(crate) fn classify(message: &MessageEvidence, config: &DetectionConfig) -> G
                 fallback: None,
             }
         }
+        Ok(Some(time)) if has_weak_calendar_phrase(&words) => GateDecision::ProviderRoute {
+            reason: "parser_provider_route_weak_calendar",
+            parser_time: Some(time),
+            fallback: Some(ParsedCandidate {
+                kind: kind_for(&words),
+                time,
+                confidence_millis: deterministic_confidence(message.tapback_signal),
+                title_source: weak_calendar_fallback_title(&message.excerpt),
+            }),
+        },
         Ok(Some(time)) if time > config.reference.observed => {
             GateDecision::Candidate(ParsedCandidate {
                 kind: kind_for(&words),
                 time,
                 confidence_millis: deterministic_confidence(message.tapback_signal),
+                title_source: None,
             })
         }
         Ok(Some(_)) => GateDecision::Stop {
@@ -190,10 +204,11 @@ fn has_recognized_temporal_expression(excerpt: &str, words: &[&str]) -> bool {
 
 fn has_month_date_expression(words: &[&str]) -> bool {
     words.windows(2).any(|window| {
-        let first = window[0];
-        let second = window[1];
-        (MONTH_WORDS.contains(&first) && is_calendar_day(second))
-            || (is_calendar_day(first) && MONTH_WORDS.contains(&second))
+        let [first, second] = window else {
+            return false;
+        };
+        (MONTH_WORDS.contains(first) && is_calendar_day(second))
+            || (is_calendar_day(first) && MONTH_WORDS.contains(second))
     })
 }
 
@@ -242,6 +257,7 @@ fn deadline_fallback(
             kind: CandidateKind::TaskReminder,
             time,
             confidence_millis: 700,
+            title_source: None,
         }),
         Ok(Some(_)) | Ok(None) | Err(()) => None,
     }

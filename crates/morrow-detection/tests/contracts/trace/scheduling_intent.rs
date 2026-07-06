@@ -172,8 +172,12 @@ fn trace_records_scheduling_intent_ambiguous_calendar_provider_route_reason(
 }
 
 fn assert_parser_route_reason(records: &[morrow_diagnostics::TraceRecord], expected: &'static str) {
+    assert!(!records.is_empty(), "missing parser route trace record");
+    let Some(first_record) = records.first() else {
+        return;
+    };
     assert_trace_sequence(
-        &records[0..1],
+        std::slice::from_ref(first_record),
         &[super::expectations::ExpectedTrace {
             operation: TraceOperation::ParserDecision,
             decision: Some(TraceDecision::ProviderRoute),

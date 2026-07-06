@@ -1,9 +1,12 @@
+use morrow_detection::{AiProvider, ProviderError, ProviderRequest, ProviderResponse};
 use morrow_lib::native_bridge::{
     scan_selected_chats_with_dependencies, ScanSelectedChatsDependencies,
 };
+use serde_json::json;
 
 use super::dependencies::{
     CandidateProvider, CountingProvider, RecordingProposalAdapter, TaskReminderProvider,
+    UnavailableTestProvider,
 };
 use super::message_sqlite::{
     create_messages_fixture, external_mapping_count, external_mapping_count_for_source,
@@ -108,49 +111,130 @@ fn scheduling_intent_native_scan_routes_weak_task_to_reminders_proposal() -> Res
     Ok(())
 }
 
+struct CalendarScanOutcome {
+    created_titles: Vec<String>,
+    provider_calls: usize,
+    external_mappings: i64,
+    route_rows: i64,
+}
+
+fn scan_weak_calendar_with_provider<P>(
+    message_text: &str,
+    provider: &CountingProvider<P>,
+) -> Result<CalendarScanOutcome, String>
+where
+    P: AiProvider,
+{
+    let fixture = MessagesFixture::with_text(message_text)?;
+    let source = morrow_lib::native_bridge::messages_sqlite::MessagesSqliteAdapter::new(
+        fixture.messages_db_path.clone(),
+    );
+    let request = messages_request()?;
+    let adapter = RecordingProposalAdapter::default();
+    let recorder = morrow_diagnostics::NoopTraceRecorder;
+
+    let result = scan_selected_chats_with_dependencies(
+        request,
+        &fixture.store_path,
+        ScanSelectedChatsDependencies {
+            source: &source,
+            provider,
+            proposal_adapter: &adapter,
+            trace_recorder: &recorder,
+        },
+    )
+    .map_err(|error| error.to_string())?;
+
+    assert_counts(&result, (1, 1, 0, 1, 0));
+    assert_eq!(result.created_external_proposal_count, 1);
+    assert_eq!(result.failed_external_proposal_count, 0);
+    assert_eq!(adapter.created_count(), 1);
+    let external_mappings = external_mapping_count(&fixture.store_path)?;
+    let route_rows = provider_route_outcome_count(&fixture.store_path)?;
+
+    Ok(CalendarScanOutcome {
+        created_titles: adapter.created_titles(),
+        provider_calls: provider.calls(),
+        external_mappings,
+        route_rows,
+    })
+}
+
+#[derive(Debug, Clone, Copy)]
+struct CalendarTitleProvider {
+    title: &'static str,
+    normalized_time: &'static str,
+}
+
+impl CalendarTitleProvider {
+    const fn new(title: &'static str, normalized_time: &'static str) -> Self {
+        Self {
+            title,
+            normalized_time,
+        }
+    }
+}
+
+impl AiProvider for CalendarTitleProvider {
+    fn extract(&self, _request: ProviderRequest<'_>) -> Result<ProviderResponse, ProviderError> {
+        let response = json!({
+            "kind": "calendar_event",
+            "title": self.title,
+            "confidence_millis": 860,
+            "normalized_time": self.normalized_time,
+            "anchor_message_guid": "beta-provider-route",
+            "evidence_message_guids": ["beta-provider-route"],
+        });
+        Ok(ProviderResponse::new(&response.to_string()))
+    }
+}
+
 mod scheduling_intent_regression {
     use super::*;
+
+    const COFFEE_SYNC_MESSAGE: &str =
+        "Morrow QA live receipt test: coffee sync on 2026-07-17 at 9:30 AM for 30 minutes";
+    const COFFEE_SYNC_TIME: &str = "2026-07-17T09:30:00[Asia/Seoul]";
 
     #[test]
     fn production_scan_creates_calendar_proposal_for_coffee_sync_meridiem_message(
     ) -> Result<(), String> {
         // Given
-        let fixture = MessagesFixture::with_text(
-            "Morrow QA live receipt test: coffee sync on 2026-07-17 at 9:30 AM for 30 minutes",
-        )?;
-        let source = morrow_lib::native_bridge::messages_sqlite::MessagesSqliteAdapter::new(
-            fixture.messages_db_path.clone(),
-        );
-        let request = messages_request()?;
-        let provider = CountingProvider::new(CandidateProvider);
-        let adapter = RecordingProposalAdapter::default();
-        let recorder = morrow_diagnostics::NoopTraceRecorder;
+        let provider =
+            CountingProvider::new(CalendarTitleProvider::new("coffee sync", COFFEE_SYNC_TIME));
 
         // When
-        let result = scan_selected_chats_with_dependencies(
-            request,
-            &fixture.store_path,
-            ScanSelectedChatsDependencies {
-                source: &source,
-                provider: &provider,
-                proposal_adapter: &adapter,
-                trace_recorder: &recorder,
-            },
-        )
-        .map_err(|error| error.to_string())?;
+        let outcome = scan_weak_calendar_with_provider(COFFEE_SYNC_MESSAGE, &provider)?;
 
         // Then
-        assert_counts(&result, (1, 1, 0, 1, 0));
-        assert_eq!(provider.calls(), 0);
-        assert_eq!(result.created_external_proposal_count, 1);
-        assert_eq!(adapter.created_count(), 1);
-        assert_eq!(external_mapping_count(&fixture.store_path)?, 1);
-        assert_eq!(provider_route_outcome_count(&fixture.store_path)?, 0);
+        assert_eq!(outcome.provider_calls, 1);
+        assert_eq!(outcome.created_titles, ["coffee sync"]);
+        assert_eq!(outcome.external_mappings, 1);
+        assert_eq!(outcome.route_rows, 1);
         println!(
-            "coffee_sync_deterministic_native provider_calls={} external_mappings={} route_rows={}",
-            provider.calls(),
-            external_mapping_count(&fixture.store_path)?,
-            provider_route_outcome_count(&fixture.store_path)?
+            "coffee_sync_provider_route_native provider_calls={} external_mappings={} route_rows={}",
+            outcome.provider_calls, outcome.external_mappings, outcome.route_rows
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn production_scan_falls_back_to_calendar_proposal_when_coffee_sync_provider_unavailable(
+    ) -> Result<(), String> {
+        // Given
+        let provider = CountingProvider::new(UnavailableTestProvider);
+
+        // When
+        let outcome = scan_weak_calendar_with_provider(COFFEE_SYNC_MESSAGE, &provider)?;
+
+        // Then
+        assert_eq!(outcome.provider_calls, 1);
+        assert_eq!(outcome.created_titles, ["coffee sync"]);
+        assert_eq!(outcome.external_mappings, 1);
+        assert_eq!(outcome.route_rows, 0);
+        println!(
+            "coffee_sync_provider_unavailable_fallback provider_calls={} external_mappings={} route_rows={}",
+            outcome.provider_calls, outcome.external_mappings, outcome.route_rows
         );
         Ok(())
     }

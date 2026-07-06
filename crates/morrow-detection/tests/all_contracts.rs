@@ -1,5 +1,7 @@
 mod support;
 
+#[path = "contracts/coffee_sync.rs"]
+mod coffee_sync;
 #[path = "contracts/golden.rs"]
 mod golden;
 #[path = "contracts/pipeline.rs"]

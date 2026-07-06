@@ -52,11 +52,11 @@ fn production_scan_creates_calendar_proposal_for_coffee_sync_meridiem_message() 
     .map_err(|error| error.to_string())?;
 
     // Then
-    assert_eq!(provider.calls(), 0);
+    assert_eq!(provider.calls(), 1);
     assert_counts(&result, (1, 1, 0, 1, 0));
     assert_eq!(result.created_external_proposal_count, 1);
     assert_eq!(result.failed_external_proposal_count, 0);
-    assert_eq!(adapter.created_titles(), ["Messages event candidate"]);
+    assert_eq!(adapter.created_titles(), ["coffee sync"]);
     assert_eq!(external_mapping_count(&store_path)?, 1);
     let store = Store::open(&store_path).map_err(|error| error.to_string())?;
     assert_eq!(candidate_state(&store, &result)?, CandidateState::Visible);

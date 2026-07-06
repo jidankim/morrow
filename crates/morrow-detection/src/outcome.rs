@@ -63,11 +63,15 @@ pub(crate) fn candidate_from_parsed(
     title_source: &str,
     config: &DetectionConfig,
 ) -> DetectionOutcome {
+    let title = parsed
+        .title_source
+        .as_deref()
+        .map_or_else(|| title_from_excerpt(title_source), title_from_excerpt);
     DetectionOutcome::Candidate(CandidateDraft {
         kind: parsed.kind,
         chat_guid: anchor.chat_guid.as_str().to_owned(),
         anchor_message_guid: anchor.message_guid.as_str().to_owned(),
-        title: title_from_excerpt(title_source),
+        title,
         confidence_millis: parsed.confidence_millis,
         normalized_time: parsed.time.normalized(&config.reference.timezone),
         evidence_excerpt: excerpt_for_policy(&anchor.excerpt, config.source_excerpts),

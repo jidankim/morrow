@@ -106,15 +106,12 @@ impl<'a, P: AiProvider> DetectionPipeline<'a, P> {
                 fallback,
             } => {
                 trace.parser_provider_route(reason, config);
-                self.detect_with_provider_cache(
-                    message,
+                let route = ProviderRoutePlan {
                     reason,
                     parser_time,
                     fallback,
-                    config,
-                    trace,
-                    cache,
-                )
+                };
+                self.detect_with_provider_cache(message, route, config, trace, cache)
             }
         }
     }
@@ -122,9 +119,7 @@ impl<'a, P: AiProvider> DetectionPipeline<'a, P> {
     fn detect_with_provider_cache<R, C>(
         &self,
         message: &MessageEvidence,
-        parser_route_reason: &'static str,
-        parser_time: Option<CivilDateTime>,
-        fallback: Option<ParsedCandidate>,
+        route: ProviderRoutePlan,
         config: &DetectionConfig,
         trace: &MessageTrace<'_, R>,
         cache: &C,
@@ -136,8 +131,8 @@ impl<'a, P: AiProvider> DetectionPipeline<'a, P> {
         let request = CacheRequest {
             message,
             config,
-            parser_route_reason,
-            parser_time,
+            parser_route_reason: route.reason,
+            parser_time: route.parser_time,
         };
         match cache
             .resolve_provider_route(request)
@@ -154,8 +149,8 @@ impl<'a, P: AiProvider> DetectionPipeline<'a, P> {
             }
             ProviderRouteDecision::Miss { write_intent } => Ok(self.detect_with_provider(
                 message,
-                parser_time,
-                fallback,
+                route.parser_time,
+                route.fallback,
                 config,
                 trace,
                 write_intent.map(|intent| *intent),
@@ -248,6 +243,12 @@ impl<'a, P: AiProvider> DetectionPipeline<'a, P> {
 struct DetectionStep {
     outcome: DetectionOutcome,
     provider_route_write_intent: Option<ProviderRouteWriteIntent>,
+}
+
+struct ProviderRoutePlan {
+    reason: &'static str,
+    parser_time: Option<CivilDateTime>,
+    fallback: Option<ParsedCandidate>,
 }
 
 impl DetectionStep {

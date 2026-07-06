@@ -19,69 +19,6 @@ impl AiProvider for UnavailableProvider {
 }
 
 #[test]
-fn coffee_sync_with_explicit_meridiem_time_creates_calendar_candidate() -> Result<(), Box<dyn Error>>
-{
-    // Given
-    let provider = FakeProvider::new(None);
-    let pipeline = DetectionPipeline::new(&provider);
-    let messages = vec![message(
-        "chat-1",
-        "msg-coffee-sync-1",
-        "Morrow QA live receipt test: coffee sync on 2026-07-17 at 9:30 AM for 30 minutes",
-        false,
-    )?];
-    let config = config(550)?;
-
-    // When
-    let report = pipeline.detect(&messages, &config);
-
-    // Then
-    assert_eq!(provider.calls(), 0);
-    let candidate = only_candidate(&report.outcomes)?;
-    assert_eq!(candidate.kind, CandidateKind::CalendarEvent);
-    assert_eq!(candidate.anchor_message_guid, "msg-coffee-sync-1");
-    assert_eq!(candidate.normalized_time, "2026-07-17T09:30:00[Asia/Seoul]");
-    assert_eq!(candidate.confidence_millis, 850);
-    println!(
-        "coffee_sync_deterministic provider_calls={} normalized_time={}",
-        provider.calls(),
-        candidate.normalized_time
-    );
-    Ok(())
-}
-
-#[test]
-fn scheduling_intent_parser_keeps_coffee_sync_explicit_time_deterministic(
-) -> Result<(), Box<dyn Error>> {
-    // Given
-    let provider = FakeProvider::new(None);
-    let pipeline = DetectionPipeline::new(&provider);
-    let messages = vec![message(
-        "chat-1",
-        "msg-coffee-sync-parser-1",
-        "Coffee sync on 2026-07-17 at 9:30 AM",
-        false,
-    )?];
-    let config = config(550)?;
-
-    // When
-    let report = pipeline.detect(&messages, &config);
-
-    // Then
-    assert_eq!(provider.calls(), 0);
-    let candidate = only_candidate(&report.outcomes)?;
-    assert_eq!(candidate.kind, CandidateKind::CalendarEvent);
-    assert_eq!(candidate.anchor_message_guid, "msg-coffee-sync-parser-1");
-    assert_eq!(candidate.normalized_time, "2026-07-17T09:30:00[Asia/Seoul]");
-    println!(
-        "scheduling_intent_parser_keeps_coffee_sync_explicit_time_deterministic provider_calls={} normalized_time={}",
-        provider.calls(),
-        candidate.normalized_time
-    );
-    Ok(())
-}
-
-#[test]
 fn scheduling_intent_parser_routes_catch_up_friday_afternoon_to_provider(
 ) -> Result<(), Box<dyn Error>> {
     // Given
