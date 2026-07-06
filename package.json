@@ -11,7 +11,13 @@
     "tauri:dev": "VITE_DISABLE_REACT_DEVTOOLS=1 SDKROOT=/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk RUSTFLAGS='-C linker=/Library/Developer/CommandLineTools/usr/bin/cc' tauri dev --runner \"$PWD/scripts/tauri-dev-signed-runner.sh\"",
     "tauri:build": "SDKROOT=/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk RUSTFLAGS='-C linker=/Library/Developer/CommandLineTools/usr/bin/cc' tauri build",
     "tauri:build:beta": "SDKROOT=/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk RUSTFLAGS='-C linker=/Library/Developer/CommandLineTools/usr/bin/cc' tauri build --bundles app,dmg",
-    "tauri:build:diagnostic": "scripts/build-diagnostic-artifact.sh"
+    "tauri:build:diagnostic": "scripts/build-diagnostic-artifact.sh",
+    "tauri": "tauri",
+    "tauri:ios:init": "scripts/tauri-ios-with-rustup.sh init",
+    "tauri:ios:dev": "scripts/tauri-ios-with-rustup.sh dev",
+    "tauri:ios:build:simulator": "scripts/tauri-ios-with-rustup.sh build --target aarch64-sim --no-sign",
+    "tauri:ios:build:device": "scripts/tauri-ios-with-rustup.sh build",
+    "tauri:ios:build:app-store": "scripts/tauri-ios-with-rustup.sh build --export-method app-store-connect"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.0.0",

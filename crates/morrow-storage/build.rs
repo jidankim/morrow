@@ -1,7 +1,12 @@
-use std::path::Path;
+use std::{env, path::Path};
 
 fn main() {
     println!("cargo:rerun-if-changed=build.rs");
+    let target = env::var("TARGET").unwrap_or_default();
+    if target.contains("apple-ios") {
+        return;
+    }
+
     let candidates = [
         "/nix/store/nvdb98yjapy436iql7hqfpf1xkabwj0r-libiconv-1.19/lib",
         "/nix/store/bb4k2xb34m4z8sxjbx1np725yj57fy4h-libiconv-1.18/lib",

@@ -50,6 +50,18 @@ SDKROOT=/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk
 RUSTFLAGS="-C linker=/Library/Developer/CommandLineTools/usr/bin/cc"
 ```
 
+### iPhone/Tauri iOS status
+
+`package.json` includes developer-only Tauri iOS scripts for the feasibility spike. They use `rustup` when it is already installed, or `nix shell nixpkgs#rustup` when this environment only has Nix-provided Rust:
+
+- `npm run tauri:ios:init` runs `tauri ios init`.
+- `npm run tauri:ios:dev` runs `tauri ios dev`.
+- `npm run tauri:ios:build:simulator` runs `tauri ios build --target aarch64-sim --no-sign`.
+- `npm run tauri:ios:build:device` runs `tauri ios build`.
+- `npm run tauri:ios:build:app-store` runs `tauri ios build --export-method app-store-connect`.
+
+Current status: G1 iOS init/config passes in this environment after installing the required Rust iOS targets, XcodeGen, libimobiledevice, and CocoaPods. G2 simulator build also passes repeatably with Xcode 16.4 and the iOS 18.6 simulator runtime, producing `src-tauri/gen/apple/build/arm64-sim/Morrow.app`; the rebuilt app installs and launches on the iPhone 16 Pro simulator, where the Morrow UI renders. These scripts do not establish physical-device deploy, signing, App Store/TestFlight, or EventKit runtime readiness, and this repository is not App Store ready. They also do not provide a passive iPhone Messages reader or any private API path.
+
 ### Build and run the packaged app locally
 
 Use this when a technical tester is building Morrow from source on their own Mac. This is different from sharing a downloaded beta or diagnostic artifact: the tester must have Node, Rust, and Xcode/Command Line Tools installed.
