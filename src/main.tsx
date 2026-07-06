@@ -108,7 +108,9 @@ function VisualFullDiskAccessRecoveryHarness({ stateName }: { readonly stateName
             providerCredentialState={{ status: "ready" }} runtimeIdentity={runtimeIdentity}
             syncScheduler={visualSyncScheduler} syncSchedulerNowUnixSeconds={VISUAL_QA_NOW_UNIX_SECONDS}
             onChangeAutomaticSyncInterval={noopIntervalChange} onChange={noop}
-            onCheckProviderCredential={noopAsync} onDeleteAll={noop} onOpenPrivacySettings={noopAsync}
+            onCancelInstallCodexCli={noop} onCheckProviderCredential={noopAsync}
+            onConfirmInstallCodexCli={noopAsync} onDeleteAll={noop} onOpenPrivacySettings={noopAsync}
+            onStartCodexLogin={noopAsync}
             onToggleAutomaticSync={noop} />
         </VisualQaShell>
       )

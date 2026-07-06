@@ -118,10 +118,43 @@ describe("createNativeShellBridge runtime identity", () => {
     const crashLogRequest = { message: "fallback characterization" } as const
 
     // When / Then
-    const fallbackResults = await Promise.all([bridge.getState(), bridge.setShellState(shellState), bridge.getRuntimeIdentity(), bridge.reconcileNow(), bridge.scanSelectedChats(scanRequest), bridge.discoverMessagesChats(), bridge.loadMessagesChatPreviews(previewRequest), bridge.getPermissionStatuses(), bridge.storeMorrowToken({ ...tokenLookup, token: "redacted-token" }), bridge.readMorrowToken(tokenLookup), bridge.deleteMorrowToken(tokenLookup), bridge.checkProviderAuth(), bridge.deleteMorrowData(deleteDataRequest), bridge.openPrivacySettings(privacySettingsRequest), bridge.recordCrashLog(crashLogRequest), bridge.subscribeAppState(() => undefined), bridge.subscribeMenuCommand(() => undefined)])
-    expect(fallbackResults).toEqual(Array.from({ length: 17 }, () => undefined))
+    const fallbackResults = await Promise.all([bridge.getState(), bridge.setShellState(shellState), bridge.getRuntimeIdentity(), bridge.reconcileNow(), bridge.scanSelectedChats(scanRequest), bridge.discoverMessagesChats(), bridge.loadMessagesChatPreviews(previewRequest), bridge.getPermissionStatuses(), bridge.storeMorrowToken({ ...tokenLookup, token: "redacted-token" }), bridge.readMorrowToken(tokenLookup), bridge.deleteMorrowToken(tokenLookup), bridge.checkProviderAuth(), bridge.installCodexCli(), bridge.startCodexLogin(), bridge.deleteMorrowData(deleteDataRequest), bridge.openPrivacySettings(privacySettingsRequest), bridge.recordCrashLog(crashLogRequest), bridge.subscribeAppState(() => undefined), bridge.subscribeMenuCommand(() => undefined)])
+    expect(fallbackResults).toEqual(Array.from({ length: 19 }, () => undefined))
     expect(tauriMock.invoke).not.toHaveBeenCalled()
     expect(tauriMock.listen).not.toHaveBeenCalled()
+  })
+
+  it("invokes native Codex setup commands in Tauri runtime", async () => {
+    // Given
+    const installReceipt = {
+      status: "installed",
+      commandSurface: "codex standalone installer",
+      commandOutputRedacted: true,
+      diagnostic: "Codex CLI installed successfully."
+    } as const
+    const loginReceipt = {
+      status: "launched",
+      commandSurface: "codex login",
+      commandOutputRedacted: true,
+      diagnostic: "Codex login started successfully."
+    } as const
+    tauriMock.invoke.mockResolvedValueOnce(installReceipt).mockResolvedValueOnce(loginReceipt)
+    Object.defineProperty(window, "__TAURI_INTERNALS__", {
+      configurable: true,
+      value: {}
+    })
+    const { createNativeShellBridge } = await import("./tauriBridge")
+    const bridge = createNativeShellBridge()
+
+    // When
+    const installed = await bridge.installCodexCli()
+    const launched = await bridge.startCodexLogin()
+
+    // Then
+    expect(installed).toEqual(installReceipt)
+    expect(launched).toEqual(loginReceipt)
+    expect(tauriMock.invoke).toHaveBeenNthCalledWith(1, "install_codex_cli")
+    expect(tauriMock.invoke).toHaveBeenNthCalledWith(2, "start_codex_login")
   })
 
   it("returns undefined for messages calls outside Tauri before invoking or parsing payloads", async () => {

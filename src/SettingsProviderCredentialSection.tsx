@@ -1,41 +1,36 @@
-import { Clipboard, RefreshCw } from "lucide-react"
-import { useState } from "react"
-import type { CodexAuthStatus } from "./tauriBridge"
+import { Download, LogIn, RefreshCw } from "lucide-react"
 
 export type ProviderCredentialState =
   | { readonly status: "idle" }
   | { readonly status: "checking" }
+  | { readonly status: "missingCli" }
+  | { readonly status: "installConfirming" }
+  | { readonly status: "installing" }
+  | { readonly status: "notLoggedIn" }
+  | { readonly status: "loginLaunching" }
+  | { readonly status: "loginPolling" }
   | { readonly status: "ready" }
-  | { readonly status: "missing"; readonly reason: CodexAuthStatus }
-  | { readonly status: "failed"; readonly message: string }
+  | {
+      readonly status: "failed"
+      readonly message: string
+      readonly recoveryAction: "refresh" | "setup" | "login"
+    }
 
 type SettingsProviderCredentialSectionProps = {
   readonly state: ProviderCredentialState
   readonly onCheckProviderCredential: () => Promise<void>
+  readonly onConfirmInstallCodexCli: () => Promise<void>
+  readonly onCancelInstallCodexCli: () => void
+  readonly onStartCodexLogin: () => Promise<void>
 }
-
-const CODEX_LOGIN_COMMAND = "codex login"
 
 export function SettingsProviderCredentialSection({
   state,
-  onCheckProviderCredential
+  onCheckProviderCredential,
+  onConfirmInstallCodexCli,
+  onCancelInstallCodexCli,
+  onStartCodexLogin
 }: SettingsProviderCredentialSectionProps): JSX.Element {
-  const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "failed">("idle")
-  const actionInFlight = state.status === "checking"
-
-  const copyLoginCommand = async (): Promise<void> => {
-    try {
-      await navigator.clipboard.writeText(CODEX_LOGIN_COMMAND)
-      setCopyStatus("copied")
-    } catch (error: unknown) {
-      if (isClipboardWriteError(error)) {
-        setCopyStatus("failed")
-        return
-      }
-      throw error
-    }
-  }
-
   return (
     <section className="settings-section" aria-labelledby="provider-credential-heading">
       <div>
@@ -47,28 +42,118 @@ export function SettingsProviderCredentialSection({
         tokens are stored in Morrow.
       </p>
       <div className="credential-action-row">
-        <button
-          className="button primary"
-          disabled={actionInFlight}
-          onClick={() => void onCheckProviderCredential()}
-          type="button"
-        >
-          <RefreshCw aria-hidden="true" size={16} />
-          {state.status === "checking" ? "Checking" : "Refresh readiness"}
-        </button>
-        <button
-          className="button secondary"
-          onClick={() => void copyLoginCommand()}
-          type="button"
-        >
-          <Clipboard aria-hidden="true" size={16} />
-          Copy login command
-        </button>
+        <ProviderCredentialAction
+          state={state}
+          onCancelInstallCodexCli={onCancelInstallCodexCli}
+          onCheckProviderCredential={onCheckProviderCredential}
+          onConfirmInstallCodexCli={onConfirmInstallCodexCli}
+          onStartCodexLogin={onStartCodexLogin}
+        />
       </div>
       <ProviderCredentialMessage state={state} />
-      <ProviderCommandCopyMessage status={copyStatus} />
     </section>
   )
+}
+
+function ProviderCredentialAction({
+  state,
+  onCheckProviderCredential,
+  onConfirmInstallCodexCli,
+  onCancelInstallCodexCli,
+  onStartCodexLogin
+}: SettingsProviderCredentialSectionProps): JSX.Element {
+  switch (state.status) {
+    case "idle":
+    case "ready":
+      return (
+        <button className="button primary" onClick={() => void onCheckProviderCredential()} type="button">
+          <RefreshCw aria-hidden="true" size={16} />
+          Refresh readiness
+        </button>
+      )
+    case "checking":
+      return (
+        <button className="button primary" disabled type="button">
+          <RefreshCw aria-hidden="true" size={16} />
+          Checking
+        </button>
+      )
+    case "missingCli":
+      return (
+        <button className="button primary" onClick={() => void onConfirmInstallCodexCli()} type="button">
+          <Download aria-hidden="true" size={16} />
+          Install Codex CLI
+        </button>
+      )
+    case "installConfirming":
+      return (
+        <>
+          <button className="button primary" onClick={() => void onConfirmInstallCodexCli()} type="button">
+            <Download aria-hidden="true" size={16} />
+            Install
+          </button>
+          <button className="button secondary" onClick={onCancelInstallCodexCli} type="button">
+            Cancel
+          </button>
+        </>
+      )
+    case "installing":
+      return (
+        <button className="button primary" disabled type="button">
+          <Download aria-hidden="true" size={16} />
+          Installing Codex CLI
+        </button>
+      )
+    case "notLoggedIn":
+      return (
+        <button className="button primary" onClick={() => void onStartCodexLogin()} type="button">
+          <LogIn aria-hidden="true" size={16} />
+          Start Codex login
+        </button>
+      )
+    case "loginLaunching":
+      return (
+        <button className="button primary" disabled type="button">
+          <LogIn aria-hidden="true" size={16} />
+          Starting Codex login
+        </button>
+      )
+    case "loginPolling":
+      return (
+        <button className="button primary" disabled type="button">
+          <LogIn aria-hidden="true" size={16} />
+          Waiting for browser login
+        </button>
+      )
+    case "failed":
+      switch (state.recoveryAction) {
+        case "setup":
+          return (
+            <button className="button primary" onClick={() => void onConfirmInstallCodexCli()} type="button">
+              <Download aria-hidden="true" size={16} />
+              Retry setup
+            </button>
+          )
+        case "login":
+          return (
+            <button className="button primary" onClick={() => void onStartCodexLogin()} type="button">
+              <LogIn aria-hidden="true" size={16} />
+              Start Codex login
+            </button>
+          )
+        case "refresh":
+          return (
+            <button className="button primary" onClick={() => void onCheckProviderCredential()} type="button">
+              <RefreshCw aria-hidden="true" size={16} />
+              Refresh readiness
+            </button>
+          )
+        default:
+          return assertNever(state.recoveryAction)
+      }
+    default:
+      return assertNever(state)
+  }
 }
 
 function ProviderCredentialMessage({
@@ -81,14 +166,20 @@ function ProviderCredentialMessage({
       return <p className="inline-status">Codex provider readiness has not been checked.</p>
     case "checking":
       return <p className="inline-status">Checking Codex provider readiness...</p>
+    case "missingCli":
+      return <p className="inline-status">Codex CLI is not installed.</p>
+    case "installConfirming":
+      return <p className="inline-status">Install Codex CLI now?</p>
+    case "installing":
+      return <p className="inline-status">Installing Codex CLI...</p>
+    case "notLoggedIn":
+      return <p className="inline-status">Codex CLI is installed. ChatGPT login is required.</p>
+    case "loginLaunching":
+      return <p className="inline-status">Starting Codex browser login...</p>
+    case "loginPolling":
+      return <p className="inline-status">Waiting for browser login to complete...</p>
     case "ready":
       return <p className="inline-status success">Codex provider is ready.</p>
-    case "missing":
-      return (
-        <p className="inline-status">
-          Codex provider is not ready. {setupInstruction(state.reason)}
-        </p>
-      )
     case "failed":
       return (
         <p className="inline-status error" role="alert">
@@ -98,48 +189,6 @@ function ProviderCredentialMessage({
     default:
       return assertNever(state)
   }
-}
-
-function ProviderCommandCopyMessage({
-  status
-}: {
-  readonly status: "idle" | "copied" | "failed"
-}): JSX.Element | null {
-  switch (status) {
-    case "idle":
-      return null
-    case "copied":
-      return <p className="inline-status success">Login command copied.</p>
-    case "failed":
-      return (
-        <p className="inline-status error" role="alert">
-          Login command could not be copied.
-        </p>
-      )
-    default:
-      return assertNever(status)
-  }
-}
-
-function setupInstruction(reason: CodexAuthStatus): string {
-  switch (reason) {
-    case "missingCli":
-      return "Install Codex CLI, then run codex login."
-    case "notLoggedIn":
-      return "Run codex login in Terminal."
-    case "timeout":
-      return "Refresh readiness or run codex login in Terminal."
-    case "unknownFailure":
-      return "Refresh readiness or check Codex CLI in Terminal."
-    case "loggedInUsingChatGpt":
-      return "Refresh readiness."
-    default:
-      return assertNever(reason)
-  }
-}
-
-function isClipboardWriteError(error: unknown): error is DOMException | Error {
-  return error instanceof DOMException || error instanceof Error
 }
 
 function assertNever(value: never): never {

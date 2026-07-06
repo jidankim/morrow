@@ -26,6 +26,9 @@ type SettingsViewProps = {
   readonly onChangeAutomaticSyncInterval: (intervalSeconds: SyncSchedulerIntervalSeconds) => void
   readonly onChange: (config: AppConfig) => void
   readonly onCheckProviderCredential: () => Promise<void>
+  readonly onConfirmInstallCodexCli: () => Promise<void>
+  readonly onCancelInstallCodexCli: () => void
+  readonly onStartCodexLogin: () => Promise<void>
   readonly onDeleteAll: (options: DeleteAllOptions) => void
   readonly onOpenPrivacySettings: (pane: PrivacySettingsPane) => Promise<void>
   readonly onToggleAutomaticSync: () => void
@@ -41,6 +44,9 @@ export function SettingsView({
   onChangeAutomaticSyncInterval,
   onChange,
   onCheckProviderCredential,
+  onConfirmInstallCodexCli,
+  onCancelInstallCodexCli,
+  onStartCodexLogin,
   onDeleteAll,
   onOpenPrivacySettings,
   onToggleAutomaticSync
@@ -155,7 +161,10 @@ export function SettingsView({
       />
       <SettingsProviderCredentialSection
         state={providerCredentialState}
+        onCancelInstallCodexCli={onCancelInstallCodexCli}
         onCheckProviderCredential={onCheckProviderCredential}
+        onConfirmInstallCodexCli={onConfirmInstallCodexCli}
+        onStartCodexLogin={onStartCodexLogin}
       />
       <SettingsPrivacyControls
         config={config}

@@ -50,9 +50,12 @@ export function App(): JSX.Element {
           syncSchedulerNowUnixSeconds={shell.syncSchedulerNowUnixSeconds}
           onChangeAutomaticSyncInterval={shell.changeAutomaticSyncInterval}
           onChange={shell.updateConfig}
+          onCancelInstallCodexCli={shell.cancelInstallCodexCli}
           onCheckProviderCredential={shell.checkProviderCredential}
+          onConfirmInstallCodexCli={shell.confirmInstallCodexCli}
           onDeleteAll={shell.deleteAllMorrowData}
           onOpenPrivacySettings={shell.openPrivacySettings}
+          onStartCodexLogin={shell.startCodexLogin}
           onToggleAutomaticSync={shell.toggleAutomaticSync}
         />
       )

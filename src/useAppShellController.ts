@@ -115,7 +115,10 @@ export function useAppShellController() {
 
   const {
     providerCredentialState,
-    checkProviderCredential
+    checkProviderCredential,
+    confirmInstallCodexCli,
+    cancelInstallCodexCli,
+    startCodexLogin
   } = useProviderCredentialActions(nativeBridge, setProviderCredentialStatus)
 
   const toggleChat = (chatId: ChatId): void => {
@@ -234,6 +237,8 @@ export function useAppShellController() {
   return {
     checkProviderCredential,
     changeAutomaticSyncInterval: syncSchedulerActions.changeAutomaticSyncInterval,
+    cancelInstallCodexCli,
+    confirmInstallCodexCli,
     deleteAllMorrowData,
     deleteAllState,
     loadMessagesDiscovery,
@@ -249,6 +254,7 @@ export function useAppShellController() {
     revealPreviews: previewDisclosureActions.revealPreviews,
     runSyncNow,
     setMode,
+    startCodexLogin,
     state,
     syncScheduler: syncSchedulerActions.syncScheduler,
     syncSchedulerNowUnixSeconds: syncSchedulerActions.syncSchedulerNowUnixSeconds,

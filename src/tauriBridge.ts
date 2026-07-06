@@ -1,5 +1,4 @@
 import { invoke } from "@tauri-apps/api/core"
-import { z } from "zod"
 import type { DecisionEvidenceLoadRequest, DecisionEvidenceReport } from "./domain/decisionEvidence"
 import type { MenuModel, NativeAppShellState } from "./domain/appShell"
 import {
@@ -35,14 +34,28 @@ import {
   type PrivacySettingsReceipt,
   type PrivacySettingsRequest
 } from "./nativePrivacyBridge"
-import { parseCodexProviderAuthReadiness, type CodexProviderAuthReadiness } from "./providerAuthBridge"
 import type { ProviderUsageLoadRequest, ProviderUsageReport, ProviderUsageWindowKey } from "./domain/providerUsage"
 import { loadProviderUsageInTauri } from "./nativeProviderUsageBridge"
+import type { CodexProviderAuthReadiness } from "./providerAuthBridge"
+import type { CodexCliInstallReceipt, CodexLoginLaunchReceipt } from "./providerSetupBridge"
+import {
+  checkProviderAuthInTauri,
+  installCodexCliInTauri,
+  startCodexLoginInTauri
+} from "./nativeProviderSetupBridge"
 import {
   getSyncSchedulerStateInTauri,
   setSyncSchedulerStateInTauri,
   type SyncSchedulerState
 } from "./syncSchedulerTauriBridge"
+import {
+  parseTokenCommandReceipt,
+  parseTokenReadResponse,
+  type MorrowTokenCommandReceipt,
+  type MorrowTokenLookupRequest,
+  type MorrowTokenReadResponse,
+  type MorrowTokenWriteRequest
+} from "./nativeTokenBridge"
 
 export type { NativePermissionStatus } from "./nativePermissionBridge"
 export type { RuntimeIdentity } from "./nativeRuntimeBridge"
@@ -71,37 +84,25 @@ export type {
   PrivacySettingsRequest
 } from "./nativePrivacyBridge"
 export type { CodexAuthStatus, CodexProviderAuthReadiness } from "./providerAuthBridge"
+export type {
+  CodexCliInstallReceipt,
+  CodexLoginLaunchReceipt,
+  CodexLoginLaunchStatus,
+  CodexSetupActionStatus
+} from "./providerSetupBridge"
 export type { SyncSchedulerState } from "./syncSchedulerTauriBridge"
-
-const tokenStorageSurfaceSchema = z.literal("keychainBridge")
-
-const tokenCommandReceiptSchema = z.object({
-  storageSurface: tokenStorageSurfaceSchema,
-  stored: z.boolean(),
-  deleted: z.boolean()
-})
-
-const tokenReadResponseSchema = z.object({
-  storageSurface: tokenStorageSurfaceSchema,
-  present: z.boolean(),
-  token: z.string().min(1).optional()
-})
-
-export const MORROW_KEYCHAIN_SERVICE = "com.morrow.desktop.token"
-export const MORROW_TOKEN_KIND = "morrow-owned-token"
-export const MORROW_PROVIDER_TOKEN_KIND = "morrow-openai-provider-api-key"
-
-export type MorrowTokenKind = typeof MORROW_TOKEN_KIND | typeof MORROW_PROVIDER_TOKEN_KIND
-
-export type MorrowTokenLookupRequest = {
-  readonly service: typeof MORROW_KEYCHAIN_SERVICE
-  readonly tokenKind: MorrowTokenKind
-}
-export type MorrowTokenWriteRequest = MorrowTokenLookupRequest & {
-  readonly token: string
-}
-export type MorrowTokenCommandReceipt = z.infer<typeof tokenCommandReceiptSchema>
-export type MorrowTokenReadResponse = z.infer<typeof tokenReadResponseSchema>
+export {
+  MORROW_KEYCHAIN_SERVICE,
+  MORROW_PROVIDER_TOKEN_KIND,
+  MORROW_TOKEN_KIND
+} from "./nativeTokenBridge"
+export type {
+  MorrowTokenCommandReceipt,
+  MorrowTokenKind,
+  MorrowTokenLookupRequest,
+  MorrowTokenReadResponse,
+  MorrowTokenWriteRequest
+} from "./nativeTokenBridge"
 
 export type NativeShellBridge = {
   readonly getState: () => Promise<NativeAppShellState | undefined>
@@ -126,6 +127,8 @@ export type NativeShellBridge = {
     request: MorrowTokenLookupRequest
   ) => Promise<MorrowTokenCommandReceipt | undefined>
   readonly checkProviderAuth: () => Promise<CodexProviderAuthReadiness | undefined>
+  readonly installCodexCli: () => Promise<CodexCliInstallReceipt | undefined>
+  readonly startCodexLogin: () => Promise<CodexLoginLaunchReceipt | undefined>
   readonly getSyncSchedulerState: () => Promise<SyncSchedulerState | undefined>
   readonly setSyncSchedulerState: (
     state: SyncSchedulerState
@@ -140,14 +143,6 @@ export type NativeShellBridge = {
 }
 
 const isTauriRuntime = (): boolean => "__TAURI_INTERNALS__" in window
-
-function parseTokenCommandReceipt(value: unknown): MorrowTokenCommandReceipt {
-  return tokenCommandReceiptSchema.parse(value)
-}
-
-function parseTokenReadResponse(value: unknown): MorrowTokenReadResponse {
-  return tokenReadResponseSchema.parse(value)
-}
 
 export function createNativeShellBridge(): NativeShellBridge {
   return {
@@ -221,13 +216,9 @@ export function createNativeShellBridge(): NativeShellBridge {
       const receipt = await invoke<unknown>("delete_morrow_token", { request })
       return parseTokenCommandReceipt(receipt)
     },
-    checkProviderAuth: async () => {
-      if (!isTauriRuntime()) {
-        return undefined
-      }
-      const readiness = await invoke<unknown>("check_provider_auth")
-      return parseCodexProviderAuthReadiness(readiness)
-    },
+    checkProviderAuth: () => (isTauriRuntime() ? checkProviderAuthInTauri() : Promise.resolve(undefined)),
+    installCodexCli: () => (isTauriRuntime() ? installCodexCliInTauri() : Promise.resolve(undefined)),
+    startCodexLogin: () => (isTauriRuntime() ? startCodexLoginInTauri() : Promise.resolve(undefined)),
     getSyncSchedulerState: () =>
       isTauriRuntime() ? getSyncSchedulerStateInTauri() : Promise.resolve(undefined),
     setSyncSchedulerState: (state) =>

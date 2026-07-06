@@ -101,6 +101,8 @@ function createBridgeMock() {
     readMorrowToken: vi.fn(async () => undefined),
     deleteMorrowToken: vi.fn(async () => undefined),
     checkProviderAuth: vi.fn(async () => undefined),
+    installCodexCli: vi.fn(async () => undefined),
+    startCodexLogin: vi.fn(async () => undefined),
     getSyncSchedulerState: vi.fn(async () => schedulerState),
     setSyncSchedulerState: vi.fn(async (state: SyncSchedulerState) => state),
     deleteMorrowData: vi.fn(async (_request: MorrowDataDeleteRequest): Promise<MorrowDataDeleteReceipt | undefined> => undefined),
