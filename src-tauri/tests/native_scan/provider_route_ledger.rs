@@ -57,6 +57,7 @@ fn provider_route_ledger_skips_provider_on_second_scan() -> Result<(), String> {
     assert_eq!(second_provider_calls, 1);
     assert_counts(&first, (1, 1, 0, 1, 0));
     assert_counts(&second, (0, 0, 0, 0, 0));
+    assert_eq!(adapter.created_count(), 1);
     assert_eq!(second.created_external_proposal_count, 0);
     assert_eq!(second.failed_external_proposal_count, 0);
     assert_eq!(provider_route_outcome_count(&fixture.store_path)?, 1);

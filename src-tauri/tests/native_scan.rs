@@ -40,6 +40,8 @@ mod provider_route_ledger_accounting;
 mod provider_route_ledger_invalidation;
 #[path = "native_scan/provider_route_ledger_privacy.rs"]
 mod provider_route_ledger_privacy;
+#[path = "native_scan/provider_route_support.rs"]
+mod provider_route_support;
 #[path = "native_scan/replay_selection.rs"]
 mod replay_selection;
 #[path = "native_scan/scheduling_intent_eventkit.rs"]
