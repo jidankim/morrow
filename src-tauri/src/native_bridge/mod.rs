@@ -142,7 +142,7 @@ pub fn delete_morrow_data(
 }
 
 #[tauri::command]
-pub fn scan_selected_chats(
+pub async fn scan_selected_chats(
     app: AppHandle,
     state: State<'_, NativeBridgeState>,
     request: ScanSelectedChatsRequest,
@@ -223,7 +223,7 @@ pub fn check_provider_auth() -> CodexProviderAuthReadiness {
 }
 
 #[tauri::command]
-pub fn reconcile_now(app: AppHandle) -> Result<(), String> {
+pub async fn reconcile_now(app: AppHandle) -> Result<(), String> {
     let store_path = morrow_store_path(&app)?;
     store_probe::reconcile_now_at(&store_path).map_err(|error| error.to_string())
 }
