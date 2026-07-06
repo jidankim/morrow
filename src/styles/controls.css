@@ -43,6 +43,7 @@
   border: 1px solid var(--border-default);
   border-radius: 6px;
   cursor: pointer;
+  -webkit-text-fill-color: currentColor;
   transition:
     background-color 120ms ease-out,
     border-color 120ms ease-out,
@@ -51,14 +52,8 @@
     transform 120ms ease-out;
 }
 
-.button:active {
+.button:active:not(:disabled) {
   transform: translateY(1px);
-}
-
-.button:disabled {
-  cursor: not-allowed;
-  opacity: 0.55;
-  transform: none;
 }
 
 .button:focus-visible,
@@ -75,7 +70,7 @@ select:focus-visible {
   color: var(--surface-secondary);
 }
 
-.button.primary:hover {
+.button.primary:hover:not(:disabled) {
   border-color: var(--accent-hover);
   background: var(--accent-hover);
 }
@@ -98,6 +93,16 @@ select:focus-visible {
 
 .button.danger:hover:not(:disabled) {
   background: color-mix(in srgb, var(--status-error) 9%, var(--surface-elevated));
+}
+
+.button:disabled {
+  border-color: var(--border-subtle);
+  background: color-mix(in srgb, var(--text-tertiary) 9%, var(--surface-elevated));
+  color: var(--text-tertiary);
+  -webkit-text-fill-color: var(--text-tertiary);
+  cursor: not-allowed;
+  opacity: 1;
+  transform: none;
 }
 
 .field,

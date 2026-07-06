@@ -74,6 +74,7 @@ export type NativeAppShellState = {
   readonly errorMessage?: string | undefined
   readonly onboardingComplete: boolean
   readonly pendingProposalCount: number
+  readonly syncNowRunning: boolean
   readonly automaticSyncEnabled: boolean
   readonly automaticSyncStatusLabel: AutomaticSyncStatusLabel
   readonly automaticSyncDetail: string

@@ -30,6 +30,7 @@ describe("createNativeShellBridge app shell state", () => {
       errorMessage: null,
       onboardingComplete: true,
       pendingProposalCount: 2,
+      syncNowRunning: true,
       automaticSyncEnabled: true,
       automaticSyncStatusLabel: "Cooling Down",
       automaticSyncDetail: "Retrying after a transient failure."
@@ -45,6 +46,7 @@ describe("createNativeShellBridge app shell state", () => {
       mode: "scanning",
       onboardingComplete: true,
       pendingProposalCount: 2,
+      syncNowRunning: true,
       automaticSyncEnabled: true,
       automaticSyncStatusLabel: "Cooling Down",
       automaticSyncDetail: "Retrying after a transient failure."
@@ -58,6 +60,7 @@ describe("createNativeShellBridge app shell state", () => {
       mode: "scanning",
       onboardingComplete: true,
       pendingProposalCount: 0,
+      syncNowRunning: false,
       automaticSyncEnabled: true,
       automaticSyncStatusLabel: "Running",
       automaticSyncDetail: "Scanning now."

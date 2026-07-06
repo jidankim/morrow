@@ -81,9 +81,10 @@ export function useAppShellController() {
       errorMessage: state.errorMessage,
       onboardingComplete: isOnboardingComplete(state),
       pendingProposalCount: state.pendingProposalCount,
+      syncNowRunning: syncing,
       ...syncSchedulerActions.schedulerShellState
     })
-  }, [nativeBridge, state, storage, syncSchedulerActions.schedulerShellState])
+  }, [nativeBridge, state, storage, syncSchedulerActions.schedulerShellState, syncing])
 
   const setMode = (mode: AppMode): void => {
     setState((current) => {

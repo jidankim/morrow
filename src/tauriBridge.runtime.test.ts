@@ -103,6 +103,7 @@ describe("createNativeShellBridge runtime identity", () => {
       mode: "scanning",
       onboardingComplete: true,
       pendingProposalCount: 0,
+      syncNowRunning: false,
       automaticSyncEnabled: false,
       automaticSyncStatusLabel: "Off",
       automaticSyncDetail: "Automatic sync is off."

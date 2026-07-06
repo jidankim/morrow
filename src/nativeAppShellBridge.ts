@@ -11,6 +11,7 @@ const nativeAppShellStateSchema = z.object({
   ),
   onboardingComplete: z.boolean(),
   pendingProposalCount: z.number().int().min(0),
+  syncNowRunning: z.boolean(),
   automaticSyncEnabled: z.boolean(),
   automaticSyncStatusLabel: z.union([
     z.literal("Off"),

@@ -51,6 +51,22 @@ fn menu_model_reports_scanning_after_setup_complete() {
 }
 
 #[test]
+fn menu_model_disables_sync_while_sync_now_is_running() {
+    let state = AppShellState {
+        onboarding_complete: true,
+        sync_now_running: true,
+        ..AppShellState::default()
+    };
+
+    let menu = menu_model(&state);
+
+    assert_eq!(menu.status_kind, "scanning");
+    assert_eq!(menu.status_label, "Ready");
+    assert!(!menu.sync_now_enabled);
+    assert!(!sync_now_event_allowed(&state));
+}
+
+#[test]
 fn menu_model_disables_sync_when_paused() {
     let state = AppShellState {
         mode: AppMode::Paused,

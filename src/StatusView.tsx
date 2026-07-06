@@ -46,6 +46,7 @@ export function StatusView({
   const readinessItems = getSyncReadinessItems(state, { syncing })
   const setupReadinessItems = readinessItems.filter(isSetupReadinessItem)
   const syncReadinessMessage = getSyncReadinessMessage(syncEnabled, readinessItems)
+  const syncNowDisabled = !syncEnabled || syncing
 
   return (
     <div className="panel">
@@ -66,7 +67,8 @@ export function StatusView({
         <button
           className="button secondary"
           data-visual-qa-control="sync-now"
-          disabled={!syncEnabled || syncing}
+          disabled={syncNowDisabled}
+          aria-busy={syncing ? true : undefined}
           aria-describedby="sync-readiness-summary"
           onClick={onSyncNow}
           type="button"
@@ -176,6 +178,10 @@ function getSyncReadinessMessage(
   syncEnabled: boolean,
   readinessItems: readonly SyncReadinessItem[]
 ): string {
+  const runningItem = readinessItems.find((item) => item.id === "sync-activity" && item.status === "blocking")
+  if (runningItem !== undefined) {
+    return `Sync Now running: ${runningItem.detail}`
+  }
   if (syncEnabled) {
     return "Sync Now ready: All setup checks are complete."
   }

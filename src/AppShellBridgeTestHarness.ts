@@ -6,6 +6,7 @@ type NativeStateForTest = {
   readonly errorMessage?: string
   readonly onboardingComplete: boolean
   readonly pendingProposalCount: number
+  readonly syncNowRunning: boolean
   readonly automaticSyncEnabled: boolean
   readonly automaticSyncStatusLabel: "Off" | "On" | "Cooling Down" | "Needs Action"
   readonly automaticSyncDetail: string

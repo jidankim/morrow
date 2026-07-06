@@ -39,6 +39,7 @@ describe("App native shell bridge", () => {
         mode: "paused",
         onboardingComplete: false,
         pendingProposalCount: 0,
+        syncNowRunning: false,
         automaticSyncEnabled: false,
         automaticSyncStatusLabel: "Off",
         automaticSyncDetail: "Automatic sync is off."
