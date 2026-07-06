@@ -62,6 +62,8 @@ RUSTFLAGS="-C linker=/Library/Developer/CommandLineTools/usr/bin/cc"
 
 Current status: G1 iOS init/config passes in this environment after installing the required Rust iOS targets, XcodeGen, libimobiledevice, and CocoaPods. G2 simulator build also passes repeatably with Xcode 16.4 and the iOS 18.6 simulator runtime, producing `src-tauri/gen/apple/build/arm64-sim/Morrow.app`; the rebuilt app installs and launches on the iPhone 16 Pro simulator, where the Morrow UI renders. These scripts do not establish physical-device deploy, signing, App Store/TestFlight, or EventKit runtime readiness, and this repository is not App Store ready. They also do not provide a passive iPhone Messages reader or any private API path.
 
+For no-paid-Developer-Program physical iPhone testing, use the source-build flow in `docs/iphone-physical-device-testing.md`. That path requires the tester to build from source on their own Mac and deploy through Xcode/free provisioning to a connected iPhone; it is not an AirDrop, shared IPA, or Mac-style diagnostic zip flow.
+
 ### Build and run the packaged app locally
 
 Use this when a technical tester is building Morrow from source on their own Mac. This is different from sharing a downloaded beta or diagnostic artifact: the tester must have Node, Rust, and Xcode/Command Line Tools installed.

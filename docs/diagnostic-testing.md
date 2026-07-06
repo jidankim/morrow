@@ -8,6 +8,8 @@ The primary artifact is the diagnostic zip containing `Morrow.app` and `Morrow-d
 
 The diagnostic artifact must not be redistributed. Do not share the diagnostic zip, app, tester note, manifest, checksums, or optional sidecar artifacts. This artifact is only for the named trusted diagnostic tester and does not replace the signed, notarized beta DMG release path.
 
+Physical iPhone testing without a paid Apple Developer Program is a separate source-build flow. It is documented in `docs/iphone-physical-device-testing.md` and does not use this macOS diagnostic zip.
+
 ## Grant macOS Permissions
 
 Morrow needs two separate macOS permissions for real Messages-to-Calendar QA:
