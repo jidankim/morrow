@@ -18,6 +18,7 @@ pub trait ProviderRouteCache {
 pub struct ProviderRouteRequest<'a> {
     pub message: &'a MessageEvidence,
     pub config: &'a DetectionConfig,
+    pub parser_route_reason: &'static str,
     pub parser_time: Option<CivilDateTime>,
 }
 

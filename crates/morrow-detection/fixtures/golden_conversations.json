@@ -114,7 +114,7 @@
           "operation": "parser_decision",
           "decision": "provider_route",
           "outcome": "noop",
-          "reason_code": "parser_provider_route",
+          "reason_code": "parser_provider_route_ambiguous_calendar",
           "privacy_tier": "internal_metadata"
         },
         {
@@ -190,7 +190,7 @@
           "operation": "parser_decision",
           "decision": "provider_route",
           "outcome": "noop",
-          "reason_code": "parser_provider_route",
+          "reason_code": "parser_provider_route_ambiguous_calendar",
           "privacy_tier": "internal_metadata"
         },
         {
@@ -258,7 +258,7 @@
           "operation": "parser_decision",
           "decision": "provider_route",
           "outcome": "noop",
-          "reason_code": "parser_provider_route",
+          "reason_code": "parser_provider_route_ambiguous_calendar",
           "privacy_tier": "internal_metadata"
         },
         {
@@ -326,7 +326,7 @@
           "operation": "parser_decision",
           "decision": "provider_route",
           "outcome": "noop",
-          "reason_code": "parser_provider_route",
+          "reason_code": "parser_provider_route_ambiguous_calendar",
           "privacy_tier": "internal_metadata"
         },
         {
@@ -394,7 +394,7 @@
           "operation": "parser_decision",
           "decision": "provider_route",
           "outcome": "noop",
-          "reason_code": "parser_provider_route",
+          "reason_code": "parser_provider_route_ambiguous_calendar",
           "privacy_tier": "internal_metadata"
         },
         {
@@ -514,7 +514,7 @@
           "operation": "parser_decision",
           "decision": "provider_route",
           "outcome": "noop",
-          "reason_code": "parser_provider_route",
+          "reason_code": "parser_provider_route_ambiguous_calendar",
           "privacy_tier": "internal_metadata"
         },
         {
@@ -634,7 +634,7 @@
           "operation": "parser_decision",
           "decision": "provider_route",
           "outcome": "noop",
-          "reason_code": "parser_provider_route",
+          "reason_code": "parser_provider_route_ambiguous_calendar",
           "privacy_tier": "internal_metadata"
         },
         {

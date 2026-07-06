@@ -101,12 +101,14 @@ impl<'a, P: AiProvider> DetectionPipeline<'a, P> {
                 Ok(DetectionStep::new(outcome, None))
             }
             GateDecision::ProviderRoute {
+                reason,
                 parser_time,
                 fallback,
             } => {
-                trace.parser_provider_route(config);
+                trace.parser_provider_route(reason, config);
                 self.detect_with_provider_cache(
                     message,
+                    reason,
                     parser_time,
                     fallback,
                     config,
@@ -120,6 +122,7 @@ impl<'a, P: AiProvider> DetectionPipeline<'a, P> {
     fn detect_with_provider_cache<R, C>(
         &self,
         message: &MessageEvidence,
+        parser_route_reason: &'static str,
         parser_time: Option<CivilDateTime>,
         fallback: Option<ParsedCandidate>,
         config: &DetectionConfig,
@@ -133,6 +136,7 @@ impl<'a, P: AiProvider> DetectionPipeline<'a, P> {
         let request = CacheRequest {
             message,
             config,
+            parser_route_reason,
             parser_time,
         };
         match cache

@@ -56,7 +56,7 @@ fn provider_route_cache_hit_skips_provider_extract() -> Result<(), Box<dyn Error
         }
     }
     let reasons = trace_reasons(&recorder)?;
-    assert!(reasons.contains(&"parser_provider_route".to_owned()));
+    assert!(reasons.contains(&"parser_provider_route_ambiguous_calendar".to_owned()));
     assert!(reasons.contains(&"provider_route_cache_hit".to_owned()));
     assert!(!reasons.contains(&"provider_extract_success".to_owned()));
     assert!(!reasons.contains(&"provider_unavailable".to_owned()));

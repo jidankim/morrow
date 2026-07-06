@@ -12,3 +12,5 @@ mod provider_rejections;
 mod provider_success;
 #[path = "trace/provider_unavailable.rs"]
 mod provider_unavailable;
+#[path = "trace/scheduling_intent.rs"]
+mod scheduling_intent;

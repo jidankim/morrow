@@ -10,5 +10,7 @@ mod provider;
 mod provider_route_cache;
 #[path = "contracts/reminder_routing.rs"]
 mod reminder_routing;
+#[path = "contracts/scheduling_intent_parser.rs"]
+mod scheduling_intent_parser;
 #[path = "contracts/trace.rs"]
 mod trace;

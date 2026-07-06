@@ -10,7 +10,7 @@ pub(super) struct ExpectedTrace {
 
 pub(super) fn provider_success_expectations() -> [ExpectedTrace; 7] {
     [
-        parser_provider_route(),
+        parser_provider_route("parser_provider_route_ambiguous_calendar"),
         provider_route(),
         provider_success(),
         ExpectedTrace {
@@ -32,7 +32,7 @@ pub(super) fn provider_success_expectations() -> [ExpectedTrace; 7] {
 
 pub(super) fn schema_rejection_expectations(reason: &'static str) -> [ExpectedTrace; 6] {
     [
-        parser_provider_route(),
+        parser_provider_route("parser_provider_route_ambiguous_calendar"),
         provider_route(),
         provider_success(),
         ExpectedTrace {
@@ -48,7 +48,7 @@ pub(super) fn schema_rejection_expectations(reason: &'static str) -> [ExpectedTr
 
 pub(super) fn threshold_rejection_expectations() -> [ExpectedTrace; 7] {
     [
-        parser_provider_route(),
+        parser_provider_route("parser_provider_route_ambiguous_calendar"),
         provider_route(),
         provider_success(),
         ExpectedTrace {
@@ -96,7 +96,7 @@ pub(super) fn parser_candidate_expectations() -> [ExpectedTrace; 3] {
 
 pub(super) fn provider_unavailable_expectations() -> [ExpectedTrace; 5] {
     [
-        parser_provider_route(),
+        parser_provider_route("parser_provider_route_ambiguous_calendar"),
         provider_route(),
         ExpectedTrace {
             operation: TraceOperation::ProviderResult,
@@ -109,12 +109,12 @@ pub(super) fn provider_unavailable_expectations() -> [ExpectedTrace; 5] {
     ]
 }
 
-fn parser_provider_route() -> ExpectedTrace {
+fn parser_provider_route(reason: &'static str) -> ExpectedTrace {
     ExpectedTrace {
         operation: TraceOperation::ParserDecision,
         decision: Some(TraceDecision::ProviderRoute),
         outcome: TraceOutcome::Noop,
-        reason_code: Some("parser_provider_route"),
+        reason_code: Some(reason),
     }
 }
 

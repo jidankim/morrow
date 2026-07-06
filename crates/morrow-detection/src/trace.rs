@@ -57,13 +57,13 @@ impl<'a, R: TraceRecorder + ?Sized> MessageTrace<'a, R> {
         });
     }
 
-    pub(crate) fn parser_provider_route(&self, config: &DetectionConfig) {
+    pub(crate) fn parser_provider_route(&self, reason: &'static str, config: &DetectionConfig) {
         self.record_root(TraceEvent {
             component: TraceComponent::Parser,
             operation: TraceOperation::ParserDecision,
             decision: Some(TraceDecision::ProviderRoute),
             outcome: TraceOutcome::Noop,
-            reason_code: Some("parser_provider_route"),
+            reason_code: Some(reason),
             confidence_millis: None,
             title: None,
             privacy_tier: TracePrivacyTier::InternalMetadata,
@@ -113,9 +113,14 @@ impl<'a, R: TraceRecorder + ?Sized> MessageTrace<'a, R> {
         });
     }
 
-    pub(crate) fn provider_unavailable(&self, fallback_confidence: Option<i64>, config: &DetectionConfig) {
-        let outcome = fallback_confidence
-            .map_or(TraceOutcome::QuietLogged, |_| TraceOutcome::CandidateCreated);
+    pub(crate) fn provider_unavailable(
+        &self,
+        fallback_confidence: Option<i64>,
+        config: &DetectionConfig,
+    ) {
+        let outcome = fallback_confidence.map_or(TraceOutcome::QuietLogged, |_| {
+            TraceOutcome::CandidateCreated
+        });
         self.record_child(TraceEvent {
             component: TraceComponent::Provider,
             operation: TraceOperation::ProviderResult,
@@ -242,25 +247,23 @@ impl<'a, R: TraceRecorder + ?Sized> MessageTrace<'a, R> {
     }
 
     fn record_root(&self, event: TraceEvent<'_>) {
-        if let Some(ids) = &self.root {
-            self.emit(ids.clone(), event);
-        }
+        let Some(ids) = &self.root else { return };
+        self.emit(ids.clone(), event);
     }
 
     fn record_child(&self, event: TraceEvent<'_>) {
-        if let Some(parent) = &self.root {
-            if let Ok(ids) = TraceIds::child(parent, Some(self.message_guid)) {
-                self.emit(ids, event);
-            }
-        }
+        let Some(parent) = &self.root else { return };
+        let Ok(ids) = TraceIds::child(parent, Some(self.message_guid)) else {
+            return;
+        };
+        self.emit(ids, event);
     }
 
     fn emit(&self, ids: TraceIds, event: TraceEvent<'_>) {
-        let record = TraceRecord {
+        drop(self.recorder.record(&TraceRecord {
             schema_version: TraceSchemaVersion::V1,
             trace: ids,
             span: event.span(&self.observed_at),
-        };
-        drop(self.recorder.record(&record));
+        }));
     }
 }
