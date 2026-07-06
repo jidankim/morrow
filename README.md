@@ -16,14 +16,14 @@ Because of that, do not treat synthetic e2e success as proof that a real message
 
 ## Packaged Beta Testing
 
-Packaged beta testers should start with `docs/beta-testing.md`: download and open the DMG, drag/install `Morrow.app`, open Morrow, grant Full Disk Access and Calendar access, install Codex CLI and run `codex login` only when validating provider-backed `Sync Now`, then run the manual QA flow.
+Packaged beta testers should start with `docs/beta-testing.md`: download and open the DMG, drag/install `Morrow.app`, open Morrow, grant Full Disk Access and Calendar access, use Morrow's Install Codex CLI action only after explicit confirmation when validating provider-backed Sync Now, use Start Codex login for browser sign-in, then run the manual QA flow.
 
 ## What Is Needed For Message To Calendar QA
 
 To run a true manual QA pass from Messages to Calendar, the app needs all of these pieces working in the production Tauri path:
 
 - Messages discovery and selected-thread scanning after Full Disk Access is granted.
-- A configured LLM/provider path that can return strict scheduling candidates. For the no-API-key prototype path, Morrow uses the user's existing Codex CLI ChatGPT login through `codex exec`; run `codex login` first and keep the Codex CLI installed. Morrow does not own, store, print, or delete global Codex tokens or sessions.
+- A configured LLM/provider path that can return strict scheduling candidates. For the no-API-key prototype path, Morrow uses the user's existing Codex CLI ChatGPT login through `codex exec`; the app can help install the CLI after explicit confirmation and can launch Start Codex login for browser sign-in. Codex owns the login, and Morrow does not store provider tokens or read, manage, logout, or delete the user's Codex session.
 - A native Calendar proposal adapter in `scan_selected_chats` that creates EventKit events, not only local external-object mappings.
 - macOS Calendar permission for the app or terminal process running real EventKit QA.
 - At least one explicitly selected chat, a reference timezone, and setup marked complete.
@@ -87,7 +87,7 @@ If the bundle path changes, locate it with:
 find src-tauri/target/release -name Morrow.app -print
 ```
 
-For real Messages-to-Calendar QA, grant Full Disk Access and Calendar access to the built `Morrow.app`. If you are validating provider-backed `Sync Now`, install Codex CLI and run `codex login` before opening Morrow.
+For real Messages-to-Calendar QA, grant Full Disk Access and Calendar access to the built `Morrow.app`. If you are validating provider-backed Sync Now, Morrow can show Install Codex CLI, require explicit confirmation before installing, and then offer Start Codex login to launch the Codex browser sign-in flow.
 
 macOS permissions needed for real-surface QA:
 
@@ -98,7 +98,8 @@ macOS permissions needed for real-surface QA:
 
 Provider auth boundary:
 
-- `codex login` is required for the Codex CLI session-backed provider path.
+- `codex login` is required for the Codex CLI session-backed provider path; Start Codex login only launches that Codex-owned browser flow.
+- Codex owns the login. Morrow does not store provider tokens and does not read, manage, logout, or delete Codex credentials.
 - `MORROW_REAL_QA_OPENAI_API_KEY` is not required for the target Messages-to-Calendar real QA path.
 - Delete-all and privacy cleanup only remove Morrow-owned legacy provider credentials/markers, such as old Keychain entries created by Morrow. They leave the user's global Codex CLI login unchanged.
 - Messages Full Disk Access and Calendar access remain independent macOS permissions; fixing one does not grant the other.

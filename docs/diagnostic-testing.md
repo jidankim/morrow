@@ -21,7 +21,9 @@ If Morrow opens Full Disk Access settings, macOS still requires you to manually 
 
 ## Codex CLI For Provider-Backed Sync Now
 
-Install Codex CLI and run `codex login` only when you are testing provider-backed `Sync Now`. Codex CLI is a user-owned runtime prerequisite; Morrow detects whether it is ready and does not manage the CLI login.
+Install Codex CLI only when you are testing provider-backed Sync Now. When the CLI is missing, Morrow can show Install Codex CLI and requires explicit confirmation before starting the install. When the CLI is installed but not signed in, Morrow can show Start Codex login to launch `codex login` for browser sign-in.
+
+Codex CLI is a user-owned runtime prerequisite. Codex owns the login; Morrow detects whether the CLI is ready, does not manage the CLI login, and does not read, manage, logout, or delete Codex credentials. Morrow does not store provider tokens.
 
 ## Manual QA Flow
 
