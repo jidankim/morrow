@@ -12,6 +12,8 @@ use list_reminder::{
     ListReminderItem,
 };
 
+const MAX_PROVIDER_PROMPT_EVIDENCE_MESSAGES: usize = 20;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct ProviderCandidate {
     pub parsed: ParsedCandidate,
@@ -25,6 +27,7 @@ pub(crate) enum SchemaRejection {
     InvalidJson,
     InvalidSchema,
     HallucinatedEvidence,
+    UnsupportedLifecycle,
     ParserConflict,
 }
 
@@ -34,6 +37,7 @@ impl SchemaRejection {
             Self::InvalidJson => "provider_invalid_json",
             Self::InvalidSchema => "provider_schema_rejected",
             Self::HallucinatedEvidence => "provider_hallucinated_evidence",
+            Self::UnsupportedLifecycle => "provider_unsupported_lifecycle",
             Self::ParserConflict => "parser_provider_time_conflict",
         }
     }
@@ -81,6 +85,9 @@ pub(crate) fn parse_provider_candidate(
     }
     let (anchor_message_guid, _evidence_message_guids) =
         provider_evidence_guids(&payload, evidence)?;
+    if is_unsupported_lifecycle_kind(kind) {
+        return Err(SchemaRejection::UnsupportedLifecycle);
+    }
     validate_list_item_evidence(payload.items.as_deref(), evidence)?;
     let locally_computed_time = default_list_reminder_due_time(&payload, config);
     let title = match payload.items.as_deref() {
@@ -168,6 +175,18 @@ fn parse_kind(raw: &str) -> Result<CandidateKind, SchemaRejection> {
     }
 }
 
+const fn is_unsupported_lifecycle_kind(kind: CandidateKind) -> bool {
+    match kind {
+        CandidateKind::CalendarEvent | CandidateKind::TaskReminder => false,
+        CandidateKind::EventUpdate
+        | CandidateKind::EventReschedule
+        | CandidateKind::EventCancellation
+        | CandidateKind::ReminderUpdate
+        | CandidateKind::ReminderReschedule
+        | CandidateKind::ReminderCancellation => true,
+    }
+}
+
 fn evidence_contains(evidence: &[MessageEvidence], message_guid: &str) -> bool {
     evidence
         .iter()
@@ -184,6 +203,9 @@ fn evidence_guid_for_id(
     let index = index_text
         .parse::<usize>()
         .map_err(|_| SchemaRejection::HallucinatedEvidence)?;
+    if index >= MAX_PROVIDER_PROMPT_EVIDENCE_MESSAGES {
+        return Err(SchemaRejection::HallucinatedEvidence);
+    }
     evidence
         .get(index)
         .map(|message| message.message_guid.as_str().to_owned())

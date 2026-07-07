@@ -1,17 +1,15 @@
 use morrow_diagnostics::{NoopTraceRecorder, TraceRecorder};
 use morrow_messages::MessageEvidence;
 
-use crate::outcome::{
-    candidate_from_parsed, candidate_from_provider, quiet, quiet_with_provider_diagnostic,
-    DetectionOutcome, DetectionReport,
-};
+mod provider_route;
+
+use crate::outcome::{candidate_from_parsed, quiet, DetectionOutcome, DetectionReport};
 use crate::parser::{classify, GateDecision, ParsedCandidate};
-use crate::provider::{AiProvider, ProviderError, ProviderRequest};
+use crate::provider::AiProvider;
 use crate::provider_route_cache::{
-    NoopProviderRouteCache, NoopProviderRouteCacheError, ProviderRouteCache, ProviderRouteDecision,
-    ProviderRouteRequest as CacheRequest, ProviderRouteWriteIntent,
+    NoopProviderRouteCache, NoopProviderRouteCacheError, ProviderRouteCache,
+    ProviderRouteWriteIntent,
 };
-use crate::schema::parse_provider_candidate;
 use crate::trace::MessageTrace;
 use crate::types::{CivilDateTime, DetectionConfig};
 
@@ -67,7 +65,7 @@ impl<'a, P: AiProvider> DetectionPipeline<'a, P> {
         let mut report = DetectionReport::default();
         for message in messages {
             let trace = MessageTrace::new(message, recorder);
-            let step = self.detect_one(message, config, &trace, cache)?;
+            let step = self.detect_one(messages, message, config, &trace, cache)?;
             report.outcomes.push(step.outcome);
             report
                 .provider_route_write_intents
@@ -78,6 +76,7 @@ impl<'a, P: AiProvider> DetectionPipeline<'a, P> {
 
     fn detect_one<R, C>(
         &self,
+        selected_evidence: &[MessageEvidence],
         message: &MessageEvidence,
         config: &DetectionConfig,
         trace: &MessageTrace<'_, R>,
@@ -111,148 +110,32 @@ impl<'a, P: AiProvider> DetectionPipeline<'a, P> {
                     parser_time,
                     fallback,
                 };
-                self.detect_with_provider_cache(message, route, config, trace, cache)
-            }
-        }
-    }
-
-    fn detect_with_provider_cache<R, C>(
-        &self,
-        message: &MessageEvidence,
-        route: ProviderRoutePlan,
-        config: &DetectionConfig,
-        trace: &MessageTrace<'_, R>,
-        cache: &C,
-    ) -> Result<DetectionStep, DetectionPipelineError<C::Error>>
-    where
-        R: TraceRecorder + ?Sized,
-        C: ProviderRouteCache + ?Sized,
-    {
-        let request = CacheRequest {
-            message,
-            config,
-            parser_route_reason: route.reason,
-            parser_time: route.parser_time,
-        };
-        match cache
-            .resolve_provider_route(request)
-            .map_err(DetectionPipelineError::ProviderRouteCache)?
-        {
-            ProviderRouteDecision::Hit(cached) => {
-                trace.provider_route_cache_hit(config);
-                let outcome = DetectionOutcome::CachedProviderRoute {
-                    route_fingerprint: cached.route_fingerprint,
-                    outcome_kind: cached.outcome_kind,
-                };
-                trace.outcome_materialized(&outcome, config.source_excerpts);
-                Ok(DetectionStep::new(outcome, None))
-            }
-            ProviderRouteDecision::Miss { write_intent } => Ok(self.detect_with_provider(
-                message,
-                route.parser_time,
-                route.fallback,
-                config,
-                trace,
-                write_intent.map(|intent| *intent),
-            )),
-        }
-    }
-
-    fn detect_with_provider<R: TraceRecorder + ?Sized>(
-        &self,
-        message: &MessageEvidence,
-        parser_time: Option<CivilDateTime>,
-        fallback: Option<ParsedCandidate>,
-        config: &DetectionConfig,
-        trace: &MessageTrace<'_, R>,
-        write_intent: Option<ProviderRouteWriteIntent>,
-    ) -> DetectionStep {
-        let evidence = std::slice::from_ref(message);
-        trace.provider_route(config);
-        let response = match self.provider.extract(ProviderRequest::new(
-            evidence,
-            &config.provider,
-            &config.reference.timezone,
-        )) {
-            Ok(response) => {
-                trace.provider_extract_success(config);
-                response
-            }
-            Err(ProviderError::Unavailable { reason }) => {
-                if let Some(parsed) = fallback {
-                    trace.provider_unavailable(Some(parsed.confidence_millis), config);
-                    let outcome = candidate_from_parsed(message, parsed, &message.excerpt, config);
-                    trace.outcome_materialized(&outcome, config.source_excerpts);
-                    return DetectionStep::new(outcome, None);
-                }
-                trace.provider_unavailable(None, config);
-                let outcome = quiet_with_provider_diagnostic(
+                self.detect_with_provider_cache(
+                    selected_evidence,
                     message,
-                    "provider_unavailable",
-                    reason,
-                    config.source_excerpts,
-                );
-                trace.outcome_materialized(&outcome, config.source_excerpts);
-                return DetectionStep::new(outcome, None);
+                    route,
+                    config,
+                    trace,
+                    cache,
+                )
             }
-        };
-        let outcome =
-            match parse_provider_candidate(response.raw_json(), evidence, parser_time, config) {
-                Ok(provider_candidate)
-                    if provider_candidate.parsed.confidence_millis >= config.threshold.as_i64() =>
-                {
-                    trace.provider_schema_accepted(
-                        provider_candidate.parsed.confidence_millis,
-                        config,
-                    );
-                    trace.threshold_accepted(provider_candidate.parsed.confidence_millis, config);
-                    let outcome = candidate_from_provider(
-                        message,
-                        provider_candidate,
-                        config.source_excerpts,
-                    );
-                    trace.outcome_materialized(&outcome, config.source_excerpts);
-                    outcome
-                }
-                Ok(provider_candidate) => {
-                    trace.provider_schema_accepted(
-                        provider_candidate.parsed.confidence_millis,
-                        config,
-                    );
-                    trace.threshold_rejected(provider_candidate.parsed.confidence_millis, config);
-                    let outcome = quiet(
-                        message,
-                        "confidence_below_threshold",
-                        config.source_excerpts,
-                    );
-                    trace.outcome_materialized(&outcome, config.source_excerpts);
-                    outcome
-                }
-                Err(rejection) => {
-                    let reason = rejection.reason();
-                    trace.provider_schema_rejected(reason, config);
-                    let outcome = quiet(message, reason, config.source_excerpts);
-                    trace.outcome_materialized(&outcome, config.source_excerpts);
-                    outcome
-                }
-            };
-        DetectionStep::new(outcome, write_intent)
+        }
     }
 }
 
-struct DetectionStep {
-    outcome: DetectionOutcome,
-    provider_route_write_intent: Option<ProviderRouteWriteIntent>,
+pub(super) struct DetectionStep {
+    pub(super) outcome: DetectionOutcome,
+    pub(super) provider_route_write_intent: Option<ProviderRouteWriteIntent>,
 }
 
-struct ProviderRoutePlan {
-    reason: &'static str,
-    parser_time: Option<CivilDateTime>,
-    fallback: Option<ParsedCandidate>,
+pub(super) struct ProviderRoutePlan {
+    pub(super) reason: &'static str,
+    pub(super) parser_time: Option<CivilDateTime>,
+    pub(super) fallback: Option<ParsedCandidate>,
 }
 
 impl DetectionStep {
-    const fn new(
+    pub(super) const fn new(
         outcome: DetectionOutcome,
         provider_route_write_intent: Option<ProviderRouteWriteIntent>,
     ) -> Self {

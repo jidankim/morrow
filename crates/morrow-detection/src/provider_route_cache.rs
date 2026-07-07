@@ -16,6 +16,7 @@ pub trait ProviderRouteCache {
 
 #[derive(Debug, Clone, Copy)]
 pub struct ProviderRouteRequest<'a> {
+    pub selected_evidence: &'a [MessageEvidence],
     pub message: &'a MessageEvidence,
     pub config: &'a DetectionConfig,
     pub parser_route_reason: &'static str,
