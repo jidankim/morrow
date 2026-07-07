@@ -1,0 +1,6 @@
+{
+  "from": "beta",
+  "to": "default_available",
+  "expected_status": "FAIL",
+  "reason": "Only beta->staged and staged->default_available are allowed forward promotions."
+}

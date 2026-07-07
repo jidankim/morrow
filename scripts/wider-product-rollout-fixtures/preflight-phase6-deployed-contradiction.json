@@ -1,0 +1,11 @@
+{
+  "schema_version": "phase7_wider_product_rollout_preflight_fixture_v1",
+  "contradictions": [
+    {
+      "name": "phase6_deployed_rollout_claim",
+      "phase": 6,
+      "claimed_deployed_rollout": true,
+      "message": "Phase 6 is incorrectly marked as deployed rollout evidence."
+    }
+  ]
+}

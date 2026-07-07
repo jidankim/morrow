@@ -1,0 +1,68 @@
+{
+  "schema_version": "wider_product_rollout_manifest_v1",
+  "rollout_source_of_truth": "static_local_manifest",
+  "remote_config_enabled": false,
+  "telemetry_enabled": false,
+  "state": "blocked",
+  "default_availability": {
+    "allowed": false,
+    "default_download_channel": "static_manifest_and_public_docs",
+    "signed_notarized_dmg_required": true,
+    "all_gates_required": true,
+    "excluded_distribution_channels": [
+      "app_store",
+      "testflight",
+      "auto_updater",
+      "hosted_remote_config",
+      "automatic_promotion"
+    ]
+  },
+  "promotion": {
+    "automatic_promotion_enabled": false,
+    "allowed_forward_transitions": [
+      {
+        "from": "beta",
+        "to": "staged"
+      },
+      {
+        "from": "staged",
+        "to": "default_available"
+      }
+    ],
+    "fail_closed_states": [
+      "paused",
+      "rolled_back",
+      "blocked"
+    ]
+  },
+  "kill_switches": {
+    "telemetry": {
+      "enabled": false,
+      "fail_closed": true
+    },
+    "upload": {
+      "enabled": false,
+      "fail_closed": true
+    },
+    "remote_config": {
+      "enabled": false,
+      "fail_closed": true
+    },
+    "staged_promotion": {
+      "enabled": false,
+      "fail_closed": true
+    },
+    "default_availability": {
+      "enabled": false,
+      "fail_closed": true
+    },
+    "model_router_changes": {
+      "enabled": false,
+      "fail_closed": true
+    },
+    "provider_changes": {
+      "enabled": false,
+      "fail_closed": true
+    }
+  }
+}

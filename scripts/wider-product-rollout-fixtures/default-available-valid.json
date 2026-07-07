@@ -1,0 +1,96 @@
+{
+  "schema_version": "wider_product_rollout_manifest_v1",
+  "product": "Morrow",
+  "product_version": "0.1.0",
+  "phase": "phase_7_wider_product_rollout",
+  "rollout_source_of_truth": "static_local_manifest",
+  "remote_config_enabled": false,
+  "telemetry_enabled": false,
+  "state": "default_available",
+  "state_reason": "Fixture proving the only valid default availability shape after all gates pass.",
+  "release_artifact": {
+    "app_path": "src-tauri/target/release/bundle/macos/Morrow.app",
+    "dmg_path": "src-tauri/target/release/bundle/dmg/Morrow_0.1.0_aarch64.dmg",
+    "dmg_sha256": "fixture-default-available-dmg-sha256",
+    "signing_status": "signed",
+    "notarization_status": "notarized",
+    "public_handoff_url": "docs/beta-testing.md"
+  },
+  "default_availability": {
+    "allowed": true,
+    "default_download_channel": "static_manifest_and_public_docs",
+    "meaning": "Only this static manifest and public docs may identify the signed and notarized DMG as the default download after all gates pass.",
+    "signed_notarized_dmg_required": true,
+    "all_gates_required": true,
+    "excluded_distribution_channels": [
+      "app_store",
+      "testflight",
+      "auto_updater",
+      "hosted_remote_config",
+      "automatic_promotion"
+    ]
+  },
+  "promotion": {
+    "automatic_promotion_enabled": false,
+    "allowed_forward_transitions": [
+      {
+        "from": "beta",
+        "to": "staged"
+      },
+      {
+        "from": "staged",
+        "to": "default_available"
+      }
+    ],
+    "fail_closed_states": [
+      "paused",
+      "rolled_back",
+      "blocked"
+    ]
+  },
+  "kill_switches": {
+    "telemetry": {
+      "enabled": false,
+      "fail_closed": true,
+      "effect": "telemetry remains disabled"
+    },
+    "upload": {
+      "enabled": false,
+      "fail_closed": true,
+      "effect": "no upload path is available"
+    },
+    "remote_config": {
+      "enabled": false,
+      "fail_closed": true,
+      "effect": "live remote config is out of scope"
+    },
+    "staged_promotion": {
+      "enabled": false,
+      "fail_closed": true,
+      "effect": "promotion stops until reviewed manifest evidence passes"
+    },
+    "default_availability": {
+      "enabled": false,
+      "fail_closed": true,
+      "effect": "default download remains unavailable until every gate passes"
+    },
+    "model_router_changes": {
+      "enabled": false,
+      "fail_closed": true,
+      "effect": "model or router changes are blocked by rollout gates"
+    },
+    "provider_changes": {
+      "enabled": false,
+      "fail_closed": true,
+      "effect": "provider path changes are blocked by rollout gates"
+    }
+  },
+  "gates": {
+    "all_required_gates_passed": true,
+    "phase_6_monitoring_role": "fixture_monitoring_input_only",
+    "beta_signed_notarized_dmg": "pass",
+    "dmg_install_qa": "pass",
+    "packaged_launch_qa": "pass",
+    "release_manifest": "pass"
+  }
+}
