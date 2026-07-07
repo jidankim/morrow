@@ -54,8 +54,8 @@ describe("SettingsView list intake profiles", () => {
       target: { value: "remind me to buy fish tomorrow" }
     })
     fireEvent.click(screen.getByRole("checkbox", { name: "By sender label" }))
-    fireEvent.change(screen.getByLabelText("Category keywords"), {
-      target: { value: "salmon, anchovy" }
+    fireEvent.change(screen.getByLabelText("Category 1 keywords"), {
+      target: { value: "salmon, anchovy, anchovies" }
     })
 
     expect(screen.getByDisplayValue("Fish count")).toBeInTheDocument()
@@ -65,6 +65,7 @@ describe("SettingsView list intake profiles", () => {
     expect(screen.getByText("Matched item rows")).toBeInTheDocument()
     expect(screen.getAllByText("salmon").length).toBeGreaterThan(0)
     expect(screen.getByText("Rejected negative example: remind me to buy fish tomorrow")).toBeInTheDocument()
+    expect(rowForItem("anchovies")).toHaveTextContent("Seafood")
     expect(screen.queryByLabelText(/custom prompt/i)).not.toBeInTheDocument()
     expect(onChange).toHaveBeenLastCalledWith(
       expect.objectContaining({
@@ -79,6 +80,55 @@ describe("SettingsView list intake profiles", () => {
         ]
       })
     )
+  })
+
+  it("adds multiple keyword categories and applies them in the live preview", () => {
+    const { onChange } = renderSettings()
+
+    fireEvent.click(screen.getByRole("button", { name: "Add profile" }))
+    fireEvent.change(screen.getByLabelText("Positive examples"), {
+      target: { value: "2 anchovies, 3 salmon\n4 apples" }
+    })
+    expect(rowForItem("anchovies")).toHaveTextContent("Seafood")
+
+    fireEvent.click(screen.getByRole("button", { name: "Add category" }))
+    fireEvent.change(screen.getByLabelText("Category 2 name"), { target: { value: "Produce" } })
+    fireEvent.change(screen.getByLabelText("Category 2 keywords"), { target: { value: "apple, apples" } })
+
+    expect(rowForItem("apples")).toHaveTextContent("Produce")
+    expect(onChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        listIntakeProfiles: [
+          expect.objectContaining({
+            categoryRules: [
+              expect.objectContaining({
+                categoryId: "seafood",
+                displayName: "Seafood",
+                keywords: ["anchovies", "anchovy", "salmon"]
+              }),
+              expect.objectContaining({
+                categoryId: "produce",
+                displayName: "Produce",
+                keywords: ["apple", "apples"]
+              })
+            ]
+          })
+        ]
+      })
+    )
+  })
+
+  it("keeps category name input focused while editing the category id", () => {
+    renderSettings()
+
+    fireEvent.click(screen.getByRole("button", { name: "Add profile" }))
+    const categoryNameInput = screen.getByLabelText("Category 1 name")
+    categoryNameInput.focus()
+
+    expect(categoryNameInput).toHaveFocus()
+    fireEvent.change(categoryNameInput, { target: { value: "Seafoo" } })
+
+    expect(screen.getByLabelText("Category 1 name")).toHaveFocus()
   })
 
   it("adds and deletes examples and deletes the profile", () => {
@@ -215,6 +265,15 @@ function typeTextIntoInput(label: string, text: string): void {
   for (const character of text) {
     fireEvent.change(field, { target: { value: `${field.value}${character}` } })
   }
+}
+
+function rowForItem(itemName: string): HTMLTableRowElement {
+  const itemCell = screen.getByText(itemName)
+  const row = itemCell.closest("tr")
+  if (!(row instanceof HTMLTableRowElement)) {
+    throw new TypeError(`No preview row for ${itemName}`)
+  }
+  return row
 }
 
 function settingsView(

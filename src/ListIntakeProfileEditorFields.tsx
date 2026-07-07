@@ -41,32 +41,47 @@ export function CategoryEditor({
   readonly categoryRules: readonly ListIntakeCategoryRule[]
   readonly onUpdate: (rules: readonly ListIntakeCategoryRule[]) => void
 }): JSX.Element {
-  const firstRule = categoryRules[0] ?? { categoryId: "seafood", displayName: "Seafood", keywords: [] }
   return (
     <fieldset className="option-group">
       <legend>Keyword category rules</legend>
-      <label className="field">
-        <span>Category name</span>
-        <input
-          value={firstRule.displayName}
-          onChange={(event) =>
-            onUpdate([
-              {
-                ...firstRule,
-                displayName: event.currentTarget.value,
-                categoryId: categoryIdFromName(event.currentTarget.value)
+      {categoryRules.length === 0 ? <p className="settings-note">No keyword categories yet.</p> : null}
+      {categoryRules.map((rule, index) => (
+        <div className="category-rule-editor" key={`category-rule-${index.toString()}`}>
+          <label className="field">
+            <span>{`Category ${(index + 1).toString()} name`}</span>
+            <input
+              value={rule.displayName}
+              onChange={(event) =>
+                onUpdate(updateCategoryRule(categoryRules, index, categoryNamePatch(categoryRules, index, event.currentTarget.value)))
               }
-            ])
-          }
-        />
-      </label>
-      <label className="field">
-        <span>Category keywords</span>
-        <input
-          value={firstRule.keywords.join(", ")}
-          onChange={(event) => onUpdate([{ ...firstRule, keywords: commaValues(event.currentTarget.value) }])}
-        />
-      </label>
+            />
+          </label>
+          <label className="field">
+            <span>{`Category ${(index + 1).toString()} keywords`}</span>
+            <input
+              value={rule.keywords.join(", ")}
+              onChange={(event) =>
+                onUpdate(updateCategoryRule(categoryRules, index, { keywords: commaValues(event.currentTarget.value) }))
+              }
+            />
+          </label>
+          <button
+            className="button secondary"
+            onClick={() => onUpdate(categoryRules.filter((_rule, ruleIndex) => ruleIndex !== index))}
+            type="button"
+          >
+            {`Delete category ${(index + 1).toString()}`}
+          </button>
+        </div>
+      ))}
+      <button
+        className="button secondary"
+        disabled={categoryRules.length >= 20}
+        onClick={() => onUpdate([...categoryRules, nextCategoryRule(categoryRules)])}
+        type="button"
+      >
+        Add category
+      </button>
     </fieldset>
   )
 }
@@ -132,6 +147,55 @@ function commaValues(value: string): readonly string[] {
     .split(",")
     .map((keyword) => keyword.trim())
     .filter((keyword) => keyword.length > 0)
+}
+
+function updateCategoryRule(
+  rules: readonly ListIntakeCategoryRule[],
+  index: number,
+  patch: Partial<ListIntakeCategoryRule>
+): readonly ListIntakeCategoryRule[] {
+  return rules.map((rule, ruleIndex) => (ruleIndex === index ? { ...rule, ...patch } : rule))
+}
+
+function categoryNamePatch(
+  rules: readonly ListIntakeCategoryRule[],
+  index: number,
+  displayName: string
+): Pick<ListIntakeCategoryRule, "categoryId" | "displayName"> {
+  return {
+    categoryId: uniqueCategoryId(categoryIdFromName(displayName), rules, index),
+    displayName
+  }
+}
+
+function nextCategoryRule(rules: readonly ListIntakeCategoryRule[]): ListIntakeCategoryRule {
+  const displayName = `Category ${(rules.length + 1).toString()}`
+  return {
+    categoryId: uniqueCategoryId(categoryIdFromName(displayName), rules, undefined),
+    displayName,
+    keywords: []
+  }
+}
+
+function uniqueCategoryId(
+  baseCategoryId: string,
+  rules: readonly ListIntakeCategoryRule[],
+  currentIndex: number | undefined
+): string {
+  const usedCategoryIds = new Set(
+    rules.flatMap((rule, index) => (currentIndex === index ? [] : [rule.categoryId]))
+  )
+  if (!usedCategoryIds.has(baseCategoryId)) {
+    return baseCategoryId
+  }
+  for (let suffix = 2; suffix <= 20; suffix += 1) {
+    const suffixText = `-${suffix.toString()}`
+    const candidate = `${baseCategoryId.slice(0, 48 - suffixText.length)}${suffixText}`
+    if (!usedCategoryIds.has(candidate)) {
+      return candidate
+    }
+  }
+  return baseCategoryId
 }
 
 function categoryIdFromName(name: string): string {
