@@ -1,4 +1,8 @@
 mod metadata;
+#[cfg(test)]
+mod tests;
+
+use std::collections::{btree_map::Entry, BTreeMap};
 
 use morrow_detection::{
     CachedProviderOutcome, DetectionPipelineError, ProviderRouteCache, ProviderRouteDecision,
@@ -98,7 +102,23 @@ pub(super) fn record_provider_route_ledger_writes(
     store: &Store,
     drafts: Vec<ProviderRouteOutcomeDraft>,
 ) -> Result<(), ScanSelectedChatsError> {
+    let mut unique_drafts = BTreeMap::<String, ProviderRouteOutcomeDraft>::new();
     for draft in drafts {
+        match unique_drafts.entry(draft.route_fingerprint.clone()) {
+            Entry::Vacant(entry) => {
+                entry.insert(draft);
+            }
+            Entry::Occupied(mut entry) => {
+                let should_replace =
+                    matches!(&entry.get().outcome, ProviderRouteOutcome::Quiet { .. })
+                        && matches!(&draft.outcome, ProviderRouteOutcome::Candidate(_));
+                if should_replace {
+                    entry.insert(draft);
+                }
+            }
+        }
+    }
+    for draft in unique_drafts.into_values() {
         store
             .record_provider_route_outcome(draft)
             .map_err(storage_error)?;
