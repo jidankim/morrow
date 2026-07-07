@@ -247,7 +247,7 @@ echo "out_dir: $out_dir_abs"
 echo "fixtures: $fixtures"
 
 echo "command: cargo run detection_eval"
-cargo run --manifest-path crates/morrow-detection/Cargo.toml --example detection_eval -- \
+cargo run -p morrow-detection --example detection_eval -- \
   --fixtures "$fixtures" \
   --out "$eval_summary_raw" \
   --trace-out "$trace_out"
@@ -274,12 +274,12 @@ NODE
 rm -f "$eval_summary_raw"
 
 echo "command: cargo run export_phoenix"
-cargo run --manifest-path crates/morrow-diagnostics/Cargo.toml --example export_phoenix -- \
+cargo run -p morrow-diagnostics --example export_phoenix -- \
   --input "$trace_out" \
   --out "$phoenix_payload"
 
 echo "command: cargo run export_langfuse"
-cargo run --manifest-path crates/morrow-diagnostics/Cargo.toml --example export_langfuse -- \
+cargo run -p morrow-diagnostics --example export_langfuse -- \
   --input "$trace_out" \
   --out "$langfuse_payload"
 
@@ -325,13 +325,13 @@ rm -f "$out_dir_abs/forbidden-tokens.txt"
 echo "command: cargo test delete_all_removes_diagnostics_artifacts"
 {
   echo "scenario: repository Delete All synthetic diagnostics cleanup"
-  echo "invocation: cargo test --manifest-path src-tauri/Cargo.toml delete_all_removes_diagnostics_artifacts -- --nocapture"
+  echo "invocation: cargo test -p morrow delete_all_removes_diagnostics_artifacts -- --nocapture"
   if command -v xcrun >/dev/null 2>&1; then
     macos_sdk="$(xcrun --sdk macosx --show-sdk-path)"
     SDKROOT="$macos_sdk" LIBRARY_PATH="$macos_sdk/usr/lib" \
-      cargo test --manifest-path src-tauri/Cargo.toml delete_all_removes_diagnostics_artifacts -- --nocapture
+      cargo test -p morrow delete_all_removes_diagnostics_artifacts -- --nocapture
   else
-    cargo test --manifest-path src-tauri/Cargo.toml delete_all_removes_diagnostics_artifacts -- --nocapture
+    cargo test -p morrow delete_all_removes_diagnostics_artifacts -- --nocapture
   fi
 } > "$delete_all_report" 2>&1
 

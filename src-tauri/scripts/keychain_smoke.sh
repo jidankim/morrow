@@ -48,7 +48,7 @@ rm -rf "$TARGET_DIR"
   CARGO_TARGET_DIR="$TARGET_DIR" \
     SDKROOT="$SDKROOT_VALUE" \
     RUSTFLAGS="-C linker=$LINKER_VALUE" \
-    cargo build --manifest-path src-tauri/Cargo.toml --example keychain_smoke
+    cargo build -p morrow --example keychain_smoke
 ) >> "$LOG_PATH" 2>&1
 BUILD_EXIT=$?
 log "cargo_build_exit=$BUILD_EXIT"

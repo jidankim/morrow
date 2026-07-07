@@ -131,6 +131,11 @@ Use this flow when validating the native Messages setup surface:
 
 ## QA Commands
 
+Cargo is managed as a repository-root workspace. Keep the root `Cargo.lock` as
+the only Rust lockfile of record; run broad Rust checks from the repository root
+with `cargo test --workspace`, and use `cargo test -p <package>` or
+`cargo run -p <package>` for targeted package work.
+
 Frontend and app shell:
 
 ```bash
@@ -141,27 +146,24 @@ npm run build
 Calendar adapter invariants:
 
 ```bash
-cd crates/morrow-calendar
-cargo test
+cargo test -p morrow-calendar
 ```
 
 Native scan tests:
 
 ```bash
-cd src-tauri
 SDKROOT=/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk \
 RUSTFLAGS="-C linker=/Library/Developer/CommandLineTools/usr/bin/cc" \
-cargo test --test native_scan
+cargo test -p morrow --test native_scan
 ```
 
 Synthetic MVP e2e:
 
 ```bash
-cd crates/morrow-reconcile
 MORROW_E2E_DB=/tmp/morrow-e2e-workflow.sqlite \
 MORROW_E2E_DELETE_DB=/tmp/morrow-e2e-delete.sqlite \
 MORROW_E2E_METRICS_REPORT=/tmp/morrow-e2e-metrics.txt \
-cargo run --example mvp_e2e
+cargo run -p morrow-reconcile --example mvp_e2e
 ```
 
 Real Calendar EventKit smoke:

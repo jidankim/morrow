@@ -333,7 +333,7 @@ That mode injects `[privacy canary literal]` into synthetic diagnostics before s
 The smoke script uses the local eval runner:
 
 ```bash
-cargo run --manifest-path crates/morrow-detection/Cargo.toml --example detection_eval -- \
+cargo run -p morrow-detection --example detection_eval -- \
   --fixtures crates/morrow-detection/fixtures/golden_conversations.json \
   --out .omo/evidence/task-12-final-flow/eval-summary.json \
   --trace-out .omo/evidence/task-12-final-flow/trace.jsonl
@@ -375,7 +375,7 @@ The feedback/eval baseline also has Delete All preservation coverage: the smoke 
 Phoenix is optional, downstream, CLI-only, and dev-only:
 
 ```bash
-cargo run --manifest-path crates/morrow-diagnostics/Cargo.toml --example export_phoenix -- \
+cargo run -p morrow-diagnostics --example export_phoenix -- \
   --input .omo/evidence/task-12-final-flow/trace.jsonl \
   --out .omo/evidence/task-12-final-flow/phoenix-payload.json
 ```
@@ -383,7 +383,7 @@ cargo run --manifest-path crates/morrow-diagnostics/Cargo.toml --example export_
 Langfuse is optional, downstream, CLI-only, and dev-only:
 
 ```bash
-cargo run --manifest-path crates/morrow-diagnostics/Cargo.toml --example export_langfuse -- \
+cargo run -p morrow-diagnostics --example export_langfuse -- \
   --input .omo/evidence/task-12-final-flow/trace.jsonl \
   --out .omo/evidence/task-12-final-flow/langfuse-payload.json
 ```

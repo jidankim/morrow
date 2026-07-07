@@ -64,19 +64,19 @@ echo "out_dir: $out_dir_abs"
 echo "backend: local tests and synthetic privacy surfaces only"
 
 run_logged "$out_dir_abs/command-logs/cargo-storage-lifecycle-test.txt" \
-  cargo test --manifest-path crates/morrow-storage/Cargo.toml lifecycle
+  cargo test -p morrow-storage lifecycle
 run_logged "$out_dir_abs/command-logs/cargo-reconcile-lifecycle-test.txt" \
-  cargo test --manifest-path crates/morrow-reconcile/Cargo.toml lifecycle
+  cargo test -p morrow-reconcile lifecycle
 run_logged "$out_dir_abs/command-logs/cargo-reconcile-validation-test.txt" \
-  cargo test --manifest-path crates/morrow-reconcile/Cargo.toml --test validation
+  cargo test -p morrow-reconcile --test validation
 run_logged "$out_dir_abs/command-logs/cargo-diagnostics-lifecycle-trace-test.txt" \
-  cargo test --manifest-path crates/morrow-diagnostics/Cargo.toml lifecycle_trace
+  cargo test -p morrow-diagnostics lifecycle_trace
 run_native_test "$out_dir_abs/command-logs/cargo-native-proposal-replay-test.txt" proposal_replay
 run_native_test "$out_dir_abs/command-logs/cargo-native-lifecycle-replay-test.txt" replay_modes
 run_logged "$out_dir_abs/command-logs/reconcile-smoke.txt" \
-  cargo run --manifest-path crates/morrow-reconcile/Cargo.toml --example reconcile_smoke -- --scenario lifecycle-suite
+  cargo run -p morrow-reconcile --example reconcile_smoke -- --scenario lifecycle-suite
 run_logged "$out_dir_abs/command-logs/storage-replay-smoke.txt" \
-  cargo run --manifest-path crates/morrow-storage/Cargo.toml --example replay_smoke -- --db "$storage_readback_db"
+  cargo run -p morrow-storage --example replay_smoke -- --db "$storage_readback_db"
 run_storage_readback_query \
   "$out_dir_abs/command-logs/storage-readback-sqlite-query.txt" \
   "$storage_readback_db" \

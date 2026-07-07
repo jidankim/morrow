@@ -122,14 +122,17 @@ require_empty_or_marked_tmp_dir() {
 prepare_out_dir() {
   local requested="$1"
   local phase_evidence_abs
+  local workspace_cleanup_evidence_abs
   local prepared_abs
   local phase_child
+  local workspace_cleanup_child
 
   phase_evidence_abs="$(canonicalize_output_path "$PHASE_EVIDENCE_DIR")" || exit $?
+  workspace_cleanup_evidence_abs="$(canonicalize_output_path ".omo/evidence/root-cargo-workspace-cleanup")" || exit $?
   prepared_abs="$(canonicalize_output_path "$requested")" || exit $?
 
   case "$prepared_abs" in
-    /|"$repo_root_abs"|"$phase_evidence_abs")
+    /|"$repo_root_abs"|"$phase_evidence_abs"|"$workspace_cleanup_evidence_abs")
       die "--out-dir must be a dedicated evidence or tmp directory, not $prepared_abs"
       ;;
   esac
@@ -143,9 +146,17 @@ prepare_out_dir() {
         *) die "--out-dir must be a dedicated smoke directory under $PHASE_EVIDENCE_DIR: $requested" ;;
       esac
       ;;
+    "$workspace_cleanup_evidence_abs"/*)
+      workspace_cleanup_child="${prepared_abs#"$workspace_cleanup_evidence_abs"/}"
+      case "$workspace_cleanup_child" in
+        "") die "--out-dir must be a dedicated smoke directory under .omo/evidence/root-cargo-workspace-cleanup: $requested" ;;
+        *-smoke) ;;
+        *) die "--out-dir must be a dedicated smoke directory under .omo/evidence/root-cargo-workspace-cleanup: $requested" ;;
+      esac
+      ;;
     *)
       if ! is_dedicated_tmp_dir "$prepared_abs"; then
-        die "--out-dir cleanup is only allowed under $PHASE_EVIDENCE_DIR or a dedicated TMPDIR/private tmp smoke directory: $requested"
+        die "--out-dir cleanup is only allowed under $PHASE_EVIDENCE_DIR, .omo/evidence/root-cargo-workspace-cleanup, or a dedicated TMPDIR/private tmp smoke directory: $requested"
       fi
       require_empty_or_marked_tmp_dir "$prepared_abs"
       ;;

@@ -85,20 +85,20 @@ echo "repo: workspace"
 echo "out_dir: $out_dir_display"
 echo "backend: local fake Codex fixtures only"
 
-echo "command: cargo test --manifest-path src-tauri/Cargo.toml --test native_scan_codex decision_evidence -- --nocapture"
+echo "command: cargo test -p morrow --test native_scan_codex decision_evidence -- --nocapture"
 set +e
 if command -v xcrun >/dev/null 2>&1; then
   macos_sdk="$(xcrun --sdk macosx --show-sdk-path)"
   SDKROOT="$macos_sdk" LIBRARY_PATH="$macos_sdk/usr/lib" \
     MORROW_TASK2_DECISION_EVIDENCE_COPY="$native_report_dir/provider-candidate-retained.json" \
     MORROW_TASK5_DECISION_EVIDENCE_DIR="$native_report_dir" \
-    cargo test --manifest-path src-tauri/Cargo.toml --test native_scan_codex decision_evidence -- --nocapture \
+    cargo test -p morrow --test native_scan_codex decision_evidence -- --nocapture \
     > "$cargo_report_raw" 2>&1
   cargo_status=$?
 else
   MORROW_TASK2_DECISION_EVIDENCE_COPY="$native_report_dir/provider-candidate-retained.json" \
     MORROW_TASK5_DECISION_EVIDENCE_DIR="$native_report_dir" \
-    cargo test --manifest-path src-tauri/Cargo.toml --test native_scan_codex decision_evidence -- --nocapture \
+    cargo test -p morrow --test native_scan_codex decision_evidence -- --nocapture \
     > "$cargo_report_raw" 2>&1
   cargo_status=$?
 fi

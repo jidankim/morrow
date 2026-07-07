@@ -16,12 +16,12 @@ run_native_test() {
     macos_sdk="$(xcrun --sdk macosx --show-sdk-path)"
     {
       echo "scenario: targeted native cargo test"
-      echo "invocation: cargo test --manifest-path src-tauri/Cargo.toml $filter"
+      echo "invocation: cargo test -p morrow $filter"
       SDKROOT="$macos_sdk" LIBRARY_PATH="$macos_sdk/usr/lib" \
-        cargo test --manifest-path src-tauri/Cargo.toml "$filter"
+        cargo test -p morrow "$filter"
     } > "$log_path" 2>&1
   else
-    run_logged "$log_path" cargo test --manifest-path src-tauri/Cargo.toml "$filter"
+    run_logged "$log_path" cargo test -p morrow "$filter"
   fi
 }
 

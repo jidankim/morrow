@@ -17,6 +17,8 @@ app_args=()
 profile="debug"
 target_triple=""
 after_separator=false
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+repo_root="$(cd -- "$script_dir/.." && pwd -P)"
 
 while [ "$#" -gt 0 ]; do
   if [ "$after_separator" = true ]; then
@@ -62,9 +64,9 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 
-cargo build --bin morrow "${build_args[@]}"
+cargo build -p morrow --bin morrow "${build_args[@]}"
 
-target_dir="${CARGO_TARGET_DIR:-target}"
+target_dir="${CARGO_TARGET_DIR:-$repo_root/target}"
 if [ -n "$target_triple" ]; then
   app_binary="$target_dir/$target_triple/$profile/morrow"
 else

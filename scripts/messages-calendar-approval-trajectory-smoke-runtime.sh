@@ -116,12 +116,12 @@ run_native_trajectory_test() {
     macos_sdk="$(xcrun --sdk macosx --show-sdk-path)"
     {
       echo "scenario: targeted native trajectory eval test"
-      echo "invocation: cargo test --manifest-path src-tauri/Cargo.toml --test native_scan_codex trajectory_eval -- --nocapture"
+      echo "invocation: cargo test -p morrow --test native_scan_codex trajectory_eval -- --nocapture"
       SDKROOT="$macos_sdk" LIBRARY_PATH="$macos_sdk/usr/lib" \
-        cargo test --manifest-path src-tauri/Cargo.toml --test native_scan_codex trajectory_eval -- --nocapture
+        cargo test -p morrow --test native_scan_codex trajectory_eval -- --nocapture
     } > "$log_path" 2>&1
   else
-    run_logged "$log_path" cargo test --manifest-path src-tauri/Cargo.toml --test native_scan_codex trajectory_eval -- --nocapture
+    run_logged "$log_path" cargo test -p morrow --test native_scan_codex trajectory_eval -- --nocapture
   fi
 }
 

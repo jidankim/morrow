@@ -69,9 +69,9 @@ run_logged "$out_dir_abs/command-logs/cargo-reconcile-trajectory-runner.txt" \
   --out-dir "$local_runner_source_rel" \
   --assert-live-surface-rejection
 run_logged "$out_dir_abs/command-logs/cargo-diagnostics-trajectory-trace.txt" \
-  cargo test --manifest-path crates/morrow-diagnostics/Cargo.toml --test messages_calendar_approval_trajectory_trace
+  cargo test -p morrow-diagnostics --test messages_calendar_approval_trajectory_trace
 run_logged "$out_dir_abs/command-logs/cargo-storage-decision-evidence.txt" \
-  cargo test --manifest-path crates/morrow-storage/Cargo.toml --test decision_evidence
+  cargo test -p morrow-storage --test decision_evidence
 run_native_trajectory_test "$out_dir_abs/command-logs/cargo-native-trajectory-eval.txt"
 run_logged "$out_dir_abs/command-logs/npm-status-view.txt" npm test -- --run StatusView
 run_logged "$out_dir_abs/command-logs/npm-messages-tauri-commands.txt" npm test -- --run messagesTauriCommands

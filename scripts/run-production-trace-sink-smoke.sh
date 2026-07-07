@@ -167,12 +167,12 @@ if command -v xcrun >/dev/null 2>&1; then
   macos_sdk="$(xcrun --sdk macosx --show-sdk-path)"
   SDKROOT="$macos_sdk" LIBRARY_PATH="$macos_sdk/usr/lib" \
     MORROW_TASK4_TRACE_COPY="$trace_out" \
-    cargo test --manifest-path src-tauri/Cargo.toml \
+    cargo test -p morrow \
       production_scan_writes_local_diagnostics_trace -- --nocapture \
       > "$cargo_report" 2>&1
 else
   MORROW_TASK4_TRACE_COPY="$trace_out" \
-    cargo test --manifest-path src-tauri/Cargo.toml \
+    cargo test -p morrow \
       production_scan_writes_local_diagnostics_trace -- --nocapture \
       > "$cargo_report" 2>&1
 fi

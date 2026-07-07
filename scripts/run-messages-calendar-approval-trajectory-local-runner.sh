@@ -60,7 +60,7 @@ resolve_out_dir() {
 out_dir="$(resolve_out_dir "$out_dir")"
 
 MORROW_PHASE5_LOCAL_RUNNER_OUT_DIR="$out_dir" \
-  cargo test --manifest-path crates/morrow-reconcile/Cargo.toml --test messages_calendar_approval_trajectory runner -- --nocapture
+  cargo test -p morrow-reconcile --test messages_calendar_approval_trajectory runner -- --nocapture
 
 test -s "$out_dir/local-trajectory-run.json"
 

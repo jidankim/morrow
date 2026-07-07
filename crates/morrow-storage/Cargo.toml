@@ -10,4 +10,4 @@ build = "build.rs"
 
 [dev-dependencies]
 proptest = "1"
-tempfile = "3"
+tempfile = { workspace = true }

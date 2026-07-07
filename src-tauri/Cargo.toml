@@ -22,23 +22,23 @@ cc = "1"
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-morrow-detection = { path = "../crates/morrow-detection" }
-morrow-diagnostics = { path = "../crates/morrow-diagnostics" }
-morrow-calendar = { path = "../crates/morrow-calendar" }
-morrow-messages = { path = "../crates/morrow-messages" }
-morrow-reminders = { path = "../crates/morrow-reminders" }
-morrow-storage = { path = "../crates/morrow-storage" }
+morrow-detection = { workspace = true }
+morrow-diagnostics = { workspace = true }
+morrow-calendar = { workspace = true }
+morrow-messages = { workspace = true }
+morrow-reminders = { workspace = true }
+morrow-storage = { workspace = true }
 reqwest = { version = "0.13.4", default-features = false, features = ["json", "native-tls"] }
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-sha2 = "0.10"
+serde = { workspace = true }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
 tauri = { version = "2", features = [] }
 time = { version = "0.3.51", features = ["parsing"] }
 time-tz = { version = "2.0.0", features = ["system"] }
 
 [dev-dependencies]
 regex = "1.12.4"
-tempfile = "3"
+tempfile = { workspace = true }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 core-foundation = "0.9.4"

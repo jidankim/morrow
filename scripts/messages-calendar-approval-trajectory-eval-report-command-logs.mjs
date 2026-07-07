@@ -12,11 +12,11 @@ const expectedCommandLogs = {
   "cargo-reconcile-trajectory-runner.txt":
     "scripts/run-messages-calendar-approval-trajectory-local-runner.sh --out-dir",
   "cargo-diagnostics-trajectory-trace.txt":
-    "cargo test --manifest-path crates/morrow-diagnostics/Cargo.toml --test messages_calendar_approval_trajectory_trace",
+    "cargo test -p morrow-diagnostics --test messages_calendar_approval_trajectory_trace",
   "cargo-storage-decision-evidence.txt":
-    "cargo test --manifest-path crates/morrow-storage/Cargo.toml --test decision_evidence",
+    "cargo test -p morrow-storage --test decision_evidence",
   "cargo-native-trajectory-eval.txt":
-    "cargo test --manifest-path src-tauri/Cargo.toml --test native_scan_codex trajectory_eval -- --nocapture",
+    "cargo test -p morrow --test native_scan_codex trajectory_eval -- --nocapture",
   "npm-status-view.txt": "npm test -- --run StatusView",
   "npm-messages-tauri-commands.txt": "npm test -- --run messagesTauriCommands",
 };

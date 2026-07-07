@@ -63,13 +63,13 @@ echo "out_dir: $out_dir_abs"
 echo "backend: local tests and synthetic privacy surfaces only"
 
 run_logged "$out_dir_abs/command-logs/cargo-diagnostics-human-approval-correction-trace.txt" \
-  cargo test --manifest-path crates/morrow-diagnostics/Cargo.toml --test human_approval_correction_trace
+  cargo test -p morrow-diagnostics --test human_approval_correction_trace
 run_logged "$out_dir_abs/command-logs/cargo-reconcile-human-approval-correction.txt" \
-  cargo test --manifest-path crates/morrow-reconcile/Cargo.toml --test human_approval_correction -- --nocapture
+  cargo test -p morrow-reconcile --test human_approval_correction -- --nocapture
 run_logged "$out_dir_abs/command-logs/cargo-storage-decision-evidence.txt" \
-  cargo test --manifest-path crates/morrow-storage/Cargo.toml --test decision_evidence
+  cargo test -p morrow-storage --test decision_evidence
 run_logged "$out_dir_abs/command-logs/cargo-storage-decision-evidence-privacy.txt" \
-  cargo test --manifest-path crates/morrow-storage/Cargo.toml --test decision_evidence_privacy
+  cargo test -p morrow-storage --test decision_evidence_privacy
 run_native_phase4_test "$out_dir_abs/command-logs/cargo-native-decision-evidence.txt"
 run_logged "$out_dir_abs/command-logs/npm-status-view.txt" npm test -- --run StatusView
 run_logged "$out_dir_abs/command-logs/npm-messages-tauri-commands.txt" npm test -- --run messagesTauriCommands

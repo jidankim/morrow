@@ -61,7 +61,7 @@ main() {
   export RUSTFLAGS="${RUSTFLAGS:--C linker=/Library/Developer/CommandLineTools/usr/bin/cc}"
   local helper_output="$work_dir/rust-helper.out"
   local timeout_seconds="${MORROW_REAL_QA_TIMEOUT_SECONDS:-90}"
-  if ! (cd "$repo_root/src-tauri" && run_with_timeout "$timeout_seconds" "$helper_output" cargo run --quiet --example "$example_name"); then
+  if ! (cd "$repo_root" && run_with_timeout "$timeout_seconds" "$helper_output" cargo run -p morrow --quiet --example "$example_name"); then
     cp "$helper_output" "$helper_log"
     if grep -q '^STATUS=BLOCKED_FULL_DISK_ACCESS$' "$helper_output"; then
       emit_blocked "missing Full Disk Access"

@@ -56,10 +56,10 @@ rm -f "$workflow_db" "$delete_db" "$metrics_report" "$eval_report"
 MORROW_E2E_DB="$workflow_db" \
 MORROW_E2E_DELETE_DB="$delete_db" \
 MORROW_E2E_METRICS_REPORT="$metrics_report" \
-  cargo run --manifest-path crates/morrow-reconcile/Cargo.toml --example mvp_e2e \
+  cargo run -p morrow-reconcile --example mvp_e2e \
   > "$e2e_output" 2>&1
 
-cargo test --manifest-path crates/morrow-storage/Cargo.toml \
+cargo test -p morrow-storage \
   feedback_eval_invalid_delete_all_preserves_tables \
   > "$delete_failure_output" 2>&1
 
