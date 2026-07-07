@@ -3,11 +3,12 @@ use super::scan::ScanSelectedChatsError;
 use morrow_detection::SourceExcerptPolicy;
 use morrow_messages::ChatGuid;
 use morrow_storage::{
-    privacy_safe_native_scan_title, CandidateDraft, CandidateId, QuietLogDraft,
+    privacy_safe_native_scan_title, CandidateDraft, CandidateId, CandidateKind, QuietLogDraft,
     PROVIDER_ROUTE_NATIVE_CANDIDATE_TITLE,
 };
 
 const HIDDEN_SOURCE_EXCERPT: &str = "Source excerpt hidden by settings.";
+const NATIVE_SCAN_REMINDER_TITLE: &str = "Messages reminder candidate";
 
 pub(super) fn privacy_safe_candidate(
     mut candidate: CandidateDraft,
@@ -16,15 +17,25 @@ pub(super) fn privacy_safe_candidate(
     candidate.chat_guid =
         public_chat_id(&ChatGuid::parse(&candidate.chat_guid).map_err(messages_error)?);
     candidate.anchor_message_guid = public_message_id(&candidate.anchor_message_guid);
-    candidate.title = privacy_safe_candidate_title(&candidate.title);
+    candidate.title = privacy_safe_candidate_title(candidate.kind, &candidate.title);
     if source_excerpts == SourceExcerptPolicy::Hide {
         candidate.evidence_excerpt = HIDDEN_SOURCE_EXCERPT.to_owned();
     }
     Ok(candidate)
 }
 
-fn privacy_safe_candidate_title(raw: &str) -> String {
-    privacy_safe_native_scan_title(raw, PROVIDER_ROUTE_NATIVE_CANDIDATE_TITLE)
+fn privacy_safe_candidate_title(kind: CandidateKind, raw: &str) -> String {
+    let fallback = match kind {
+        CandidateKind::TaskReminder => NATIVE_SCAN_REMINDER_TITLE,
+        CandidateKind::CalendarEvent
+        | CandidateKind::EventUpdate
+        | CandidateKind::EventReschedule
+        | CandidateKind::EventCancellation
+        | CandidateKind::ReminderUpdate
+        | CandidateKind::ReminderReschedule
+        | CandidateKind::ReminderCancellation => PROVIDER_ROUTE_NATIVE_CANDIDATE_TITLE,
+    };
+    privacy_safe_native_scan_title(raw, fallback)
 }
 
 pub(super) fn privacy_safe_quiet_log(
