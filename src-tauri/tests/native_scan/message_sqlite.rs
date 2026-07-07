@@ -132,6 +132,37 @@ pub(super) fn update_provider_route_message_text(db_path: &Path, text: &str) -> 
     )
 }
 
+pub(super) fn insert_provider_route_companion_message(
+    db_path: &Path,
+    text: &str,
+) -> Result<(), String> {
+    run_sqlite(
+        db_path,
+        &format!(
+            "
+            INSERT INTO message (ROWID, guid, date, text, attributedBody, handle_id)
+                VALUES (2, 'alpha-provider-context', {}, {}, NULL, 3);
+            INSERT INTO chat_message_join (chat_id, message_id) VALUES (1, 2);
+            ",
+            apple_nanoseconds(1_782_352_399),
+            sql_text(text)
+        ),
+    )
+}
+
+pub(super) fn update_provider_route_companion_message(
+    db_path: &Path,
+    text: &str,
+) -> Result<(), String> {
+    run_sqlite(
+        db_path,
+        &format!(
+            "UPDATE message SET text = {} WHERE guid = 'alpha-provider-context';",
+            sql_text(text)
+        ),
+    )
+}
+
 pub(super) fn candidate_reasons(db_path: &Path) -> Result<String, String> {
     query_sqlite(
         db_path,

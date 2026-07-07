@@ -1,5 +1,7 @@
 mod candidate;
 mod payload;
+#[cfg(test)]
+mod tests;
 
 use serde_json::{json, Value};
 

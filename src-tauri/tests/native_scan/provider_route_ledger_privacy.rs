@@ -110,12 +110,14 @@ fn provider_route_ledger_cache_hit_records_trace_without_feedback_duplicates() -
     let cache_hit_records = &records[first_trace_count..];
     let cache_hit_trace =
         serde_json::to_string(cache_hit_records).map_err(|error| error.to_string())?;
+    let route_rows_after_cache_hit = provider_route_outcome_count(&fixture.store_path)?;
 
     // Then
     assert_counts(&first, (1, 1, 0, 1, 0));
     assert_counts(&second, (0, 0, 0, 0, 0));
     assert_eq!(provider.calls(), 1);
     assert_eq!(adapter.created_count(), 1);
+    assert_eq!(route_rows_after_cache_hit, 1);
     assert_eq!(first_feedback_counts, second_feedback_counts);
     assert!(cache_hit_trace.contains("provider_route_cache_hit"));
     assert!(!cache_hit_trace.contains("provider_extract_success"));
@@ -129,7 +131,9 @@ fn provider_route_ledger_cache_hit_records_trace_without_feedback_duplicates() -
             "\"calendar_event\"",
             title,
         ],
-    )
+    )?;
+    println!("cache_hit_provider_route_rows={route_rows_after_cache_hit}");
+    Ok(())
 }
 
 struct TitleProvider {

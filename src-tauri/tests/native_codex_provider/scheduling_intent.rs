@@ -2,7 +2,7 @@ use morrow_lib::native_bridge::CodexProvider;
 use serde_json::Value;
 
 use crate::codex_provider::{FakeCodexRunner, FakeOutcome};
-use crate::provider::message;
+use crate::provider::{candidate_json, message};
 
 #[test]
 fn scheduling_intent_provider_prompt_guides_weak_calendar_phrasing_to_calendar_event_confidence(
@@ -73,5 +73,57 @@ fn scheduling_intent_provider_prompt_keeps_weak_deadline_wording_as_task_reminde
         .only_observation()?
         .prompt_text
         .contains("msg-weak-task"));
+    Ok(())
+}
+
+#[test]
+fn scheduling_intent_provider_prompt_calibrates_semantic_ownership_boundaries() -> Result<(), String>
+{
+    // Given
+    let runner = FakeCodexRunner::new(vec![FakeOutcome::WriteOutput(candidate_json().to_owned())]);
+    let provider = CodexProvider::new(&runner);
+    let evidence = [
+        message(
+            "chat-a",
+            "msg-semantic-calendar",
+            "Let's do the contract readout at 10 on July 16.",
+        )?,
+        message(
+            "chat-a",
+            "msg-semantic-reminder",
+            "Remind me to send the prep notes by Friday.",
+        )?,
+    ];
+
+    // When
+    provider
+        .extract_response(&evidence, "Asia/Seoul")
+        .map_err(|error| error.to_string())?;
+
+    // Then
+    let prompt = runner.only_observation()?.prompt_text;
+    let prompt_lower = prompt.to_ascii_lowercase();
+    for required in [
+        "semantic calendar wording",
+        "reminders",
+        "selected evidence only",
+        "title",
+        "context",
+        "reject ungrounded",
+        "hallucinated evidence",
+        "normalized_time",
+    ] {
+        assert!(
+            prompt_lower.contains(required),
+            "missing prompt guidance: {required}"
+        );
+    }
+    assert!(prompt.contains("Calendar vs Reminders"));
+    assert!(prompt.contains("calendar_event"));
+    assert!(prompt.contains("task_reminder"));
+    assert!(prompt.contains("evidence://selected/0"));
+    assert!(prompt.contains("evidence://selected/1"));
+    assert!(!prompt.contains("msg-semantic-calendar"));
+    assert!(!prompt.contains("msg-semantic-reminder"));
     Ok(())
 }

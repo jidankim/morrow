@@ -3,7 +3,7 @@ use serde::Serialize;
 
 use super::ProviderContractError;
 
-const MAX_EVIDENCE_MESSAGES: usize = 20;
+pub(super) const MAX_EVIDENCE_MESSAGES: usize = 20;
 const MAX_EXCERPT_BYTES: usize = 120;
 const MAX_SERIALIZED_EVIDENCE_BYTES: usize = 4 * 1024;
 

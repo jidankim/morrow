@@ -48,8 +48,14 @@ mod provider_route_support;
 mod replay_selection;
 #[path = "native_scan/scheduling_intent_eventkit.rs"]
 mod scheduling_intent_eventkit;
+#[path = "native_scan/scheduling_intent_live_receipt.rs"]
+mod scheduling_intent_live_receipt;
 #[path = "native_scan/scheduling_intent_provider_route.rs"]
 mod scheduling_intent_provider_route;
+#[path = "native_scan/scheduling_intent_support.rs"]
+mod scheduling_intent_support;
+#[path = "native_scan/semantic_provider_router.rs"]
+mod semantic_provider_router;
 #[path = "native_scan/support.rs"]
 mod support;
 #[path = "native_scan/trace.rs"]

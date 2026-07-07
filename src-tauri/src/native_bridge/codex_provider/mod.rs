@@ -75,12 +75,16 @@ fn provider_prompt(
         "Return only one JSON object matching the supplied schema. Use only this redacted evidence payload. \
 For an explicit request to create, add, or schedule a calendar event with a date and time, set confidence_millis between 850 and 1000. \
 For weak calendar wording such as catch up Friday afternoon, coffee Friday afternoon, sync Friday afternoon, or touch base Friday afternoon, set kind to calendar_event and set confidence_millis between 850 and 1000 when the date/time is inferable. \
+Semantic calendar wording: natural phrasing such as readouts, check-ins, holds, bookings, visits, or other meeting-like commitments may be calendar_event when selected evidence only grounds the title, context, participants, and time. \
+Calendar vs Reminders disambiguation: choose calendar_event for meetings, appointments, calls, visits, holds, bookings, or shared time commitments; choose task_reminder for reminders, todos, follow-ups, deadlines, due dates, or by-date obligations. \
 For a task or reminder request with a clear due date, deadline, or by-date, set kind to task_reminder and set confidence_millis between 700 and 850. \
 For weak task deadline wording such as follow up by July 25, send by July 25, finish by July 25, complete by July 25, due July 25, or deadline July 25, keep kind as task_reminder. \
 If that task/reminder request has a clear deadline date but no clock time, use 23:59:00 in the configured reference timezone. \
 For list-reminders-v1 quantity lists such as 2 anchovies, 3 salmon, set kind to task_reminder and include structured items with numeric quantity, normalized name, optional bounded unit, and evidence_ids for each item; the title will be rendered locally as Daily list from validated items. \
+Generate title and context from selected evidence only; do not infer private details, names, locations, attendees, or source text that are not present in the redacted selected evidence payload. \
+Reject ungrounded or hallucinated evidence: every anchor_evidence_id, evidence_ids entry, and item evidence_ids entry must reference an existing evidence://selected/N id from the payload, and unsupported or invented evidence should drive confidence_millis below 550. \
 Use confidence_millis below 550 only when the evidence lacks calendar/reminder intent or lacks an inferable date or time after these calendar/reminder rules. \
-normalized_time contract: use exactly YYYY-MM-DDTHH:MM:SS[Area/Location] with the configured reference timezone or YYYY-MM-DDTHH:MM:SSZ for UTC. \
+normalized_time contract: use exactly YYYY-MM-DDTHH:MM:SS[Area/Location] with the configured reference timezone or YYYY-MM-DDTHH:MM:SSZ for UTC, resolving semantic or relative wording only when grounded by selected evidence and the reference timezone. \
 Date and time fields are fixed-width; seconds are mandatory. Bracketed zones must be safe IANA-style zones. \
 Valid examples: {configured_example}, 2026-07-03T06:30:00Z. \
 Invalid examples: 2026-7-3T15:30Z, 2026-07-03T15:30, 2026-07-03 15:30:00, 2026-07-03T15:30:00+09:00, tomorrow at 3pm, 2026-07-03T15:30:00[Private/Prompt].\n{evidence_text}"

@@ -3,6 +3,7 @@ use morrow_storage::{validate_normalized_time as storage_validate_normalized_tim
 use serde::Deserialize;
 use serde_json::{json, Value};
 
+use super::payload::MAX_EVIDENCE_MESSAGES;
 use super::{normalized_time_schema, ProviderContractError};
 
 pub(crate) const PROVIDER_CANDIDATE_SCHEMA_VERSION: &str = "provider-candidate-schema-v3";
@@ -249,6 +250,9 @@ fn evidence_guid_for_id(
     let index = index_text
         .parse::<usize>()
         .map_err(|_| invalid_candidate("candidate evidence was hallucinated"))?;
+    if index >= MAX_EVIDENCE_MESSAGES {
+        return Err(invalid_candidate("candidate evidence was hallucinated"));
+    }
     evidence
         .get(index)
         .map(|message| message.message_guid.as_str().to_owned())

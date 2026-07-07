@@ -3,9 +3,7 @@ use morrow_lib::native_bridge::{
 };
 
 use super::super::dependencies::{CandidateProvider, CountingProvider, RecordingProposalAdapter};
-use super::super::message_sqlite::{
-    provider_route_fingerprint_count, provider_route_outcome_dump,
-};
+use super::super::message_sqlite::{provider_route_fingerprint_count, provider_route_outcome_dump};
 use super::{provider_route_request, scan_provider_route, ProviderRouteFixture};
 
 #[test]

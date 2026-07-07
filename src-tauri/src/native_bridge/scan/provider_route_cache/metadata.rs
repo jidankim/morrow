@@ -17,7 +17,7 @@ use crate::native_bridge::provider_contract::{
 pub(super) fn route_metadata(
     request: ProviderRouteRequest<'_>,
 ) -> Result<ProviderRouteWriteIntent, NativeProviderRouteCacheError> {
-    let evidence_text = evidence_payload_text(std::slice::from_ref(request.message))
+    let evidence_text = evidence_payload_text(request.selected_evidence)
         .map_err(NativeProviderRouteCacheError::from_provider_contract)?;
     let evidence_payload_hash = hash_text(&evidence_text);
     let reference_timezone = request.config.reference.timezone.clone();

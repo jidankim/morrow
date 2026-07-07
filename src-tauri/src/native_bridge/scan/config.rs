@@ -41,7 +41,7 @@ pub(super) fn scan_config(
             provider: ProviderIdentity::new_with_profile(
                 "native-bridge",
                 "deterministic",
-                "scan-v2",
+                "scan-v3",
                 &request.list_reminder_profile,
             )
             .map_err(detection_error)?,
