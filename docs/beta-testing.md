@@ -2,6 +2,8 @@
 
 Packaged beta testers should use the signed, notarized DMG from the release handoff. You do not need to clone the repository or run source-build commands to test the packaged app.
 
+For public privacy and rollout claim boundaries, see `docs/privacy.md` and `docs/wider-product-rollout.md`.
+
 Trusted diagnostic testing uses a separate ad-hoc signed, not notarized, host-architecture-only zip artifact documented in `docs/diagnostic-testing.md`. Diagnostic artifacts are not signed/notarized beta artifacts and must not be redistributed.
 
 ## Install The Packaged App
