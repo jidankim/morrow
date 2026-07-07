@@ -1,9 +1,19 @@
 use morrow_messages::MessageEvidence;
 
+use crate::list_intake::{ListIntakeProfile, ValidatedListIntakeExtraction};
 use crate::types::ProviderIdentity;
 
 pub trait AiProvider {
     fn extract(&self, request: ProviderRequest<'_>) -> Result<ProviderResponse, ProviderError>;
+
+    fn extract_list_intake(
+        &self,
+        _request: ListIntakeProviderRequest<'_>,
+    ) -> Result<ValidatedListIntakeExtraction, ProviderError> {
+        Err(ProviderError::Unavailable {
+            reason: "list-intake provider is not configured".to_owned(),
+        })
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -11,6 +21,39 @@ pub struct ProviderRequest<'a> {
     evidence: &'a [MessageEvidence],
     identity: &'a ProviderIdentity,
     reference_timezone: &'a str,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct ListIntakeProviderRequest<'a> {
+    profile: &'a ListIntakeProfile,
+    evidence: &'a MessageEvidence,
+    reference_timezone: &'a str,
+}
+
+impl<'a> ListIntakeProviderRequest<'a> {
+    pub fn new(
+        profile: &'a ListIntakeProfile,
+        evidence: &'a MessageEvidence,
+        reference_timezone: &'a str,
+    ) -> Self {
+        Self {
+            profile,
+            evidence,
+            reference_timezone,
+        }
+    }
+
+    pub const fn profile(&self) -> &'a ListIntakeProfile {
+        self.profile
+    }
+
+    pub const fn evidence(&self) -> &'a MessageEvidence {
+        self.evidence
+    }
+
+    pub const fn reference_timezone(&self) -> &'a str {
+        self.reference_timezone
+    }
 }
 
 impl<'a> ProviderRequest<'a> {

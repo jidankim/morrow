@@ -6,7 +6,6 @@ use crate::types::{CivilDateTime, DetectionConfig};
 mod clock;
 mod fallback_title;
 mod phrases;
-mod quantity_list;
 
 use clock::{parse_explicit_datetime, parse_natural_deadline};
 use fallback_title::weak_calendar_fallback_title;
@@ -16,7 +15,6 @@ use phrases::{
     has_unsupported_scope, has_weak_calendar_phrase, kind_for, normalized_words, route_reason,
     should_route_explicit_time_to_provider, should_route_to_provider,
 };
-use quantity_list::should_route_bare_quantity_list;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum GateDecision {
@@ -93,13 +91,6 @@ pub(crate) fn classify(message: &MessageEvidence, config: &DetectionConfig) -> G
         Ok(None) if has_past_temporal_expression(&words) => GateDecision::Stop {
             reason: "deterministic_stop:past_or_invalid_time",
         },
-        Ok(None) if should_route_bare_quantity_list(&message.excerpt, config) => {
-            GateDecision::ProviderRoute {
-                reason: "parser_provider_route_bare_quantity_list",
-                parser_time: None,
-                fallback: None,
-            }
-        }
         Ok(None) if !has_recognized_temporal_expression(&message.excerpt, &words) => {
             GateDecision::Stop {
                 reason: "deterministic_stop:no_scheduling_signal",

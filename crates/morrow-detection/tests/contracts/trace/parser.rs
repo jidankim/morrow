@@ -7,10 +7,7 @@ use crate::support::{
     FakeProvider,
 };
 
-use super::expectations::{
-    parser_bare_quantity_list_provider_route_expectations, parser_candidate_expectations,
-    parser_stop_expectations,
-};
+use super::expectations::{parser_candidate_expectations, parser_stop_expectations};
 use super::helpers::{
     assert_title_hash_only, assert_trace_excludes, assert_trace_sequence, CollectingRecorder,
 };
@@ -73,7 +70,7 @@ fn trace_records_parser_candidate_without_provider_call() -> Result<(), Box<dyn 
 }
 
 #[test]
-fn trace_records_profile_enabled_bare_quantity_list_provider_route() -> Result<(), Box<dyn Error>> {
+fn trace_records_profile_enabled_bare_quantity_list_parser_stop() -> Result<(), Box<dyn Error>> {
     let provider = FakeProvider::new(Some(
         "{\"kind\":\"task_reminder\",\"title\":\"Daily list: 2 anchovies; 3 salmon\",\
          \"confidence_millis\":760,\
@@ -94,18 +91,14 @@ fn trace_records_profile_enabled_bare_quantity_list_provider_route() -> Result<(
 
     let report = pipeline.detect_with_trace(&messages, &config, &recorder);
 
-    let candidate = only_candidate(&report.outcomes)?;
-    assert_eq!(
-        candidate.evidence_excerpt,
-        "Source excerpt hidden by settings."
-    );
-    assert_eq!(provider.calls(), 1);
+    let quiet = only_quiet(&report.outcomes)?;
+    assert_eq!(quiet.reason, "deterministic_stop:no_scheduling_signal");
+    assert_eq!(provider.calls(), 0);
     let records = recorder.records()?;
     assert_trace_sequence(
         &records,
-        &parser_bare_quantity_list_provider_route_expectations(),
+        &parser_stop_expectations("deterministic_stop:no_scheduling_signal"),
     );
-    assert_title_hash_only(&records, 1);
     assert_trace_excludes(&records, &["MORROW_MESSAGE_CANARY"])?;
     Ok(())
 }

@@ -13,6 +13,8 @@ sha2 = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
+time = { version = "0.3.51", features = ["parsing"] }
+time-tz = { version = "2.0.0", features = ["system"] }
 
 [lints.rust]
 unsafe_code = "forbid"

@@ -94,28 +94,6 @@ pub(super) fn parser_candidate_expectations() -> [ExpectedTrace; 3] {
     ]
 }
 
-pub(super) fn parser_bare_quantity_list_provider_route_expectations() -> [ExpectedTrace; 7] {
-    [
-        parser_provider_route("parser_provider_route_bare_quantity_list"),
-        provider_route(),
-        provider_success(),
-        ExpectedTrace {
-            operation: TraceOperation::SchemaValidation,
-            decision: Some(TraceDecision::Candidate),
-            outcome: TraceOutcome::Noop,
-            reason_code: Some("provider_schema_accepted"),
-        },
-        ExpectedTrace {
-            operation: TraceOperation::ThresholdDecision,
-            decision: Some(TraceDecision::ConfidenceAccepted),
-            outcome: TraceOutcome::CandidateCreated,
-            reason_code: Some("confidence_meets_threshold"),
-        },
-        candidate_outcome(),
-        privacy_hidden(),
-    ]
-}
-
 pub(super) fn provider_unavailable_expectations() -> [ExpectedTrace; 5] {
     [
         parser_provider_route("parser_provider_route_ambiguous_calendar"),

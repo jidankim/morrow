@@ -1,12 +1,9 @@
 use std::error::Error;
 
-use morrow_detection::DetectionPipeline;
-use morrow_storage::CandidateKind;
-
 use crate::support::{
-    config, config_with_profile_bare_quantity_lists, message, only_candidate, only_quiet,
-    FakeProvider,
+    config, config_with_profile_bare_quantity_lists, message, only_quiet, FakeProvider,
 };
+use morrow_detection::DetectionPipeline;
 
 #[test]
 fn bare_quantity_list_stops_before_provider_when_profile_disabled() -> Result<(), Box<dyn Error>> {
@@ -66,7 +63,8 @@ fn am_pm_time_like_bare_list_stops_before_provider_when_profile_disabled(
 }
 
 #[test]
-fn bare_quantity_list_routes_to_provider_when_profile_enabled() -> Result<(), Box<dyn Error>> {
+fn bare_quantity_list_stops_before_provider_when_legacy_profile_enabled(
+) -> Result<(), Box<dyn Error>> {
     // Given
     let provider = FakeProvider::new(Some(
         "{\"kind\":\"task_reminder\",\"title\":\"Daily list: 2 anchovies; 3 salmon\",\
@@ -88,14 +86,13 @@ fn bare_quantity_list_routes_to_provider_when_profile_enabled() -> Result<(), Bo
     let report = pipeline.detect(&messages, &config);
 
     // Then
-    assert_eq!(provider.calls(), 1);
-    let candidate = only_candidate(&report.outcomes)?;
-    assert_eq!(candidate.kind, CandidateKind::TaskReminder);
-    assert_eq!(candidate.title, "Daily list: 2 anchovies; 3 salmon");
+    assert_eq!(provider.calls(), 0);
+    let quiet = only_quiet(&report.outcomes)?;
+    assert_eq!(quiet.reason, "deterministic_stop:no_scheduling_signal");
     println!(
-        "bare_quantity_list_routes_to_provider_when_profile_enabled provider_calls={} candidate_kind={:?}",
+        "bare_quantity_list_stops_before_provider_when_legacy_profile_enabled provider_calls={} quiet_reason={}",
         provider.calls(),
-        candidate.kind
+        quiet.reason
     );
     Ok(())
 }
