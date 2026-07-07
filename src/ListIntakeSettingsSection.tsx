@@ -21,6 +21,7 @@ type ListIntakeSettingsSectionProps = {
 }
 
 const DEFAULT_POSITIVE_EXAMPLE = "2 anchovies, 3 salmon"
+const DEFAULT_SEAFOOD_KEYWORDS = ["anchovies", "anchovy", "salmon"] as const
 export function ListIntakeSettingsSection({
   config,
   onChange,
@@ -57,7 +58,7 @@ export function ListIntakeSettingsSection({
       providerPromptVersion: "list-intake-v1",
       positiveExamples: [DEFAULT_POSITIVE_EXAMPLE],
       negativeExamples: [],
-      categoryRules: [{ categoryId: "seafood", displayName: "Seafood", keywords: ["anchovy", "salmon"] }],
+      categoryRules: [{ categoryId: "seafood", displayName: "Seafood", keywords: DEFAULT_SEAFOOD_KEYWORDS }],
       aggregation: DEFAULT_AGGREGATION,
       chatScope: { mode: "allSelectedChats" },
       grouping: DEFAULT_GROUPING,

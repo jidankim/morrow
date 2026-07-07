@@ -69,9 +69,26 @@ function looksLikePhone(token: string): boolean {
 }
 
 function categoryForItem(itemName: string, categoryRules: readonly ListIntakeCategoryRule[]): string {
-  const normalizedName = itemName.toLocaleLowerCase()
+  const itemWords = normalizedWords(itemName)
   const match = categoryRules.find((rule) =>
-    rule.keywords.some((keyword) => normalizedName.includes(keyword.toLocaleLowerCase()))
+    rule.keywords.some((keyword) => keywordMatches(itemWords, keyword))
   )
   return match?.displayName ?? "Uncategorized"
+}
+
+function keywordMatches(itemWords: readonly string[], keyword: string): boolean {
+  const keywordWords = normalizedWords(keyword)
+  if (keywordWords.length === 0 || keywordWords.length > itemWords.length) {
+    return false
+  }
+  return itemWords.some((_word, index) =>
+    keywordWords.every((keywordWord, keywordIndex) => itemWords[index + keywordIndex] === keywordWord)
+  )
+}
+
+function normalizedWords(value: string): readonly string[] {
+  return value
+    .toLocaleLowerCase()
+    .split(/[^a-z0-9]+/u)
+    .filter((word) => word.length > 0)
 }

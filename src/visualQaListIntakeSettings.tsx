@@ -50,7 +50,9 @@ function createFishProfileConfig(): AppConfig {
         providerPromptVersion: "list-intake-v1",
         positiveExamples: ["2 anchovies, 3 salmon", "salmon - 3 / anchovy - 2"],
         negativeExamples: ["remind me to buy fish tomorrow"],
-        categoryRules: [{ categoryId: "seafood", displayName: "Seafood", keywords: ["anchovy", "salmon"] }],
+        categoryRules: [
+          { categoryId: "seafood", displayName: "Seafood", keywords: ["anchovies", "anchovy", "salmon"] }
+        ],
         aggregation: DEFAULT_AGGREGATION,
         chatScope: { mode: "allSelectedChats" },
         grouping: { ...DEFAULT_GROUPING, sender: "displayAlias" },
