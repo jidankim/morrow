@@ -1,0 +1,41 @@
+{
+  "schema_version": "phase6_cloud_eval_monitoring_events_v1",
+  "fixture_id": "phase6_stale_events_v1",
+  "generated_at_utc": "2026-07-07T00:00:00Z",
+  "freshness": {
+    "max_event_age_hours": 168
+  },
+  "events": [
+    {
+      "event_type": "eval_decision",
+      "schema_version": "phase6_cloud_eval_monitoring_event_v1",
+      "event_timestamp_utc": "2026-06-01T09:00:00Z",
+      "time_bucket_utc": "2026-06-01T00:00:00Z",
+      "app_version": "1.4.0",
+      "build_id": "build-2026-06-01-a",
+      "release_channel": "beta",
+      "release_id": "rel-2026-06-stale",
+      "model_id": "model-eval-alpha",
+      "router_version": "router-v6.1",
+      "prompt_version": "prompt-v6.1",
+      "template_id": "template-calendar-v2",
+      "feature_snapshot_id": "snapshot-stale",
+      "intent_type": "calendar_event",
+      "decision_outcome": "accepted",
+      "feedback_label": "accepted",
+      "expected_label": "accepted",
+      "actual_label": "accepted",
+      "confidence_bucket": "high",
+      "latency_ms": 420,
+      "error_kind": "none",
+      "provider_status": "ok",
+      "schema_validation_status": "ok",
+      "route_reason_code": "calendar_exact_time",
+      "installation_surrogate": "install-hash-a",
+      "user_surrogate": "user-hash-a",
+      "retention_state": "retained",
+      "deletion_state": "not_requested",
+      "evaluable": true
+    }
+  ]
+}

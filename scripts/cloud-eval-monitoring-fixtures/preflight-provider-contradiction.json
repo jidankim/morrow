@@ -1,0 +1,7 @@
+{
+  "scenario": "preflight_provider_source_of_truth_contradiction",
+  "current_docs_claim": "cloud telemetry remains future work",
+  "docs_cloud_telemetry_future_work": true,
+  "claimed_live_cloud_collector_status": "PASS",
+  "reconciliation_note": ""
+}
