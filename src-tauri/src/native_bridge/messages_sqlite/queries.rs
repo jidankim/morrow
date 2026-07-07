@@ -65,14 +65,17 @@ selected_messages AS (
     m.date AS message_date,
     hex(COALESCE(m.text, '')) AS text_hex,
     hex(COALESCE(m.attributedBody, X'')) AS attributed_body_hex,
+    COALESCE(CAST(m.handle_id AS TEXT), '') AS sender_handle_id,
+    COALESCE(hex(sender_handle.id), '') AS sender_handle_hex,
     ROW_NUMBER() OVER (PARTITION BY c.ROWID ORDER BY m.date DESC, m.ROWID DESC) AS row_number
   FROM selected s
   JOIN chat c ON c.guid = s.guid
   JOIN participants p ON p.chat_id = c.ROWID
   JOIN chat_message_join cmj ON cmj.chat_id = c.ROWID
   JOIN message m ON m.ROWID = cmj.message_id
+  LEFT JOIN handle sender_handle ON sender_handle.ROWID = m.handle_id
 )
-SELECT chat_guid, participant_count, participant_handles, message_guid, message_date, text_hex, attributed_body_hex
+SELECT chat_guid, participant_count, participant_handles, message_guid, message_date, text_hex, attributed_body_hex, sender_handle_id, sender_handle_hex
 FROM selected_messages
 WHERE row_number <= {limit}
 ORDER BY chat_guid ASC, message_date ASC, message_guid ASC;

@@ -1,4 +1,5 @@
 mod candidate;
+mod list_intake;
 mod payload;
 #[cfg(test)]
 mod tests;
@@ -8,6 +9,7 @@ use serde_json::{json, Value};
 pub(crate) use candidate::{
     candidate_schema, localize_candidate_json, PROVIDER_CANDIDATE_SCHEMA_VERSION,
 };
+pub(crate) use list_intake::{list_intake_prompt, list_intake_schema};
 pub(crate) use payload::evidence_payload_text;
 
 pub(crate) const NORMALIZED_TIME_SCHEMA_DESCRIPTION: &str =

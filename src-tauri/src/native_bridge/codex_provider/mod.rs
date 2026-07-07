@@ -5,7 +5,10 @@ mod workspace;
 
 use std::fs;
 
-use morrow_detection::{AiProvider, ProviderError, ProviderRequest, ProviderResponse};
+use morrow_detection::{
+    validate_list_intake_provider_output, AiProvider, ListIntakeProfile, ListIntakeProviderRequest,
+    ProviderError, ProviderRequest, ProviderResponse, ValidatedListIntakeExtraction,
+};
 use morrow_messages::MessageEvidence;
 
 use super::provider_contract;
@@ -51,6 +54,43 @@ impl<R: CodexExecRunner> CodexProvider<R> {
             CodexExecRun::FailedToStart => Err(CodexProviderError::CommandFailed),
         }
     }
+
+    pub fn extract_list_intake_response(
+        &self,
+        profile: &ListIntakeProfile,
+        evidence: &[MessageEvidence],
+        reference_timezone: &str,
+    ) -> Result<ValidatedListIntakeExtraction, CodexProviderError> {
+        let prompt = provider_contract::list_intake_prompt(profile, evidence, reference_timezone)?;
+        let schema_text = serde_json::to_string(&provider_contract::list_intake_schema())
+            .map_err(|_| CodexProviderError::WorkspaceUnavailable)?;
+        let workspace = CodexTempWorkspace::create()?;
+        fs::write(workspace.schema_path(), schema_text)
+            .map_err(|_| CodexProviderError::WorkspaceUnavailable)?;
+
+        let request = CodexExecRequest::for_workspace(&workspace, prompt);
+        match self.runner.run_exec(&request) {
+            CodexExecRun::Completed(output) if output.exit_code() == Some(0) => {
+                let provider_output = fs::read_to_string(workspace.output_path())
+                    .map_err(|_| CodexProviderError::OutputUnavailable)?;
+                validate_list_intake_provider_output(
+                    profile,
+                    evidence
+                        .first()
+                        .ok_or(CodexProviderError::InvalidResponse {
+                            reason: "list-intake evidence was empty",
+                        })?,
+                    reference_timezone,
+                    &provider_output,
+                )
+                .map_err(CodexProviderError::from)
+            }
+            CodexExecRun::Completed(_) => Err(CodexProviderError::CommandFailed),
+            CodexExecRun::MissingCli => Err(CodexProviderError::MissingCli),
+            CodexExecRun::TimedOut => Err(CodexProviderError::Timeout),
+            CodexExecRun::FailedToStart => Err(CodexProviderError::CommandFailed),
+        }
+    }
 }
 
 impl<R: CodexExecRunner> AiProvider for CodexProvider<R> {
@@ -59,6 +99,20 @@ impl<R: CodexExecRunner> AiProvider for CodexProvider<R> {
             .map_err(|error| ProviderError::Unavailable {
                 reason: error.to_string(),
             })
+    }
+
+    fn extract_list_intake(
+        &self,
+        request: ListIntakeProviderRequest<'_>,
+    ) -> Result<ValidatedListIntakeExtraction, ProviderError> {
+        self.extract_list_intake_response(
+            request.profile(),
+            std::slice::from_ref(request.evidence()),
+            request.reference_timezone(),
+        )
+        .map_err(|error| ProviderError::Unavailable {
+            reason: error.to_string(),
+        })
     }
 }
 

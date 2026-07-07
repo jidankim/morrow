@@ -1,6 +1,8 @@
 mod config;
 mod dependencies;
 mod feedback;
+mod list_intake;
+mod list_intake_execution;
 mod messages;
 mod outcome_plan;
 mod persistence;
@@ -14,12 +16,14 @@ use std::path::Path;
 
 use super::scan_privacy::candidate_ids_for_response;
 use config::{reference_unix_seconds, scan_config};
+use dependencies::empty_scan_result;
 pub use dependencies::ScanSelectedChatsDependencies;
-use dependencies::{empty_scan_result, UnavailableProvider};
 use feedback::FeedbackTraceRecorder;
+pub use list_intake::ListIntakeProfileRequest;
+use list_intake_execution::{run_list_intake, ListIntakeRunRequest};
 use messages::ingestion_request;
 use morrow_detection::{AiProvider, DetectionPipeline};
-use morrow_diagnostics::{NoopTraceRecorder, TraceRecorder};
+use morrow_diagnostics::TraceRecorder;
 use morrow_messages::{ingest_selected_threads, IngestionStatus, MessagesDataSource};
 use morrow_storage::{CapPolicy, Store};
 use outcome_plan::{plan_scan_outcomes, ScanOutcomePlanRequest};
@@ -32,6 +36,7 @@ pub use production::{
     scan_selected_chats_at_with_dependencies_and_app_data_dir,
     scan_selected_chats_at_with_unavailable_provider,
     scan_selected_chats_at_with_unavailable_provider_and_app_data_dir,
+    scan_selected_chats_with_source,
 };
 use proposal_replay::replay_external_proposals;
 pub(in crate::native_bridge) use proposal_replay::LocalProposalAdapter;
@@ -56,6 +61,7 @@ pub use morrow_detection::{
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
+#[serde(deny_unknown_fields)]
 pub struct ScanSelectedChatsRequest {
     pub selected_chat_ids: Vec<String>,
     pub selected_chats: Vec<SelectedChatMetadata>,
@@ -67,7 +73,8 @@ pub struct ScanSelectedChatsRequest {
     pub feedback_text_snapshots_enabled: bool,
     pub local_diagnostics_enabled: bool,
     pub local_diagnostics_retention_days: u16,
-    pub list_reminder_profile: ListReminderProfile,
+    #[serde(deserialize_with = "list_intake::deserialize_profiles")]
+    pub list_intake_profiles: Vec<ListIntakeProfileRequest>,
     pub cap_policy: CapPolicyRequest,
 }
 
@@ -88,26 +95,6 @@ pub enum CapPolicyRequest {
         #[serde(rename = "pendingCount")]
         pending_count: usize,
     },
-}
-
-pub fn scan_selected_chats_with_source(
-    request: ScanSelectedChatsRequest,
-    store_path: &Path,
-    source: &impl MessagesDataSource,
-) -> Result<ScanSelectedChatsResult, ScanSelectedChatsError> {
-    let recorder = NoopTraceRecorder;
-    let provider = UnavailableProvider;
-    let proposal_adapter = LocalProposalAdapter;
-    scan_selected_chats_with_dependencies(
-        request,
-        store_path,
-        ScanSelectedChatsDependencies {
-            source,
-            provider: &provider,
-            proposal_adapter: &proposal_adapter,
-            trace_recorder: &recorder,
-        },
-    )
 }
 
 pub fn scan_selected_chats_with_dependencies<S, P, A, R>(
@@ -153,6 +140,15 @@ where
         outcomes,
         provider_route_write_intents,
     } = report;
+    run_list_intake(ListIntakeRunRequest {
+        store: &store,
+        provider: dependencies.provider,
+        profiles: &request.list_intake_profiles,
+        messages: &ingestion.messages,
+        sender_groups: &ingestion.sender_groups,
+        outcomes: &outcomes,
+        reference_timezone: &config.detection.reference.timezone,
+    })?;
     let outcome_plan = plan_scan_outcomes(ScanOutcomePlanRequest {
         outcomes,
         messages: &ingestion.messages,

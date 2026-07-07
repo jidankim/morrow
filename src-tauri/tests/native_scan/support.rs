@@ -15,8 +15,6 @@ mod sqlite;
 
 pub(super) use sqlite::query_sqlite;
 
-const DISABLED_LIST_REMINDER_PROFILE_JSON: &str = r#"{"enabled":false,"profileId":"list-reminders","profileVersion":"list-reminders-v1","routingMode":"explicitOnly","defaultDueMode":"explicitOnly","defaultDueTime":"23:59","recurrenceMode":"none","itemOutputMode":"singleReminderTitle"}"#;
-
 pub(super) fn temp_db(name: &str) -> Result<(tempfile::TempDir, PathBuf), String> {
     let dir = tempfile::tempdir().map_err(|error| error.to_string())?;
     let db_path = dir.path().join(name);
@@ -202,8 +200,6 @@ fn request_value(
     max_visible: usize,
     pending_count: usize,
 ) -> Result<ScanSelectedChatsRequest, String> {
-    let list_reminder_profile = serde_json::from_str::<Value>(DISABLED_LIST_REMINDER_PROFILE_JSON)
-        .map_err(|error| error.to_string())?;
     serde_json::from_value(json!({
         "selectedChatIds": selected_chat_ids,
         "selectedChats": selected_chats,
@@ -214,7 +210,7 @@ fn request_value(
         "feedbackTextSnapshotsEnabled": feedback_text_snapshots_enabled,
         "localDiagnosticsEnabled": false,
         "localDiagnosticsRetentionDays": 30,
-        "listReminderProfile": list_reminder_profile,
+        "listIntakeProfiles": [],
         "capPolicy": {
             "mode": "refillForPending",
             "maxVisible": max_visible,

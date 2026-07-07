@@ -2,21 +2,26 @@ mod attributed_body;
 mod hex;
 mod preview;
 mod queries;
+mod sender_identity;
+mod sender_read_recent;
 mod sqlite_cli;
 mod timestamp;
 
 use std::{collections::BTreeMap, path::PathBuf};
 
 use morrow_messages::{
-    ChatGuid, DiscoveredChat, DiscoveredChatParts, MessageGuid, MessageTimestamp,
+    ChatGuid, DiscoveredChat, DiscoveredChatParts, MessageGuid, MessageSenderIdentity,
     MessagesDataSource, MessagesDiscoveryDataSource, MessagesDiscoveryReport, MessagesError,
-    NativeBatch, NativeReadRequest, ParticipantId, RawChat, RawMessage,
+    NativeBatch, NativeReadRequest, ParticipantId,
 };
+use morrow_storage::Store;
 
 use super::public_chat_id::{public_chat_id, public_participant_id};
 use attributed_body::text_from_hex;
 use hex::text as hex_text;
 use queries::{all_chat_guids_sql, discovery_sql, read_recent_sql};
+use sender_identity::{SenderIdentityCache, SenderIdentitySalt};
+use sender_read_recent::rows_to_batch;
 pub use sqlite_cli::SqliteReadProtections;
 use sqlite_cli::{sqlite_error_from_stderr, Sqlite};
 use timestamp::apple_timestamp_to_unix_seconds;
@@ -44,6 +49,8 @@ pub struct MessagesSqliteAdapter {
     db_path: PathBuf,
     limits: MessagesSqliteLimits,
     runner: MessagesSqliteRunner,
+    sender_salt: SenderIdentitySalt,
+    sender_identities: SenderIdentityCache,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -54,19 +61,40 @@ enum MessagesSqliteRunner {
 
 impl MessagesSqliteAdapter {
     pub fn new(db_path: PathBuf) -> Self {
+        let sender_salt = SenderIdentitySalt::ephemeral_or_zero();
         Self {
             db_path,
             limits: MessagesSqliteLimits::default(),
             runner: MessagesSqliteRunner::Cli,
+            sender_salt,
+            sender_identities: SenderIdentityCache::default(),
         }
+    }
+
+    pub fn with_local_store(db_path: PathBuf, store: &Store) -> Result<Self, MessagesError> {
+        let sender_salt = SenderIdentitySalt::from_local_store(
+            &store
+                .list_intake_sender_salt()
+                .map_err(storage_unavailable)?,
+        );
+        Ok(Self {
+            db_path,
+            limits: MessagesSqliteLimits::default(),
+            runner: MessagesSqliteRunner::Cli,
+            sender_salt,
+            sender_identities: SenderIdentityCache::default(),
+        })
     }
 
     #[doc(hidden)]
     pub fn permission_denied_for_test(db_path: PathBuf) -> Self {
+        let sender_salt = SenderIdentitySalt::ephemeral_or_zero();
         Self {
             db_path,
             limits: MessagesSqliteLimits::default(),
             runner: MessagesSqliteRunner::PermissionDeniedStderr,
+            sender_salt,
+            sender_identities: SenderIdentityCache::default(),
         }
     }
 
@@ -146,7 +174,19 @@ impl MessagesDataSource for MessagesSqliteAdapter {
         }
         let sql = read_recent_sql(&request.chat_guids, self.limits.read_message_limit)?;
         let rows = self.query_rows(&sql)?;
-        rows_to_batch(&rows, request)
+        let read_rows = rows_to_batch(&rows, request, &self.sender_salt)?;
+        self.sender_identities
+            .replace(read_rows.sender_identities)
+            .map_err(unavailable)?;
+        Ok(read_rows.batch)
+    }
+
+    fn sender_identity(
+        &self,
+        chat_guid: &ChatGuid,
+        message_guid: &MessageGuid,
+    ) -> MessageSenderIdentity {
+        self.sender_identities.get(chat_guid, message_guid)
     }
 }
 
@@ -167,50 +207,7 @@ fn parse_discovered_chat(row: &[String]) -> Result<DiscoveredChat, MessagesError
     })
 }
 
-fn rows_to_batch(
-    rows: &[Vec<String>],
-    request: &NativeReadRequest,
-) -> Result<NativeBatch, MessagesError> {
-    let mut chats = BTreeMap::<String, RawChat>::new();
-    for row in rows {
-        let chat_guid = ChatGuid::parse(row_value(row, 0, "chat_guid")?)?;
-        let timestamp = MessageTimestamp::new(apple_timestamp_to_unix_seconds(row_i64(
-            row,
-            4,
-            "message_date",
-        )?)?)?;
-        if timestamp < request.since || timestamp > request.until {
-            continue;
-        }
-        let participant_count = row_u16(row, 1, "participant_count")?;
-        let participant_ids = parse_participant_ids(row_value(row, 2, "participant_handles")?)?;
-        let message = RawMessage {
-            chat_guid: chat_guid.clone(),
-            message_guid: MessageGuid::parse(row_value(row, 3, "message_guid")?)?,
-            timestamp,
-            text: message_text(
-                row_value(row, 5, "text_hex")?,
-                row_value(row, 6, "attributed_body_hex")?,
-            )?,
-            tapback: None,
-        };
-        chats
-            .entry(chat_guid.as_str().to_owned())
-            .or_insert_with(|| RawChat {
-                guid: chat_guid,
-                participant_count,
-                participant_ids,
-                messages: Vec::new(),
-            })
-            .messages
-            .push(message);
-    }
-    Ok(NativeBatch {
-        chats: chats.into_values().collect(),
-    })
-}
-
-fn parse_participant_ids(raw: &str) -> Result<Vec<ParticipantId>, MessagesError> {
+pub(super) fn parse_participant_ids(raw: &str) -> Result<Vec<ParticipantId>, MessagesError> {
     parse_public_participant_ids(raw)?
         .iter()
         .map(|value| ParticipantId::parse(value))
@@ -224,7 +221,7 @@ fn parse_public_participant_ids(raw: &str) -> Result<Vec<String>, MessagesError>
         .collect()
 }
 
-fn row_value<'a>(
+pub(super) fn row_value<'a>(
     row: &'a [String],
     index: usize,
     field: &'static str,
@@ -234,19 +231,30 @@ fn row_value<'a>(
         .ok_or_else(|| unavailable(format!("sqlite row missing {field}")))
 }
 
-fn row_i64(row: &[String], index: usize, field: &'static str) -> Result<i64, MessagesError> {
+pub(super) fn row_i64(
+    row: &[String],
+    index: usize,
+    field: &'static str,
+) -> Result<i64, MessagesError> {
     row_value(row, index, field)?
         .parse::<i64>()
         .map_err(|error| unavailable(format!("sqlite row has invalid {field}: {error}")))
 }
 
-fn row_u16(row: &[String], index: usize, field: &'static str) -> Result<u16, MessagesError> {
+pub(super) fn row_u16(
+    row: &[String],
+    index: usize,
+    field: &'static str,
+) -> Result<u16, MessagesError> {
     let value = row_i64(row, index, field)?;
     u16::try_from(value)
         .map_err(|error| unavailable(format!("sqlite row has invalid {field}: {error}")))
 }
 
-fn message_text(text_hex: &str, attributed_body_hex: &str) -> Result<String, MessagesError> {
+pub(super) fn message_text(
+    text_hex: &str,
+    attributed_body_hex: &str,
+) -> Result<String, MessagesError> {
     let text = hex_text(text_hex)?;
     if !text.is_empty() {
         return Ok(text);
@@ -258,4 +266,8 @@ fn unavailable(reason: impl Into<String>) -> MessagesError {
     MessagesError::NativeUnavailable {
         reason: reason.into(),
     }
+}
+
+fn storage_unavailable(error: morrow_storage::StorageError) -> MessagesError {
+    unavailable(format!("local sender salt unavailable: {error}"))
 }

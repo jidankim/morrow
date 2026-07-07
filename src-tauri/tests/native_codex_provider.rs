@@ -8,6 +8,8 @@ mod support {
     pub use crate::provider;
 }
 
+#[path = "native_codex_provider/list_intake_extractor.rs"]
+mod list_intake_extractor;
 #[path = "native_codex_provider/list_reminder_contract.rs"]
 mod list_reminder_contract;
 #[path = "native_codex_provider/scheduling_intent.rs"]

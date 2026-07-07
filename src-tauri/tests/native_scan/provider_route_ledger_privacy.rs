@@ -51,6 +51,9 @@ fn provider_route_ledger_privacy() -> Result<(), String> {
             &dump,
             &[
                 "+15555550103",
+                "2B3135353535353530313033",
+                "messages-participant-6044b729eea9fa126e78d421e4a41ac8",
+                "senderKey-",
                 "Maybe meet tomorrow?",
                 "{\"kind\"",
                 "\"title\"",

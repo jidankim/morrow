@@ -10,6 +10,12 @@ mod contract;
 mod dependencies;
 #[path = "native_scan/feedback.rs"]
 mod feedback;
+#[path = "native_scan/list_intake_profiles.rs"]
+mod list_intake_profiles;
+#[path = "native_scan/list_intake_profiles_digest.rs"]
+mod list_intake_profiles_digest;
+#[path = "native_scan/list_intake_profiles_support.rs"]
+mod list_intake_profiles_support;
 #[path = "native_scan/list_reminder_profile.rs"]
 mod list_reminder_profile;
 #[path = "native_scan/local_diagnostics.rs"]

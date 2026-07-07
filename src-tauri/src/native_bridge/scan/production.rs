@@ -2,9 +2,9 @@ use std::{path::Path, time::Duration};
 
 use super::dependencies::UnavailableProvider;
 use super::{
-    messages_error, scan_selected_chats_with_dependencies, ProposalReplayAdapter,
-    ScanSelectedChatsDependencies, ScanSelectedChatsError, ScanSelectedChatsRequest,
-    ScanSelectedChatsResult,
+    list_intake, messages_error, scan_selected_chats_with_dependencies, LocalProposalAdapter,
+    ProposalReplayAdapter, ScanSelectedChatsDependencies, ScanSelectedChatsError,
+    ScanSelectedChatsRequest, ScanSelectedChatsResult,
 };
 use crate::native_bridge::messages_sqlite::MessagesSqliteAdapter;
 use morrow_detection::AiProvider;
@@ -12,10 +12,31 @@ use morrow_diagnostics::{
     JsonlTraceSink, JsonlTraceSinkConfig, NoopTraceRecorder, TraceRecord, TraceRecorder,
     TraceRecorderError,
 };
-use morrow_messages::ChatGuid;
+use morrow_messages::{ChatGuid, MessagesDataSource};
+use morrow_storage::Store;
 
 const TRACE_ROTATION_BYTES: u64 = 10 * 1024 * 1024;
 const SECONDS_PER_DAY: u64 = 86_400;
+
+pub fn scan_selected_chats_with_source(
+    request: ScanSelectedChatsRequest,
+    store_path: &Path,
+    source: &impl MessagesDataSource,
+) -> Result<ScanSelectedChatsResult, ScanSelectedChatsError> {
+    let recorder = NoopTraceRecorder;
+    let provider = UnavailableProvider;
+    let proposal_adapter = LocalProposalAdapter;
+    scan_selected_chats_with_dependencies(
+        request,
+        store_path,
+        ScanSelectedChatsDependencies {
+            source,
+            provider: &provider,
+            proposal_adapter: &proposal_adapter,
+            trace_recorder: &recorder,
+        },
+    )
+}
 
 pub fn scan_selected_chats_at_with_unavailable_provider<A>(
     request: ScanSelectedChatsRequest,
@@ -117,7 +138,9 @@ where
     A: ProposalReplayAdapter,
     R: TraceRecorder + ?Sized,
 {
-    let source = MessagesSqliteAdapter::new(messages_db_path.to_path_buf());
+    let store = Store::open(store_path).map_err(super::storage_error)?;
+    let source = MessagesSqliteAdapter::with_local_store(messages_db_path.to_path_buf(), &store)
+        .map_err(messages_error)?;
     let resolved_request =
         resolve_production_scan_request(request, &source).map_err(messages_error)?;
     scan_selected_chats_with_dependencies(
@@ -174,10 +197,16 @@ fn resolve_production_scan_request(
 
 impl ScanSelectedChatsRequest {
     fn with_native_chat_guids(mut self, chat_guids: &[ChatGuid]) -> Self {
+        let public_ids = self.selected_chat_ids.clone();
         let raw_ids = chat_guids
             .iter()
             .map(|chat_guid| chat_guid.as_str().to_owned())
             .collect::<Vec<_>>();
+        list_intake::rewrite_selected_chat_scope_ids(
+            &mut self.list_intake_profiles,
+            &public_ids,
+            &raw_ids,
+        );
         self.selected_chat_ids = raw_ids.clone();
         self.backfill_prompt_chat_ids = self
             .backfill_prompt_chat_ids

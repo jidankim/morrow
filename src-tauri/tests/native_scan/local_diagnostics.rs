@@ -132,16 +132,7 @@ fn scan_selected_chats_rejects_invalid_local_diagnostics_retention() -> Result<(
         "feedbackTextSnapshotsEnabled": false,
         "localDiagnosticsEnabled": true,
         "localDiagnosticsRetentionDays": 0,
-        "listReminderProfile": {
-            "enabled": false,
-            "profileId": "list-reminders",
-            "profileVersion": "list-reminders-v1",
-            "routingMode": "explicitOnly",
-            "defaultDueMode": "explicitOnly",
-            "defaultDueTime": "23:59",
-            "recurrenceMode": "none",
-            "itemOutputMode": "singleReminderTitle",
-        },
+        "listIntakeProfiles": [],
         "capPolicy": {
             "mode": "refillForPending",
             "maxVisible": 1,

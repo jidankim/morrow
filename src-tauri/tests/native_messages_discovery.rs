@@ -13,6 +13,8 @@ use morrow_messages::{
 mod attributed_body;
 #[path = "native_messages_discovery/previews.rs"]
 mod previews;
+#[path = "native_messages_discovery/sender_identity.rs"]
+mod sender_identity;
 #[path = "native_messages_discovery/support.rs"]
 mod support;
 

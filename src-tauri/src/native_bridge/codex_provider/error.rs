@@ -1,6 +1,7 @@
 use std::fmt;
 
 use super::super::provider_contract::ProviderContractError;
+use morrow_detection::ListIntakeValidationError;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CodexProviderError {
@@ -39,6 +40,19 @@ impl From<ProviderContractError> for CodexProviderError {
             },
             ProviderContractError::EvidenceTooLarge => Self::EvidenceTooLarge,
             ProviderContractError::InvalidCandidate { reason } => Self::InvalidResponse { reason },
+        }
+    }
+}
+
+impl From<ListIntakeValidationError> for CodexProviderError {
+    fn from(error: ListIntakeValidationError) -> Self {
+        match error {
+            ListIntakeValidationError::MalformedJson => Self::InvalidResponse {
+                reason: "list-intake provider output malformed",
+            },
+            ListIntakeValidationError::InvalidProviderOutput { reason } => {
+                Self::InvalidResponse { reason }
+            }
         }
     }
 }

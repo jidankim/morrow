@@ -1,7 +1,6 @@
 use morrow_detection::{AiProvider, ProviderError, ProviderRequest, ProviderResponse};
 use morrow_lib::native_bridge::{
-    scan_selected_chats_with_dependencies, ListReminderDefaultDueMode, ListReminderRoutingMode,
-    ScanSelectedChatsDependencies, ScanSelectedChatsRequest,
+    scan_selected_chats_with_dependencies, ScanSelectedChatsDependencies, ScanSelectedChatsRequest,
 };
 use morrow_messages::TapbackKind;
 
@@ -9,7 +8,7 @@ use super::dependencies::{CountingProvider, RecordingProposalAdapter};
 use super::message_sqlite::{
     external_mapping_count_for_source, provider_route_outcome_count, provider_route_outcome_dump,
 };
-use super::support::{assert_counts, batch, chat, query_sqlite, raw_chat, scan_request, temp_db};
+use super::support::{batch, chat, query_sqlite, raw_chat, scan_request, temp_db};
 
 #[test]
 fn list_reminder_profile_disabled_stops_bare_quantity_list_before_provider() -> Result<(), String> {
@@ -53,13 +52,13 @@ fn list_reminder_profile_disabled_stops_bare_quantity_list_before_provider() -> 
 }
 
 #[test]
-fn list_reminder_profile_enabled_routes_list_and_replays_one_reminder() -> Result<(), String> {
+fn legacy_list_reminder_profile_cannot_enable_native_list_routing() -> Result<(), String> {
     // Given
     let (_dir, store_path) = temp_db("native-scan-list-reminder-enabled.sqlite")?;
     let source =
         morrow_lib::native_bridge::FakeNativeBridge::with_morrow_store_path(store_path.clone())
             .with_messages(list_batch("msg-list-enabled")?);
-    let request = enabled_list_profile_request(list_request()?);
+    let request = list_request()?;
     let provider = CountingProvider::new(StructuredListReminderProvider);
     let adapter = RecordingProposalAdapter::default();
     let recorder = morrow_diagnostics::NoopTraceRecorder;
@@ -78,29 +77,21 @@ fn list_reminder_profile_enabled_routes_list_and_replays_one_reminder() -> Resul
     .map_err(|error| error.to_string())?;
 
     // Then
-    assert_counts(&result, (1, 1, 0, 1, 0));
-    assert_eq!(result.created_external_proposal_count, 1);
+    assert_eq!(result.created_candidate_count, 0);
+    assert_eq!(result.created_external_proposal_count, 0);
     assert_eq!(result.failed_external_proposal_count, 0);
-    assert_eq!(provider.calls(), 1);
-    assert_eq!(
-        adapter.created_titles(),
-        ["Daily list: 2 anchovies; 3 salmon"]
-    );
-    assert_eq!(adapter.created_reminder_count(), 1);
+    assert_eq!(provider.calls(), 0);
+    assert!(adapter.created_titles().is_empty());
+    assert_eq!(adapter.created_reminder_count(), 0);
     assert_eq!(
         external_mapping_count_for_source(&store_path, "reminders")?,
-        1
+        0
     );
-    assert_eq!(provider_route_outcome_count(&store_path)?, 1);
+    assert_eq!(provider_route_outcome_count(&store_path)?, 0);
     let persisted = persisted_candidate_dump(&store_path)?;
-    assert!(
-        persisted.contains(
-            "task_reminder|Daily list: 2 anchovies; 3 salmon|2026-06-26T23:59:00[Asia/Seoul]"
-        ),
-        "{persisted}"
-    );
+    assert!(persisted.is_empty(), "{persisted}");
     println!(
-        "list_reminder_profile_enabled provider_calls={} rendered_title=\"{}\" reminder_proposals={} persisted={} route_rows={} dump={}",
+        "legacy_list_reminder_profile_inactive provider_calls={} rendered_title=\"{}\" reminder_proposals={} persisted={} route_rows={} dump={}",
         provider.calls(),
         adapter
             .created_titles()
@@ -150,14 +141,6 @@ fn list_request() -> Result<ScanSelectedChatsRequest, String> {
         1,
         0,
     )
-}
-
-fn enabled_list_profile_request(mut request: ScanSelectedChatsRequest) -> ScanSelectedChatsRequest {
-    request.list_reminder_profile.enabled = true;
-    request.list_reminder_profile.routing_mode = ListReminderRoutingMode::ProfileBareQuantityLists;
-    request.list_reminder_profile.default_due_mode =
-        ListReminderDefaultDueMode::NextLocalDayAtDefaultTime;
-    request
 }
 
 fn persisted_candidate_dump(db_path: &std::path::Path) -> Result<String, String> {

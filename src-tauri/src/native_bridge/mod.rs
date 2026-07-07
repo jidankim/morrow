@@ -10,6 +10,7 @@ mod eventkit_cleanup;
 pub mod eventkit_proposal;
 mod fake;
 mod keychain;
+mod list_intake_review;
 pub mod messages_sqlite;
 mod openai_provider;
 mod paths;
@@ -65,6 +66,14 @@ pub use keychain::{
     KeychainBridgeError, KeychainErrorCode, MorrowTokenVault, TokenCommandReceipt,
     TokenLookupRequest, TokenReadResponse, TokenStorageSurface, TokenWriteRequest,
     MORROW_KEYCHAIN_SERVICE, MORROW_PROVIDER_TOKEN_KIND, MORROW_TOKEN_KIND,
+};
+pub use list_intake_review::{
+    __cmd__decide_list_intake_proposal, __cmd__load_list_intake_review,
+    __tauri_command_name_decide_list_intake_proposal, __tauri_command_name_load_list_intake_review,
+    decide_list_intake_proposal, decide_list_intake_proposal_at, load_list_intake_review,
+    load_list_intake_review_at, ListIntakeAggregateGroup, ListIntakeDecisionRequest,
+    ListIntakeReviewCategory, ListIntakeReviewItem, ListIntakeReviewProposalCommand,
+    ListIntakeReviewReport,
 };
 pub use openai_provider::{
     OpenAiHttpRequest, OpenAiHttpResponse, OpenAiProvider, OpenAiProviderError, OpenAiTransport,

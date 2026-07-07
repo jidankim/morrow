@@ -2,8 +2,12 @@ use morrow_lib::native_bridge::ScanSelectedChatsRequest;
 use morrow_storage::{CandidateState, ReplayStream, Store};
 use serde_json::json;
 
+#[path = "consent/list_intake_profile_schema.rs"]
+mod list_intake_profile_schema;
+#[path = "consent/list_intake_profile_support.rs"]
+mod list_intake_profile_support;
 #[path = "consent/list_reminder_profile.rs"]
-mod list_reminder_profile;
+mod list_intake_profiles;
 
 use super::support::{
     assert_counts, candidate_state, chat, fake_state, native_batch, scan_request,
@@ -96,7 +100,7 @@ fn native_scan_rejects_missing_feedback_text_snapshot_consent() {
         "referenceUnixSeconds": 1_782_352_400,
         "backfillPromptChatIds": [],
         "sourceExcerptsEnabled": true,
-        "listReminderProfile": list_reminder_profile::disabled_list_reminder_profile_json(),
+        "listIntakeProfiles": [],
         "localDiagnosticsEnabled": false,
         "localDiagnosticsRetentionDays": 30,
         "capPolicy": {
@@ -111,8 +115,7 @@ fn native_scan_rejects_missing_feedback_text_snapshot_consent() {
 }
 
 #[test]
-fn native_scan_disabled_list_reminder_profile_preserves_existing_scan_behavior(
-) -> Result<(), String> {
+fn native_scan_empty_list_intake_profiles_preserves_existing_scan_behavior() -> Result<(), String> {
     // Given
     let (_dir, db_path) = temp_db("native-scan-disabled-list-profile.sqlite")?;
     let request = scan_request(
@@ -177,7 +180,7 @@ fn native_scan_rejects_malformed_feedback_text_snapshot_consent() {
         "backfillPromptChatIds": [],
         "sourceExcerptsEnabled": true,
         "feedbackTextSnapshotsEnabled": -1,
-        "listReminderProfile": list_reminder_profile::disabled_list_reminder_profile_json(),
+        "listIntakeProfiles": [],
         "localDiagnosticsEnabled": false,
         "localDiagnosticsRetentionDays": 30,
         "capPolicy": {

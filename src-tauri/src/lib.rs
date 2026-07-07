@@ -45,6 +45,8 @@ pub fn run() -> tauri::Result<()> {
             native_bridge::reconcile_now,
             native_bridge::scan_selected_chats,
             native_bridge::load_decision_evidence,
+            native_bridge::load_list_intake_review,
+            native_bridge::decide_list_intake_proposal,
             native_bridge::load_provider_usage,
             native_bridge::get_sync_scheduler_state,
             native_bridge::set_sync_scheduler_state,

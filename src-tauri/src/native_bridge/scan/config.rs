@@ -7,7 +7,7 @@ use morrow_detection::{
 use time::OffsetDateTime;
 use time_tz::{timezones, OffsetDateTimeExt};
 
-use super::{ScanSelectedChatsError, ScanSelectedChatsRequest};
+use super::{ListReminderProfile, ScanSelectedChatsError, ScanSelectedChatsRequest};
 
 const MIN_LOCAL_DIAGNOSTICS_RETENTION_DAYS: u16 = 1;
 const MAX_LOCAL_DIAGNOSTICS_RETENTION_DAYS: u16 = 365;
@@ -33,6 +33,7 @@ pub(super) fn scan_config(
     let reference_time =
         reference_time_string(reference_unix_seconds, &request.reference_timezone)?;
     let source_excerpts = source_excerpt_policy(request.source_excerpts_enabled);
+    let legacy_detection_profile = ListReminderProfile::disabled();
     Ok(ScanConfig {
         detection: DetectionConfig {
             reference: ReferenceTime::parse(&reference_time, &request.reference_timezone)
@@ -42,10 +43,10 @@ pub(super) fn scan_config(
                 "native-bridge",
                 "deterministic",
                 "scan-v3",
-                &request.list_reminder_profile,
+                &legacy_detection_profile,
             )
             .map_err(detection_error)?,
-            profile: request.list_reminder_profile.clone(),
+            profile: legacy_detection_profile,
             source_excerpts,
         },
         feedback_text_snapshots_enabled: request.source_excerpts_enabled
