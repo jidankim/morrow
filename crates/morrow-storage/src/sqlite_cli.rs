@@ -112,6 +112,8 @@ impl Sqlite {
             .arg(FIELD_SEPARATOR)
             .arg("-newline")
             .arg(ROW_SEPARATOR)
+            .arg("-cmd")
+            .arg(".timeout 5000")
             .arg(&self.db_path)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())

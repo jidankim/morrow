@@ -13,6 +13,7 @@ mod migrations;
 mod normalized_time;
 mod privacy;
 mod provider_usage;
+mod sender_salt;
 mod sqlite_cli;
 mod store;
 mod sync_scheduler;
@@ -43,15 +44,21 @@ pub use provider_usage::{
     ProviderUsageRecentOutcome, ProviderUsageReport, ProviderUsageTotals, ProviderUsageWindow,
     ProviderUsageWindowKey,
 };
+pub use sender_salt::ListIntakeSenderSalt;
 pub use store::Store;
 pub use sync_scheduler::{
     SyncSchedulerIntervalSeconds, SyncSchedulerLastResult, SyncSchedulerState, SyncSchedulerStatus,
 };
 pub use types::{
-    AuditEntry, CalendarProposalPayload, CandidateDraft, CandidateFeedbackContext, CandidateKind,
-    CandidateLifecycleReadback, CandidateState, ExternalObjectMapping, ExternalSource,
-    PrivacySummary, ProviderRouteCandidate, ProviderRouteLedgerRow, ProviderRouteOutcome,
-    ProviderRouteOutcomeDraft, ProviderRouteOutcomeKind, ProviderRouteRecordStatus,
-    ProviderRouteSourceExcerptPolicy, ProviderRouteStoredOutcome, QuietLogDraft,
-    ReminderProposalPayload, ReplayStream, PROVIDER_ROUTE_NATIVE_CANDIDATE_TITLE,
+    assign_list_intake_category, AuditEntry, CalendarProposalPayload, CandidateDraft,
+    CandidateFeedbackContext, CandidateKind, CandidateLifecycleReadback, CandidateState,
+    ExternalObjectMapping, ExternalSource, ListIntakeAggregateQuery, ListIntakeAggregateRow,
+    ListIntakeCategoryRule, ListIntakeConfidenceTier, ListIntakeExtractionDraft,
+    ListIntakeItemDraft, ListIntakeLocalDayWindow, ListIntakeProposal, ListIntakeProposalDecision,
+    ListIntakeProposalStatus, ListIntakeProviderDiagnostic, ListIntakeProviderDiagnosticDraft,
+    ListIntakeReviewProposal, ListIntakeStorageReceipt, PrivacySummary, ProviderRouteCandidate,
+    ProviderRouteLedgerRow, ProviderRouteOutcome, ProviderRouteOutcomeDraft,
+    ProviderRouteOutcomeKind, ProviderRouteRecordStatus, ProviderRouteSourceExcerptPolicy,
+    ProviderRouteStoredOutcome, QuietLogDraft, ReminderProposalPayload, ReplayStream,
+    LIST_INTAKE_UNCATEGORIZED_CATEGORY_ID, PROVIDER_ROUTE_NATIVE_CANDIDATE_TITLE,
 };

@@ -1,7 +1,15 @@
 use crate::CandidateId;
 
+mod list_intake;
 mod provider_route;
 
+pub use list_intake::{
+    assign_list_intake_category, ListIntakeAggregateQuery, ListIntakeAggregateRow,
+    ListIntakeCategoryRule, ListIntakeConfidenceTier, ListIntakeExtractionDraft,
+    ListIntakeItemDraft, ListIntakeLocalDayWindow, ListIntakeProposal, ListIntakeProposalDecision,
+    ListIntakeProposalStatus, ListIntakeProviderDiagnostic, ListIntakeProviderDiagnosticDraft,
+    ListIntakeReviewProposal, ListIntakeStorageReceipt, LIST_INTAKE_UNCATEGORIZED_CATEGORY_ID,
+};
 pub use provider_route::{
     ProviderRouteCandidate, ProviderRouteLedgerRow, ProviderRouteOutcome,
     ProviderRouteOutcomeDraft, ProviderRouteOutcomeKind, ProviderRouteRecordStatus,

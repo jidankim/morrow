@@ -20,11 +20,6 @@ fn lifecycle_draft(kind: CandidateKind, anchor: &str, normalized_time: &str) -> 
     }
 }
 
-pub fn store_candidate(store: &Store, spec: (CandidateKind, &str, &str)) -> CandidateId {
-    let draft = lifecycle_draft(spec.0, spec.1, spec.2);
-    store.create_candidate(draft).expect("create candidate")
-}
-
 pub fn store_candidate_observed(
     store: &Store,
     spec: (CandidateKind, &str, &str),
@@ -56,36 +51,4 @@ pub fn make_visible(store: &Store, candidate_id: &CandidateId, observed_at: i64)
             observed_at + 1,
         )
         .expect("transition visible");
-}
-
-pub fn move_to_state(store: &Store, candidate_id: &CandidateId, state: CandidateState) {
-    match state {
-        CandidateState::Queued => {}
-        CandidateState::CreatingExternal => make_creating(store, candidate_id, 10),
-        CandidateState::Visible => make_visible(store, candidate_id, 10),
-        CandidateState::Approved => {
-            make_visible(store, candidate_id, 10);
-            store
-                .transition_candidate(candidate_id, state, state.as_str(), 12)
-                .expect("approve");
-        }
-        CandidateState::Completed => {
-            move_to_state(store, candidate_id, CandidateState::Approved);
-            store
-                .transition_candidate(candidate_id, state, state.as_str(), 13)
-                .expect("complete");
-        }
-        CandidateState::Rejected
-        | CandidateState::Expired
-        | CandidateState::Suppressed
-        | CandidateState::Failed => store
-            .transition_candidate(candidate_id, state, state.as_str(), 11)
-            .expect("terminal transition"),
-        CandidateState::Unknown => {
-            make_visible(store, candidate_id, 10);
-            store
-                .transition_candidate(candidate_id, state, state.as_str(), 12)
-                .expect("unknown");
-        }
-    }
 }

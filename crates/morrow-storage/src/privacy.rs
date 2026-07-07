@@ -14,7 +14,11 @@ pub(crate) fn summarize_privacy(
          UNION ALL SELECT name FROM pragma_table_info('feature_snapshots')
          UNION ALL SELECT name FROM pragma_table_info('eval_runs')
          UNION ALL SELECT name FROM pragma_table_info('eval_results')
-         UNION ALL SELECT name FROM pragma_table_info('provider_route_outcomes');",
+         UNION ALL SELECT name FROM pragma_table_info('provider_route_outcomes')
+         UNION ALL SELECT name FROM pragma_table_info('list_intake_entries')
+         UNION ALL SELECT name FROM pragma_table_info('list_intake_proposals')
+         UNION ALL SELECT name FROM pragma_table_info('list_intake_proposal_items')
+         UNION ALL SELECT name FROM pragma_table_info('list_intake_sender_labels');",
     )?;
     let full_message_body_columns = columns
         .iter()

@@ -1,11 +1,8 @@
 #[path = "support/lifecycle.rs"]
 mod lifecycle_support;
 
-use lifecycle_support::{
-    fresh_store, make_creating, make_visible, move_to_state, store_candidate,
-    store_candidate_observed,
-};
-use morrow_storage::{CandidateKind, CandidateState};
+use lifecycle_support::{fresh_store, make_creating, make_visible, store_candidate_observed};
+use morrow_storage::{CandidateId, CandidateKind, CandidateState, Store};
 
 #[test]
 fn lifecycle_does_not_supersede_newer_same_anchor_candidate() {
@@ -183,5 +180,41 @@ fn lifecycle_does_not_supersede_approved_or_terminal_candidates() {
     assert!(suppressed.is_empty());
     for (candidate_id, state) in protected {
         assert_eq!(store.candidate_state(&candidate_id).expect("state"), state);
+    }
+}
+
+fn store_candidate(store: &Store, spec: (CandidateKind, &str, &str)) -> CandidateId {
+    store_candidate_observed(store, spec, 1_783_000_000)
+}
+
+fn move_to_state(store: &Store, candidate_id: &CandidateId, state: CandidateState) {
+    match state {
+        CandidateState::Queued => {}
+        CandidateState::CreatingExternal => make_creating(store, candidate_id, 10),
+        CandidateState::Visible => make_visible(store, candidate_id, 10),
+        CandidateState::Approved => {
+            make_visible(store, candidate_id, 10);
+            store
+                .transition_candidate(candidate_id, state, state.as_str(), 12)
+                .expect("approve");
+        }
+        CandidateState::Completed => {
+            move_to_state(store, candidate_id, CandidateState::Approved);
+            store
+                .transition_candidate(candidate_id, state, state.as_str(), 13)
+                .expect("complete");
+        }
+        CandidateState::Rejected
+        | CandidateState::Expired
+        | CandidateState::Suppressed
+        | CandidateState::Failed => store
+            .transition_candidate(candidate_id, state, state.as_str(), 11)
+            .expect("terminal transition"),
+        CandidateState::Unknown => {
+            make_visible(store, candidate_id, 10);
+            store
+                .transition_candidate(candidate_id, state, state.as_str(), 12)
+                .expect("unknown");
+        }
     }
 }

@@ -1,10 +1,14 @@
-mod support;
+#[path = "support/decision_evidence_candidate.rs"]
+mod decision_evidence_candidate_support;
+#[path = "support/decision_evidence.rs"]
+mod decision_evidence_support;
 
+use decision_evidence_candidate_support::candidate_draft;
+use decision_evidence_support::{fresh_store, label, meta, snapshot};
 use morrow_storage::{
     DecisionEvidenceSubjectType, FeedbackLabelValue, FeedbackSubjectType, ProposalOutcomeLabel,
     QuietLogDraft, SystemOutcomeLabel,
 };
-use support::decision_evidence::{candidate_draft, fresh_store, label, meta, snapshot};
 
 #[test]
 fn decision_evidence_filters_to_created_candidate_ids_over_recent_unrelated_evidence() {
@@ -44,7 +48,7 @@ fn decision_evidence_filters_to_created_candidate_ids_over_recent_unrelated_evid
         .recent_decision_evidence(1)
         .expect("recent decision evidence");
     let focused = store
-        .decision_evidence_for_candidate_ids(&[candidate_id.clone()], 10)
+        .decision_evidence_for_candidate_ids(std::slice::from_ref(&candidate_id), 10)
         .expect("focused decision evidence");
 
     // Then

@@ -1,7 +1,11 @@
-mod support;
+#[path = "support/decision_evidence_candidate.rs"]
+mod decision_evidence_candidate_support;
+#[path = "support/decision_evidence.rs"]
+mod decision_evidence_support;
 
+use decision_evidence_candidate_support::candidate_draft;
+use decision_evidence_support::{fresh_store, label, meta, snapshot};
 use morrow_storage::{FeedbackLabelValue, FeedbackSubjectType, ProposalOutcomeLabel};
-use support::decision_evidence::{candidate_draft, fresh_store, label, meta, snapshot};
 
 #[test]
 fn decision_evidence_summarizes_candidate_source_excerpt() {

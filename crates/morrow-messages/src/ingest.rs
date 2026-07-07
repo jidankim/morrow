@@ -1,7 +1,9 @@
+use std::collections::BTreeMap;
+
 use crate::request::{IngestionRequest, NativeReadRequest, WhitelistedChat};
 use crate::types::{
     ChatGuid, IngestionReport, MessageEvidence, MessageTimestamp, MessagesDataSource, PausedChat,
-    RawChat,
+    RawChat, SenderDisplayLabel, SenderKey,
 };
 use crate::validation::{short_excerpt, validate_text};
 use crate::MessagesError;
@@ -46,7 +48,7 @@ pub fn ingest_selected_threads(
             });
             continue;
         }
-        append_recent_messages(&mut report, &native_request, &chat)?;
+        append_recent_messages(&mut report, source, &native_request, &chat)?;
     }
     append_unavailable_chat_warnings(&mut report, &request.whitelist, &seen_whitelisted);
     report.messages.sort_by_key(|message| message.timestamp);
@@ -133,9 +135,11 @@ fn append_unavailable_chat_warnings(
 
 fn append_recent_messages(
     report: &mut IngestionReport,
+    source: &impl MessagesDataSource,
     window: &NativeReadRequest,
     chat: &RawChat,
 ) -> Result<(), MessagesError> {
+    let labels = sender_labels(source, chat);
     for message in &chat.messages {
         if message.chat_guid.as_str() != chat.guid.as_str() {
             continue;
@@ -148,6 +152,11 @@ fn append_recent_messages(
         if timestamp < window.since.as_i64() || timestamp > window.until.as_i64() {
             continue;
         }
+        let sender = source.sender_identity(&chat.guid, &message.message_guid);
+        let label = labels
+            .get(sender.key())
+            .cloned()
+            .unwrap_or_else(SenderDisplayLabel::unknown);
         report.messages.push(MessageEvidence {
             chat_guid: chat.guid.clone(),
             message_guid: message.message_guid.clone(),
@@ -161,6 +170,34 @@ fn append_recent_messages(
                 message.message_guid.as_str()
             ),
         });
+        report
+            .sender_groups
+            .push(crate::types::MessageSenderGroup::new(
+                chat.guid.clone(),
+                message.message_guid.clone(),
+                label,
+                sender.key().clone(),
+            ));
     }
     Ok(())
+}
+
+fn sender_labels(
+    source: &impl MessagesDataSource,
+    chat: &RawChat,
+) -> BTreeMap<SenderKey, SenderDisplayLabel> {
+    let mut known = chat
+        .messages
+        .iter()
+        .map(|message| source.sender_identity(&chat.guid, &message.message_guid))
+        .map(|identity| identity.key().clone())
+        .filter(|key| !key.is_unknown())
+        .collect::<Vec<_>>();
+    known.sort();
+    known.dedup();
+    known
+        .into_iter()
+        .enumerate()
+        .map(|(index, key)| (key, SenderDisplayLabel::known(index + 1)))
+        .collect()
 }

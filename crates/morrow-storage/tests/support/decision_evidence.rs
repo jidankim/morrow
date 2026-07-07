@@ -1,7 +1,7 @@
 use morrow_storage::{
-    CandidateDraft, CandidateKind, DiagnosticsTraceLinkage, FeatureSnapshot, FeedbackLabelSource,
-    FeedbackLabelValue, FeedbackPrivacyTier, FeedbackRecordMeta, FeedbackSourceExcerptPolicy,
-    FeedbackSubjectType, Label, Store,
+    DiagnosticsTraceLinkage, FeatureSnapshot, FeedbackLabelSource, FeedbackLabelValue,
+    FeedbackPrivacyTier, FeedbackRecordMeta, FeedbackSourceExcerptPolicy, FeedbackSubjectType,
+    Label, Store,
 };
 
 pub fn fresh_store(name: &str) -> (tempfile::TempDir, Store) {
@@ -61,19 +61,6 @@ pub fn snapshot(
         sender_signal_available: false,
         context_window_available: false,
         excerpt: Some("Source excerpt hidden by settings.".to_owned()),
-    }
-}
-
-pub fn candidate_draft() -> CandidateDraft {
-    CandidateDraft {
-        kind: CandidateKind::CalendarEvent,
-        chat_guid: "chat-guid-private".to_owned(),
-        anchor_message_guid: "message-guid-private".to_owned(),
-        title: "private title".to_owned(),
-        confidence_millis: 860,
-        normalized_time: "2026-07-15T00:00:00Z".to_owned(),
-        evidence_excerpt: "private message excerpt".to_owned(),
-        observed_at: 1_783_000_000,
     }
 }
 

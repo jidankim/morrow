@@ -56,6 +56,16 @@ pub(crate) const MIGRATIONS: &[Migration] = &[
         name: "provider_route_profile_metadata",
         sql: include_str!("../migrations/0007_provider_route_profile_metadata.sql"),
     },
+    Migration {
+        version: 8,
+        name: "list_intake_entries",
+        sql: include_str!("../migrations/0008_list_intake_entries.sql"),
+    },
+    Migration {
+        version: 9,
+        name: "list_intake_provider_diagnostics",
+        sql: include_str!("../migrations/0009_list_intake_provider_diagnostics.sql"),
+    },
 ];
 
 pub(crate) fn record_migration_sql(migration: &Migration) -> Result<String, StorageError> {

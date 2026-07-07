@@ -1,6 +1,10 @@
 #[path = "support/provider_usage.rs"]
 mod provider_usage_support;
 
+use morrow_storage::{
+    CandidateKind, ProviderRouteCandidate, ProviderRouteOutcome,
+    PROVIDER_ROUTE_NATIVE_CANDIDATE_TITLE,
+};
 use morrow_storage::{ProviderUsageWindowKey, Store};
 use provider_usage_support::{fresh_store, record_route, RouteFixture, NOW_UNIX_SECONDS};
 
@@ -178,4 +182,24 @@ fn usage_report(
     store
         .provider_usage_report(window_key, NOW_UNIX_SECONDS)
         .expect("usage report")
+}
+
+impl<'a> RouteFixture<'a> {
+    fn candidate(route_fingerprint: &'a str, confidence_millis: i64) -> Self {
+        Self {
+            route_fingerprint,
+            provider_id: "provider-a",
+            model_id: "model-a",
+            prompt_version: "prompt-a",
+            route_label: "calendar_route",
+            outcome: ProviderRouteOutcome::Candidate(ProviderRouteCandidate {
+                kind: CandidateKind::CalendarEvent,
+                title: PROVIDER_ROUTE_NATIVE_CANDIDATE_TITLE.to_owned(),
+                confidence_millis,
+                normalized_time: "2026-07-02T18:00:00Z".to_owned(),
+                evidence_excerpt: "safe short excerpt".to_owned(),
+            }),
+            observed_at: NOW_UNIX_SECONDS,
+        }
+    }
 }

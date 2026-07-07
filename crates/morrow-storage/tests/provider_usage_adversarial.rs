@@ -4,7 +4,10 @@ mod provider_usage_support;
 use std::path::Path;
 use std::process::Command;
 
-use morrow_storage::ProviderUsageWindowKey;
+use morrow_storage::{
+    CandidateKind, ProviderRouteCandidate, ProviderRouteOutcome, ProviderUsageWindowKey,
+    PROVIDER_ROUTE_NATIVE_CANDIDATE_TITLE,
+};
 use provider_usage_support::{
     fresh_store, record_route, route_draft, RouteFixture, NOW_UNIX_SECONDS,
 };
@@ -168,5 +171,30 @@ fn assert_no_private_report_strings(report: &str) {
             !report.contains(banned),
             "report leaked banned string {banned}: {report}"
         );
+    }
+}
+
+impl<'a> RouteFixture<'a> {
+    fn candidate(route_fingerprint: &'a str, confidence_millis: i64) -> Self {
+        Self {
+            route_fingerprint,
+            provider_id: "provider-a",
+            model_id: "model-a",
+            prompt_version: "prompt-a",
+            route_label: "calendar_route",
+            outcome: ProviderRouteOutcome::Candidate(ProviderRouteCandidate {
+                kind: CandidateKind::CalendarEvent,
+                title: PROVIDER_ROUTE_NATIVE_CANDIDATE_TITLE.to_owned(),
+                confidence_millis,
+                normalized_time: "2026-07-02T18:00:00Z".to_owned(),
+                evidence_excerpt: "safe short excerpt".to_owned(),
+            }),
+            observed_at: NOW_UNIX_SECONDS,
+        }
+    }
+
+    const fn route(mut self, route_label: &'a str) -> Self {
+        self.route_label = route_label;
+        self
     }
 }

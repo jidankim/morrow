@@ -1,34 +1,21 @@
 use morrow_storage::{
-    CandidateKind, ProviderRouteCandidate, ProviderRouteOutcome, ProviderRouteOutcomeDraft,
-    ProviderRouteRecordStatus, ProviderRouteSourceExcerptPolicy, Store,
-    PROVIDER_ROUTE_NATIVE_CANDIDATE_TITLE,
+    ProviderRouteOutcome, ProviderRouteOutcomeDraft, ProviderRouteRecordStatus,
+    ProviderRouteSourceExcerptPolicy, Store,
 };
 
 pub const NOW_UNIX_SECONDS: i64 = 1_800_000_000;
 
 pub struct RouteFixture<'a> {
-    route_fingerprint: &'a str,
-    provider_id: &'a str,
-    model_id: &'a str,
-    prompt_version: &'a str,
-    route_label: &'a str,
-    outcome: ProviderRouteOutcome,
-    observed_at: i64,
+    pub(super) route_fingerprint: &'a str,
+    pub(super) provider_id: &'a str,
+    pub(super) model_id: &'a str,
+    pub(super) prompt_version: &'a str,
+    pub(super) route_label: &'a str,
+    pub(super) outcome: ProviderRouteOutcome,
+    pub(super) observed_at: i64,
 }
 
 impl<'a> RouteFixture<'a> {
-    pub fn candidate(route_fingerprint: &'a str, confidence_millis: i64) -> Self {
-        Self {
-            route_fingerprint,
-            provider_id: "provider-a",
-            model_id: "model-a",
-            prompt_version: "prompt-a",
-            route_label: "calendar_route",
-            outcome: candidate_outcome(confidence_millis),
-            observed_at: NOW_UNIX_SECONDS,
-        }
-    }
-
     pub fn quiet(route_fingerprint: &'a str) -> Self {
         Self {
             route_fingerprint,
@@ -53,11 +40,6 @@ impl<'a> RouteFixture<'a> {
 
     pub const fn prompt(mut self, prompt_version: &'a str) -> Self {
         self.prompt_version = prompt_version;
-        self
-    }
-
-    pub const fn route(mut self, route_label: &'a str) -> Self {
-        self.route_label = route_label;
         self
     }
 
@@ -104,16 +86,6 @@ pub fn record_route(store: &Store, fixture: RouteFixture<'_>) {
             .expect("record provider route"),
         ProviderRouteRecordStatus::Recorded
     );
-}
-
-fn candidate_outcome(confidence_millis: i64) -> ProviderRouteOutcome {
-    ProviderRouteOutcome::Candidate(ProviderRouteCandidate {
-        kind: CandidateKind::CalendarEvent,
-        title: PROVIDER_ROUTE_NATIVE_CANDIDATE_TITLE.to_owned(),
-        confidence_millis,
-        normalized_time: "2026-07-02T18:00:00Z".to_owned(),
-        evidence_excerpt: "safe short excerpt".to_owned(),
-    })
 }
 
 fn quiet_outcome() -> ProviderRouteOutcome {

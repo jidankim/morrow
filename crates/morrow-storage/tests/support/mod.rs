@@ -2,13 +2,12 @@ use std::collections::BTreeSet;
 use std::path::Path;
 use std::process::Command;
 
-use schema_assertions::{
+use self::schema_assertions::{
     assert_eval_result_columns, assert_eval_run_columns, assert_feedback_event_columns,
     assert_insert_fails, assert_label_columns, assert_snapshot_columns,
     assert_table_has_no_prohibited_columns, assert_unique_not_null_key,
 };
 
-pub mod decision_evidence;
 mod schema_assertions;
 
 const FIELD_SEPARATOR: &str = "\u{1f}";

@@ -1,10 +1,11 @@
-mod support;
+#[path = "support/decision_evidence.rs"]
+mod decision_evidence_support;
 
+use decision_evidence_support::{fresh_store, label, snapshot};
 use morrow_storage::{
     FeedbackLabelValue, FeedbackSubjectType, ProposalOutcomeLabel, QuietLogDraft, StorageError,
     SystemOutcomeLabel,
 };
-use support::decision_evidence::{fresh_store, label, snapshot};
 
 #[test]
 fn decision_evidence_provider_diagnostic_rejects_malformed_input() {

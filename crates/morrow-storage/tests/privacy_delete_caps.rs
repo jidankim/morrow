@@ -1,6 +1,7 @@
 use morrow_storage::{
     delete_all_at, plan_visibility, CandidateDraft, CandidateKind, CandidateState, CapPolicy,
-    DeleteAllConfirmation, QueuedProposal, Store,
+    DeleteAllConfirmation, ListIntakeConfidenceTier, ListIntakeExtractionDraft,
+    ListIntakeItemDraft, ListIntakeLocalDayWindow, QueuedProposal, Store,
 };
 
 fn fresh_store(name: &str) -> (tempfile::TempDir, std::path::PathBuf, Store) {
@@ -21,6 +22,50 @@ fn event_draft(anchor: &str, chat_guid: &str, confidence_millis: i64) -> Candida
         evidence_excerpt: "meet on July 15".to_owned(),
         observed_at: 1_783_000_000,
     }
+}
+
+fn list_intake_extraction(
+    message_guid: &str,
+    confidence_tier: ListIntakeConfidenceTier,
+) -> ListIntakeExtractionDraft {
+    ListIntakeExtractionDraft {
+        profile_id: "list-intake-fishcount".to_owned(),
+        profile_version: "list-intake-v2".to_owned(),
+        examples_hash: "sha256:examples".to_owned(),
+        message_guid: message_guid.to_owned(),
+        evidence_pointer: "evidence:sha256:redacted".to_owned(),
+        chat_key: "chat-hash-1".to_owned(),
+        sender_key: Some(format!("sender-hash-{message_guid}")),
+        window: ListIntakeLocalDayWindow {
+            window_local_date: "2026-07-07".to_owned(),
+            window_timezone: "Asia/Seoul".to_owned(),
+            window_start_unix_seconds: 1_783_440_000,
+        },
+        confidence_tier,
+        confidence_millis: 900,
+        items: vec![ListIntakeItemDraft {
+            item_name: "anchovies".to_owned(),
+            quantity: 2,
+            unit: None,
+            category_id: "seafood".to_owned(),
+        }],
+        observed_at: 1_783_450_000,
+    }
+}
+
+fn sqlite_count(db_path: &std::path::Path, table: &str) -> i64 {
+    let output = std::process::Command::new("sqlite3")
+        .arg("-batch")
+        .arg("-noheader")
+        .arg(db_path)
+        .arg(format!("SELECT COUNT(*) FROM {table};"))
+        .output()
+        .expect("run sqlite3 count");
+    assert!(output.status.success());
+    String::from_utf8_lossy(&output.stdout)
+        .trim()
+        .parse::<i64>()
+        .expect("count integer")
 }
 
 #[test]
@@ -85,6 +130,40 @@ fn invalid_delete_all_confirmation_preserves_database_files() {
     assert!(confirmation.is_err());
     assert!(db_path.exists());
     assert!(wal_path.exists());
+}
+
+#[test]
+fn delete_all_removes_list_intake_rows_proposals_and_sender_mappings_with_database() {
+    // Given
+    let (_dir, db_path, store) = fresh_store("delete-list-intake.sqlite");
+    store
+        .record_list_intake_extraction(list_intake_extraction(
+            "msg-list-intake-delete-auto",
+            ListIntakeConfidenceTier::AutoAggregate,
+        ))
+        .expect("record list intake entry");
+    store
+        .record_list_intake_extraction(list_intake_extraction(
+            "msg-list-intake-delete-review",
+            ListIntakeConfidenceTier::Review,
+        ))
+        .expect("record list intake proposal");
+    let entries_before = sqlite_count(&db_path, "list_intake_entries");
+    let proposals_before = sqlite_count(&db_path, "list_intake_proposals");
+    let mappings_before = sqlite_count(&db_path, "list_intake_sender_labels");
+    let confirmation = DeleteAllConfirmation::parse("DELETE MORROW DATA").expect("confirmation");
+
+    // When
+    store.delete_all(confirmation).expect("delete all");
+
+    // Then
+    assert_eq!(entries_before, 1);
+    assert_eq!(proposals_before, 1);
+    assert_eq!(mappings_before, 2);
+    assert!(!db_path.exists());
+    println!(
+        "delete_all_list_intake entries_before={entries_before} proposals_before={proposals_before} mappings_before={mappings_before} database_deleted=true"
+    );
 }
 
 #[test]

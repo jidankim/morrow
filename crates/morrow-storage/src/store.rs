@@ -16,6 +16,7 @@ mod feedback_eval_records;
 mod feedback_eval_sql;
 mod feedback_eval_validation;
 mod feedback_privacy_metadata;
+mod list_intake;
 mod provider_route_invalidation;
 mod provider_routes;
 mod provider_usage;
