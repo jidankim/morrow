@@ -244,6 +244,38 @@ The recorded smoke receipt reports `result: PASS` for preflight, input validatio
 
 Phase 6 cloud eval and monitoring is separate from deployed rollout, correction UI, full live Messages-to-Calendar approval completion, and automatic release promotion. The correction UI remains future work, deployed rollout remains future work, automatic release promotion remains future work, and the full live Messages-to-Calendar approval trajectory eval remains future work.
 
+## Phase 7 Wider Product Rollout Handoff
+
+Phase 7 wider-product rollout is covered by local smoke and handoff artifacts for the narrowed rollout claim only. It covers the static local rollout manifest, beta readiness gate, docs/privacy/runbook gates, retention QA, regression gate, kill-switch checks, privacy inspection, negative fixtures, artifact freshness, and cleanup. It does not prove default availability, a live deployed rollout, live remote config, telemetry upload, provider network behavior, Messages access, EventKit mutation, Calendar mutation, Reminders mutation, automatic release promotion, or full live Messages-to-Calendar completion.
+
+Run the Phase 7 final smoke with:
+
+```bash
+scripts/run-wider-product-rollout-smoke.sh --out-dir .omo/evidence/phase-7-wider-product-rollout/final-smoke --assert-canary-rejection
+```
+
+Expected smoke artifacts:
+
+- `.omo/evidence/phase-7-wider-product-rollout/final-smoke/summary.txt`
+- `.omo/evidence/phase-7-wider-product-rollout/final-smoke/manifest-validation.json`
+- `.omo/evidence/phase-7-wider-product-rollout/final-smoke/beta-readiness.json`
+- `.omo/evidence/phase-7-wider-product-rollout/final-smoke/docs-qa.md`
+- `.omo/evidence/phase-7-wider-product-rollout/final-smoke/retention-report.json`
+- `.omo/evidence/phase-7-wider-product-rollout/final-smoke/runbook-qa.md`
+- `.omo/evidence/phase-7-wider-product-rollout/final-smoke/regression-gate.json`
+- `.omo/evidence/phase-7-wider-product-rollout/final-smoke/kill-switches.json`
+- `.omo/evidence/phase-7-wider-product-rollout/final-smoke/privacy-inspect.txt`
+- `.omo/evidence/phase-7-wider-product-rollout/final-smoke/negative-matrix.json`
+- `.omo/evidence/phase-7-wider-product-rollout/final-smoke/deployment-action.txt`
+- `.omo/evidence/phase-7-wider-product-rollout/final-smoke/cleanup-receipt.txt`
+- `.omo/evidence/phase-7-wider-product-rollout/final-smoke/command-logs/`
+
+The recorded smoke receipt reports `result: PASS`, `manifest_state: beta`, `default_availability_allowed: false`, beta readiness `BLOCKED`, rollout regression gate `BLOCKED`, and `deployment_action=none`. The backend observable is no live backend services, provider network paths, telemetry upload, real Messages read, Calendar mutation, remote config launch, artifact publish, or credential management used. The release handoff checklist is `docs/wider-product-rollout-release-checklist.md`, and the verifier is:
+
+```bash
+node scripts/wider-product-rollout-report.mjs verify-handoff --manifest docs/wider-product-rollout-manifest.json --smoke-dir .omo/evidence/phase-7-wider-product-rollout/final-smoke --docs docs/wider-product-rollout-release-checklist.md --out-dir .omo/evidence/phase-7-wider-product-rollout/task-9/handoff
+```
+
 ## Provider-Backed Messages-to-Calendar Flow
 
 Production Messages-to-Calendar scanning uses the native Messages SQLite source, the local Codex CLI ChatGPT login through `codex exec`, and EventKit proposal replay. Codex provider readiness is a Sync Now prerequisite in the app shell for the production Messages-to-Calendar path.
@@ -428,7 +460,7 @@ Additional reserved names remain schema vocabulary only in this layer:
 - `poll_empty`
 - `cursor_advanced`
 
-The full live Messages-to-Calendar approval trajectory eval remains future work. Current local diagnostics, Phase 1 production trace sink, Phase 2 product correlation, Phase 3 lifecycle replay smoke, Phase 4 local approval/correction evidence smoke, Phase 5 local trajectory eval hardening, Phase 6 cloud eval monitoring smoke, and feedback/eval receipts prove the local trace substrate plus local candidate/quiet/lifecycle/approval-correction/trajectory/cloud-monitoring evidence, not an end-to-end approval lifecycle benchmark.
+The full live Messages-to-Calendar approval trajectory eval remains future work. Current local diagnostics, Phase 1 production trace sink, Phase 2 product correlation, Phase 3 lifecycle replay smoke, Phase 4 local approval/correction evidence smoke, Phase 5 local trajectory eval hardening, Phase 6 cloud eval monitoring smoke, Phase 7 wider-product rollout handoff smoke, and feedback/eval receipts prove the local trace substrate plus local candidate/quiet/lifecycle/approval-correction/trajectory/cloud-monitoring/rollout-gating evidence, not an end-to-end approval lifecycle benchmark.
 
 ## Non-Goals
 
@@ -441,3 +473,4 @@ The full live Messages-to-Calendar approval trajectory eval remains future work.
 - No approval-bypassing mutation path.
 - No completed trajectory-level Messages -> Calendar -> approval eval in this layer; the full live Messages-to-Calendar approval trajectory eval remains future work.
 - No deployed rollout or automatic release promotion; deployed rollout remains future work and automatic release promotion remains future work.
+- No default availability from Phase 7 while beta readiness and rollout regression gates remain BLOCKED; live cloud rollout remains future work.

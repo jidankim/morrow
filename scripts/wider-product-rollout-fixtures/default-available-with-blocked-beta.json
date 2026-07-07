@@ -1,0 +1,162 @@
+{
+  "schema_version": "wider_product_rollout_manifest_v1",
+  "product": "Morrow",
+  "product_version": "0.1.0",
+  "phase": "phase_7_wider_product_rollout",
+  "rollout_source_of_truth": "static_local_manifest",
+  "remote_config_enabled": false,
+  "telemetry_enabled": false,
+  "state": "default_available",
+  "state_reason": "Negative fixture: default availability is claimed while beta package prerequisites remain blocked.",
+  "release_artifact": {
+    "app_path": "src-tauri/target/release/bundle/macos/Morrow.app",
+    "dmg_path": "src-tauri/target/release/bundle/dmg/Morrow_0.1.0_aarch64.dmg",
+    "dmg_sha256": "fixture-default-available-blocked-beta",
+    "signing_status": "signed",
+    "notarization_status": "notarized",
+    "public_handoff_url": "docs/beta-testing.md"
+  },
+  "default_availability": {
+    "allowed": true,
+    "default_download_channel": "static_manifest_and_public_docs",
+    "meaning": "Only this static manifest and public docs may identify the signed and notarized DMG as the default download after all gates pass.",
+    "signed_notarized_dmg_required": true,
+    "all_gates_required": true,
+    "excluded_distribution_channels": [
+      "app_store",
+      "testflight",
+      "auto_updater",
+      "hosted_remote_config",
+      "automatic_promotion"
+    ]
+  },
+  "promotion": {
+    "automatic_promotion_enabled": false,
+    "allowed_forward_transitions": [
+      {
+        "from": "beta",
+        "to": "staged"
+      },
+      {
+        "from": "staged",
+        "to": "default_available"
+      }
+    ],
+    "fail_closed_states": [
+      "paused",
+      "rolled_back",
+      "blocked"
+    ]
+  },
+  "kill_switches": {
+    "telemetry": {
+      "enabled": false,
+      "fail_closed": true,
+      "effect": "telemetry remains disabled"
+    },
+    "upload": {
+      "enabled": false,
+      "fail_closed": true,
+      "effect": "no upload path is available"
+    },
+    "remote_config": {
+      "enabled": false,
+      "fail_closed": true,
+      "effect": "live remote config is out of scope"
+    },
+    "staged_promotion": {
+      "enabled": false,
+      "fail_closed": true,
+      "effect": "promotion stops until reviewed manifest evidence passes"
+    },
+    "default_availability": {
+      "enabled": false,
+      "fail_closed": true,
+      "effect": "default download remains unavailable until every gate passes"
+    },
+    "model_router_changes": {
+      "enabled": false,
+      "fail_closed": true,
+      "effect": "model or router changes are blocked by rollout gates"
+    },
+    "provider_changes": {
+      "enabled": false,
+      "fail_closed": true,
+      "effect": "provider path changes are blocked by rollout gates"
+    }
+  },
+  "gates": {
+    "all_required_gates_passed": true,
+    "phase_6_monitoring_role": "fixture_monitoring_input_only",
+    "beta_signed_notarized_dmg": "blocked",
+    "dmg_install_qa": "blocked",
+    "packaged_launch_qa": "blocked",
+    "release_manifest": "blocked",
+    "privacy_docs": "pass",
+    "retention_deletion": "pass",
+    "operations_runbook": "pass"
+  },
+  "regression_budgets": {
+    "privacy_canary_result": {
+      "required_result": "pass",
+      "source": "phase_6_negative_matrix",
+      "blocks_release": true
+    },
+    "malformed_input_negative": {
+      "required_result": "pass",
+      "source": "phase_6_negative_matrix",
+      "blocks_release": true
+    },
+    "stale_state_negative": {
+      "required_result": "pass",
+      "source": "phase_6_negative_matrix",
+      "blocks_release": true
+    },
+    "regression_gate_negative": {
+      "required_result": "pass",
+      "source": "phase_6_negative_matrix",
+      "blocks_release": true
+    },
+    "release_gate_status": {
+      "required_overall_status": "PASS",
+      "required_deployment_action": "none",
+      "source": "phase_6_release_gate"
+    },
+    "latency_error_regression": {
+      "max_latency_p95_delta_ms": 5000,
+      "max_error_rate_delta": 0.05,
+      "source": "phase_6_metrics"
+    },
+    "drift": {
+      "max_drift_score": 0.75,
+      "source": "phase_6_metrics"
+    },
+    "false_positive_clusters": {
+      "max_count": 3,
+      "source": "phase_6_metrics"
+    },
+    "precision_recall": {
+      "minimum": 0.9,
+      "source": "phase_6_metrics",
+      "when_available": true
+    },
+    "approval_rejection_edit_rates": {
+      "required": "available_when_phase_6_metrics_include_denominators",
+      "source": "phase_6_metrics"
+    },
+    "beta_package_qa": {
+      "required_status": "PASS_OR_BLOCKED",
+      "required_artifacts": [
+        "signed_notarized_dmg",
+        "dmg_install_qa",
+        "packaged_launch_qa",
+        "release_manifest"
+      ],
+      "source": "phase_7_beta_gate"
+    },
+    "support_readiness": {
+      "required_status": "PASS",
+      "source": "phase_7_runbook_qa"
+    }
+  }
+}
