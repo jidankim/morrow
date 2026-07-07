@@ -1,0 +1,12 @@
+{
+  "fixtureId": "delete-all-would-delete-omo-evidence",
+  "description": "Malformed Delete All candidate that incorrectly treats local planning evidence as product-owned diagnostics.",
+  "proposedDeletedPaths": [
+    "app-data/diagnostics/traces",
+    "app-data/diagnostics/evals",
+    "app-data/diagnostics/exports",
+    ".omo/evidence/phase-7-wider-product-rollout/task-5"
+  ],
+  "expectedResult": "FAIL",
+  "expectedViolationClass": "planning-evidence"
+}

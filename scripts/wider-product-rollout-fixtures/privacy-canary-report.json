@@ -1,0 +1,7 @@
+{
+  "schema_version": "phase7_privacy_canary_report_fixture_v1",
+  "scenario": "privacy scanner must reject canary and private-path evidence",
+  "summary": "MORROW_PRIVACY_CANARY_RAW must be treated as inert test content and rejected",
+  "example_path": "/Users/example/Library/Application Support/Morrow/private.txt",
+  "private_content_class": "raw message"
+}
