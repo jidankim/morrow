@@ -62,3 +62,17 @@ The evidence boundary is:
 - The correction UI remains future work, cloud telemetry remains future work, deployed rollout remains future work, and the full live Messages-to-Calendar approval trajectory eval remains future work unless the live receipt summary is PASS.
 - Live receipt status remains PASS or sanitized BLOCKED and is recorded separately under `.omo/evidence/phase-5-messages-calendar-approval-trajectory-eval/live-receipt/summary.txt`, `.omo/evidence/phase-5-messages-calendar-approval-trajectory-eval/live-receipt/cleanup-receipt.txt`, and `.omo/evidence/phase-5-messages-calendar-approval-trajectory-eval/live-receipt/privacy-inspect.txt`.
 - A full live PASS requires explicit surface QA and mutation opt-ins, the selected real QA chat environment, the real Messages-to-Calendar QA runner, and a structured manual proof file for approval/reconcile/idempotency observations. Fixture receipts cannot set `full_live_claim_allowed=true`.
+
+## Phase 6 Evidence Boundary
+
+Phase 6 cloud eval and monitoring is covered by smoke artifacts, not by new native adapters, deployed rollout, correction UI, full live Messages-to-Calendar approval completion, or automatic release promotion. The smoke command is:
+
+```bash
+scripts/run-cloud-eval-monitoring-smoke.sh --out-dir .omo/evidence/phase-6-cloud-eval-monitoring/final-smoke --assert-canary-rejection
+```
+
+The evidence boundary is:
+
+- The smoke may prove deterministic fixture-backed preflight, sanitized cloud eval monitoring inputs, eval job aggregation, eval slices, metrics, dashboard output, release-gate decisions, alerts, privacy inspection, canary rejection, negative matrix coverage, artifact freshness, and cleanup under `.omo/evidence/phase-6-cloud-eval-monitoring/final-smoke/summary.txt`, `.omo/evidence/phase-6-cloud-eval-monitoring/final-smoke/preflight-report.json`, `.omo/evidence/phase-6-cloud-eval-monitoring/final-smoke/eval-job-input.json`, `.omo/evidence/phase-6-cloud-eval-monitoring/final-smoke/eval-slices.json`, `.omo/evidence/phase-6-cloud-eval-monitoring/final-smoke/metrics.json`, `.omo/evidence/phase-6-cloud-eval-monitoring/final-smoke/cloud-eval-monitoring-report.json`, `.omo/evidence/phase-6-cloud-eval-monitoring/final-smoke/cloud-eval-monitoring-dashboard.md`, `.omo/evidence/phase-6-cloud-eval-monitoring/final-smoke/dashboard-summary.txt`, `.omo/evidence/phase-6-cloud-eval-monitoring/final-smoke/release-gate.json`, `.omo/evidence/phase-6-cloud-eval-monitoring/final-smoke/release-gate.md`, `.omo/evidence/phase-6-cloud-eval-monitoring/final-smoke/alerts.json`, `.omo/evidence/phase-6-cloud-eval-monitoring/final-smoke/privacy-inspect.txt`, `.omo/evidence/phase-6-cloud-eval-monitoring/final-smoke/canary-rejection.txt`, `.omo/evidence/phase-6-cloud-eval-monitoring/final-smoke/negative-matrix.json`, `.omo/evidence/phase-6-cloud-eval-monitoring/final-smoke/cleanup-receipt.txt`, and `.omo/evidence/phase-6-cloud-eval-monitoring/final-smoke/command-logs/`.
+- It must not imply EventKit/Reminders mutation, Messages access, provider calls, deployed rollout, automatic release promotion, approval queue completion, cloud upload, or user-facing correction interaction; the backend observable is no live backend, provider network, EventKit, Messages, Calendar, Reminders, Phoenix, Langfuse, vendor backend, deployment, or cloud upload surface.
+- The correction UI remains future work, deployed rollout remains future work, automatic release promotion remains future work, and the full live Messages-to-Calendar approval trajectory eval remains future work.

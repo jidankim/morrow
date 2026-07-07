@@ -211,6 +211,39 @@ Remaining Phase 5 gaps:
 - Deployed rollout remains future work.
 - The full live Messages-to-Calendar approval trajectory eval remains future work unless the live receipt summary is PASS.
 
+## Phase 6 Cloud Eval Monitoring Smoke
+
+Phase 6 cloud eval and monitoring is covered by smoke artifacts for the narrowed evidence claim only. It covers deterministic fixture-backed cloud eval monitoring inputs, version-sliced eval job aggregation, precision/recall and rate metrics, drift/regression and false-positive cluster reporting, dashboard artifacts, release gates, alerts, privacy/canary rejection, malformed/regression/stale negative cases, artifact freshness, and cleanup. It does not prove deployed rollout, correction UI, full live Messages-to-Calendar approval completion, automatic release promotion, live cloud collection, provider calls, Messages access, EventKit mutation, or vendor backend behavior.
+
+Run the Phase 6 smoke with:
+
+```bash
+scripts/run-cloud-eval-monitoring-smoke.sh --out-dir .omo/evidence/phase-6-cloud-eval-monitoring/final-smoke --assert-canary-rejection
+```
+
+Expected smoke artifacts:
+
+- `.omo/evidence/phase-6-cloud-eval-monitoring/final-smoke/summary.txt`
+- `.omo/evidence/phase-6-cloud-eval-monitoring/final-smoke/preflight-report.json`
+- `.omo/evidence/phase-6-cloud-eval-monitoring/final-smoke/eval-job-input.json`
+- `.omo/evidence/phase-6-cloud-eval-monitoring/final-smoke/eval-slices.json`
+- `.omo/evidence/phase-6-cloud-eval-monitoring/final-smoke/metrics.json`
+- `.omo/evidence/phase-6-cloud-eval-monitoring/final-smoke/cloud-eval-monitoring-report.json`
+- `.omo/evidence/phase-6-cloud-eval-monitoring/final-smoke/cloud-eval-monitoring-dashboard.md`
+- `.omo/evidence/phase-6-cloud-eval-monitoring/final-smoke/dashboard-summary.txt`
+- `.omo/evidence/phase-6-cloud-eval-monitoring/final-smoke/release-gate.json`
+- `.omo/evidence/phase-6-cloud-eval-monitoring/final-smoke/release-gate.md`
+- `.omo/evidence/phase-6-cloud-eval-monitoring/final-smoke/alerts.json`
+- `.omo/evidence/phase-6-cloud-eval-monitoring/final-smoke/privacy-inspect.txt`
+- `.omo/evidence/phase-6-cloud-eval-monitoring/final-smoke/canary-rejection.txt`
+- `.omo/evidence/phase-6-cloud-eval-monitoring/final-smoke/negative-matrix.json`
+- `.omo/evidence/phase-6-cloud-eval-monitoring/final-smoke/cleanup-receipt.txt`
+- `.omo/evidence/phase-6-cloud-eval-monitoring/final-smoke/command-logs/`
+
+The recorded smoke receipt reports `result: PASS` for preflight, input validation, aggregation, metrics, dashboard, release gate, privacy canary rejection, malformed-input negative coverage, regression negative coverage, stale-state negative coverage, and artifact freshness. The backend observable is no live backend, provider network, EventKit, Messages, Calendar, Reminders, Phoenix, Langfuse, vendor backend, deployment, or cloud upload surface.
+
+Phase 6 cloud eval and monitoring is separate from deployed rollout, correction UI, full live Messages-to-Calendar approval completion, and automatic release promotion. The correction UI remains future work, deployed rollout remains future work, automatic release promotion remains future work, and the full live Messages-to-Calendar approval trajectory eval remains future work.
+
 ## Provider-Backed Messages-to-Calendar Flow
 
 Production Messages-to-Calendar scanning uses the native Messages SQLite source, the local Codex CLI ChatGPT login through `codex exec`, and EventKit proposal replay. Codex provider readiness is a Sync Now prerequisite in the app shell for the production Messages-to-Calendar path.
@@ -395,7 +428,7 @@ Additional reserved names remain schema vocabulary only in this layer:
 - `poll_empty`
 - `cursor_advanced`
 
-The full live Messages-to-Calendar approval trajectory eval remains future work. Current local diagnostics, Phase 1 production trace sink, Phase 2 product correlation, Phase 3 lifecycle replay smoke, Phase 4 local approval/correction evidence smoke, and feedback/eval receipts prove the local trace substrate plus local candidate/quiet/lifecycle/approval-correction evidence, not an end-to-end approval lifecycle benchmark.
+The full live Messages-to-Calendar approval trajectory eval remains future work. Current local diagnostics, Phase 1 production trace sink, Phase 2 product correlation, Phase 3 lifecycle replay smoke, Phase 4 local approval/correction evidence smoke, Phase 5 local trajectory eval hardening, Phase 6 cloud eval monitoring smoke, and feedback/eval receipts prove the local trace substrate plus local candidate/quiet/lifecycle/approval-correction/trajectory/cloud-monitoring evidence, not an end-to-end approval lifecycle benchmark.
 
 ## Non-Goals
 
@@ -407,4 +440,4 @@ The full live Messages-to-Calendar approval trajectory eval remains future work.
 - The full Calendar write workflow is not claimed; Phase 3 dry-run and commit-idempotency evidence is local/fake or bounded by explicit real-surface PASS/BLOCKED receipts.
 - No approval-bypassing mutation path.
 - No completed trajectory-level Messages -> Calendar -> approval eval in this layer; the full live Messages-to-Calendar approval trajectory eval remains future work.
-- No cloud telemetry rollout; cloud telemetry remains future work.
+- No deployed rollout or automatic release promotion; deployed rollout remains future work and automatic release promotion remains future work.
