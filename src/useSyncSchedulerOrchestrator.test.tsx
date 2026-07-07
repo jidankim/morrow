@@ -109,7 +109,9 @@ function createBridgeMock() {
     openPrivacySettings: vi.fn(async (): Promise<PrivacySettingsReceipt | undefined> => undefined),
     recordCrashLog: vi.fn(async () => undefined),
     loadDecisionEvidence: vi.fn(async () => decisionEvidenceReport),
-    loadProviderUsage: vi.fn(async () => undefined)
+    loadProviderUsage: vi.fn(async () => undefined),
+    loadListIntakeReview: vi.fn(async () => undefined),
+    decideListIntakeProposal: vi.fn(async () => undefined)
   }
 }
 

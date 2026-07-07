@@ -1,16 +1,19 @@
 import { useEffect, useMemo, useState } from "react"
 import { assertNeverRoute } from "./appRuntime"
 import { ProviderUsageDashboard } from "./ProviderUsageDashboard"
+import { ListIntakeReviewView } from "./ListIntakeReviewView"
 import { SettingsView } from "./SettingsView"
 import { ShellNavigation } from "./ShellNavigation"
 import { StatusView } from "./StatusView"
 import { createNativeShellBridge, type RuntimeIdentity } from "./tauriBridge"
 import { useAppShellController } from "./useAppShellController"
+import { useListIntakeReviewController } from "./useListIntakeReviewController"
 
 export function App(): JSX.Element {
   const shell = useAppShellController()
   const runtimeIdentityBridge = useMemo(() => createNativeShellBridge(), [])
   const [runtimeIdentity, setRuntimeIdentity] = useState<RuntimeIdentity | undefined>(undefined)
+  const listIntakeReview = useListIntakeReviewController(shell.route, runtimeIdentityBridge)
 
   useEffect(() => {
     let active = true
@@ -66,6 +69,16 @@ export function App(): JSX.Element {
           selectedWindowKey={shell.providerUsage.selectedWindowKey}
           state={shell.providerUsage.state}
           onWindowChange={shell.providerUsage.changeWindow}
+        />
+      )
+      break
+    case "list-intake":
+      content = (
+        <ListIntakeReviewView
+          state={listIntakeReview.state}
+          onApproveEdited={listIntakeReview.approveEdited}
+          onReject={listIntakeReview.reject}
+          onReload={listIntakeReview.reload}
         />
       )
       break

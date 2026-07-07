@@ -99,16 +99,7 @@ describe("App privacy controls", () => {
       feedbackTextSnapshotsEnabled: false,
       localDiagnosticsEnabled: false,
       localDiagnosticsRetentionDays: 30,
-      listReminderProfile: {
-        enabled: false,
-        profileId: "list-reminders",
-        profileVersion: "list-reminders-v1",
-        routingMode: "explicitOnly",
-        defaultDueMode: "explicitOnly",
-        defaultDueTime: "23:59",
-        recurrenceMode: "none",
-        itemOutputMode: "singleReminderTitle"
-      },
+      listIntakeProfiles: [],
       capPolicy: {
         mode: "refillForPending",
         maxVisible: 10,
@@ -235,9 +226,7 @@ describe("App privacy controls", () => {
   })
 
   it("surfaces scrubbed native string rejection from delete-all as a visible failure", async () => {
-    bridgeMock.deleteMorrowData.mockRejectedValueOnce(
-      'Calendar access was denied excerpt="synthetic diagnostic excerpt"'
-    )
+    bridgeMock.deleteMorrowData.mockRejectedValueOnce('Calendar access was denied excerpt="synthetic diagnostic excerpt"')
     render(<App />)
 
     openAppRoute("#settings")
@@ -274,16 +263,7 @@ describe("App privacy controls", () => {
       feedbackTextSnapshotsEnabled: true,
       localDiagnosticsEnabled: false,
       localDiagnosticsRetentionDays: 30,
-      listReminderProfile: {
-        enabled: false,
-        profileId: "list-reminders",
-        profileVersion: "list-reminders-v1",
-        routingMode: "explicitOnly",
-        defaultDueMode: "explicitOnly",
-        defaultDueTime: "23:59",
-        recurrenceMode: "none",
-        itemOutputMode: "singleReminderTitle"
-      },
+      listIntakeProfiles: [],
       capPolicy: { mode: "refillForPending", maxVisible: 10, pendingCount: 0 }
     } as const
 

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { DEFAULT_LIST_REMINDER_PROFILE } from "./domain/appConfig"
+import { createListIntakeProfile } from "./domain/appConfig"
 
 const tauriMock = vi.hoisted(() => ({
   invoke: vi.fn(async (): Promise<unknown> => ({ pendingProposalCount: 3 }))
@@ -32,6 +32,33 @@ describe("messagesTauriCommands boundary parsing", () => {
       participantIds: ["messages-participant-11111111111111111111111111111111"],
       latestActivityTimestamp: 1_783_000_000
     } as const
+    const listIntakeProfile = createListIntakeProfile({
+      enabled: true,
+      profileId: "list-intake-fishcount",
+      name: "Fish count",
+      profileVersion: "list-intake-v2",
+      kind: "quantityList",
+      extractionMode: "providerConstrained",
+      providerPromptVersion: "list-intake-v1",
+      positiveExamples: ["2 anchovies, 3 salmon"],
+      negativeExamples: [],
+      categoryRules: [],
+      aggregation: { window: "localDay", timezoneSource: "referenceTimezone" },
+      chatScope: { mode: "allSelectedChats" },
+      grouping: { chat: true, sender: "off" },
+      captureFromScheduledMessages: false,
+      outputPolicy: "aggregateOnly",
+      quantityListBounds: {
+        minItems: 1,
+        maxItems: 20,
+        minQuantity: 1,
+        maxQuantity: 999,
+        maxItemNameVisibleChars: 80,
+        maxUnitVisibleChars: 24,
+        uncategorizedCategoryId: "uncategorized"
+      },
+      thresholds: { autoAggregateThresholdMillis: 850, reviewThresholdMillis: 550 }
+    })
     const scanRequest = {
       selectedChatIds: [selectedChat.id],
       selectedChats: [selectedChat],
@@ -42,7 +69,7 @@ describe("messagesTauriCommands boundary parsing", () => {
       feedbackTextSnapshotsEnabled: true,
       localDiagnosticsEnabled: true,
       localDiagnosticsRetentionDays: 45,
-      listReminderProfile: DEFAULT_LIST_REMINDER_PROFILE,
+      listIntakeProfiles: [listIntakeProfile],
       capPolicy: { mode: "refillForPending", maxVisible: 10, pendingCount: 0 }
     } as const
     const discoveryReport = {
@@ -88,7 +115,7 @@ describe("messagesTauriCommands boundary parsing", () => {
     expect(previewRows).toEqual(previewReport)
     expect(tauriMock.invoke).toHaveBeenCalledTimes(3)
     expect(tauriMock.invoke).toHaveBeenNthCalledWith(1, "scan_selected_chats", {
-      request: { ...scanRequest, listReminderProfile: DEFAULT_LIST_REMINDER_PROFILE }
+      request: scanRequest
     })
     expect(tauriMock.invoke).toHaveBeenNthCalledWith(2, "discover_messages_chats")
     expect(tauriMock.invoke).toHaveBeenNthCalledWith(3, "load_messages_chat_previews", {
@@ -120,7 +147,7 @@ describe("messagesTauriCommands boundary parsing", () => {
       feedbackTextSnapshotsEnabled: true,
       localDiagnosticsEnabled: false,
       localDiagnosticsRetentionDays: 30,
-      listReminderProfile: DEFAULT_LIST_REMINDER_PROFILE,
+      listIntakeProfiles: [],
       capPolicy: { mode: "refillForPending", maxVisible: 10, pendingCount: 0 }
     } as const
     const previewRequest = { chatIds: [selectedChat.id] } as const

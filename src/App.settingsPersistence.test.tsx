@@ -6,7 +6,7 @@ import {
   resetAppShellBridgeTestHarness
 } from "./AppShellBridgeTestHarness"
 import { App } from "./App"
-import { DEFAULT_LIST_REMINDER_PROFILE } from "./domain/appConfig"
+import { createListIntakeProfile } from "./domain/appConfig"
 import {
   APP_SHELL_STATE_KEY,
   createBrowserShellStorage,
@@ -14,12 +14,33 @@ import {
   loadAppShellState
 } from "./domain/appShell"
 
-const ENABLED_LIST_REMINDER_PROFILE = {
-  ...DEFAULT_LIST_REMINDER_PROFILE,
+const ENABLED_LIST_INTAKE_PROFILE = createListIntakeProfile({
   enabled: true,
-  routingMode: "profileBareQuantityLists",
-  defaultDueMode: "nextLocalDayAtDefaultTime"
-} as const
+  profileId: "list-intake-fishcount",
+  name: "Fish count",
+  profileVersion: "list-intake-v2",
+  kind: "quantityList",
+  extractionMode: "providerConstrained",
+  providerPromptVersion: "list-intake-v1",
+  positiveExamples: ["2 anchovies, 3 salmon"],
+  negativeExamples: ["remind me to buy fish tomorrow"],
+  categoryRules: [{ categoryId: "seafood", displayName: "Seafood", keywords: ["salmon"] }],
+  aggregation: { window: "localDay", timezoneSource: "referenceTimezone" },
+  chatScope: { mode: "allSelectedChats" },
+  grouping: { chat: true, sender: "off" },
+  captureFromScheduledMessages: false,
+  outputPolicy: "aggregateOnly",
+  quantityListBounds: {
+    minItems: 1,
+    maxItems: 20,
+    minQuantity: 1,
+    maxQuantity: 999,
+    maxItemNameVisibleChars: 80,
+    maxUnitVisibleChars: 24,
+    uncategorizedCategoryId: "uncategorized"
+  },
+  thresholds: { autoAggregateThresholdMillis: 850, reviewThresholdMillis: 550 }
+})
 
 describe("App settings persistence", () => {
   beforeEach(() => {
@@ -181,8 +202,8 @@ describe("App settings persistence", () => {
     expect(reloaded.config.telemetryEnabled).toBe(false)
   })
 
-  it("persists the list reminder profile opt-in across reloads", async () => {
-    seedReadyStateWithReferenceTimezone("Asia/Seoul")
+  it("persists explicit list-intake profiles across reloads and sends them to native scan", async () => {
+    seedReadyStateWithReferenceTimezone("Asia/Seoul", [ENABLED_LIST_INTAKE_PROFILE])
     const firstRender = render(<App />)
 
     act(() => {
@@ -190,14 +211,10 @@ describe("App settings persistence", () => {
       window.dispatchEvent(new HashChangeEvent("hashchange"))
     })
 
-    const listReminderToggle = screen.getByRole("checkbox", { name: "Enable daily list reminders" })
-    expect(listReminderToggle).not.toBeChecked()
-    fireEvent.click(listReminderToggle)
-
     await waitFor(() =>
-      expect(loadAppShellState(createBrowserShellStorage(window.localStorage)).config.listReminderProfile).toEqual(
-        ENABLED_LIST_REMINDER_PROFILE
-      )
+      expect(loadAppShellState(createBrowserShellStorage(window.localStorage)).config.listIntakeProfiles).toEqual([
+        ENABLED_LIST_INTAKE_PROFILE
+      ])
     )
 
     firstRender.unmount()
@@ -208,7 +225,7 @@ describe("App settings persistence", () => {
     await waitFor(() => expect(bridgeMock.scanSelectedChats).toHaveBeenCalledOnce())
     expect(bridgeMock.scanSelectedChats).toHaveBeenCalledWith(
       expect.objectContaining({
-        listReminderProfile: ENABLED_LIST_REMINDER_PROFILE
+        listIntakeProfiles: [ENABLED_LIST_INTAKE_PROFILE]
       })
     )
 
@@ -216,17 +233,23 @@ describe("App settings persistence", () => {
       window.location.hash = "#settings"
       window.dispatchEvent(new HashChangeEvent("hashchange"))
     })
-    expect(screen.getByRole("checkbox", { name: "Enable daily list reminders" })).toBeChecked()
+    expect(screen.getByRole("heading", { name: "List intake" })).toBeInTheDocument()
+    expect(screen.getByDisplayValue("Fish count")).toBeInTheDocument()
+    expect(screen.queryByText("Daily list reminders")).not.toBeInTheDocument()
+    expect(screen.queryByRole("checkbox", { name: "Enable daily list reminders" })).not.toBeInTheDocument()
   })
 })
 
-function seedReadyStateWithReferenceTimezone(referenceTimezone: string): void {
+function seedReadyStateWithReferenceTimezone(
+  referenceTimezone: string,
+  listIntakeProfiles = createDefaultAppShellState().config.listIntakeProfiles
+): void {
   const initial = createDefaultAppShellState()
   window.localStorage.setItem(
     APP_SHELL_STATE_KEY,
     JSON.stringify({
       ...initial,
-      config: { ...initial.config, referenceTimezone, permissionsGranted: false },
+      config: { ...initial.config, referenceTimezone, permissionsGranted: false, listIntakeProfiles },
       discovery: { status: "ready", chats: [discoveredChat] },
       selectedChats: [{ ...discoveredChat, backfillPromptEnabled: true }]
     })

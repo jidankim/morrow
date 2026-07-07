@@ -8,7 +8,7 @@ import {
 import type { ProviderUsageLoadRequest } from "./domain/providerUsage"
 import type { NativeMenuCommand } from "./tauriBridge"
 
-export type Route = "status" | "settings" | "usage"
+export type Route = "status" | "settings" | "usage" | "list-intake"
 
 export const DEFAULT_PROVIDER_USAGE_REQUEST = {
   windowKey: "30d"
@@ -20,6 +20,8 @@ export const routeFromHash = (): Route => {
       return "settings"
     case "#usage":
       return "usage"
+    case "#list-intake":
+      return "list-intake"
     case "":
     case "#status":
       return "status"

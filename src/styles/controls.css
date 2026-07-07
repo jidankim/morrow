@@ -59,7 +59,8 @@
 .button:focus-visible,
 .nav-link:focus-visible,
 input:focus-visible,
-select:focus-visible {
+select:focus-visible,
+textarea:focus-visible {
   outline: 2px solid var(--accent-primary);
   outline-offset: 2px;
 }
@@ -116,7 +117,8 @@ select:focus-visible {
 }
 
 .field input,
-.field select {
+.field select,
+.field textarea {
   width: 100%;
   min-width: 0;
   min-height: 40px;
@@ -125,6 +127,11 @@ select:focus-visible {
   border-radius: 6px;
   background: var(--surface-elevated);
   color: var(--text-primary);
+}
+
+.field textarea {
+  padding-top: var(--space-3);
+  resize: vertical;
 }
 
 .sync-scheduler-interval-field {

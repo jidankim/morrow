@@ -28,8 +28,6 @@ const discoveredChat = {
   latestActivityTimestamp: 1_783_000_000
 } as const
 const selectedChat = { ...discoveredChat, backfillPromptEnabled: true } as const
-const defaultListReminderProfile = { enabled: false, profileId: "list-reminders", profileVersion: "list-reminders-v1", routingMode: "explicitOnly", defaultDueMode: "explicitOnly", defaultDueTime: "23:59", recurrenceMode: "none", itemOutputMode: "singleReminderTitle" } as const
-const storageWithConfig = (config: object): Map<string, string> => new Map([[APP_SHELL_STATE_KEY, JSON.stringify({ ...createDefaultAppShellState(), config })]])
 
 describe("app shell state", () => {
   it("defaults to the system reference timezone preference", () => {
@@ -152,27 +150,10 @@ describe("app shell state", () => {
     const reloaded = loadAppShellState(storage)
 
     expect(reloaded.config.permissionsGranted).toBe(false)
-    expect(reloaded.config.listReminderProfile).toEqual(defaultListReminderProfile)
+    expect(reloaded.config.listIntakeProfiles).toEqual([])
     expect(reloaded.providerCredentialStatus).toBe("unchecked")
     expect(isOnboardingComplete(reloaded)).toBe(false)
     expect(isSyncNowEnabled(reloaded)).toBe(false)
-  })
-
-  it("defaults missing nested list reminder profile fields when loading partial old persisted state", () => {
-    const reloaded = loadAppShellState(storageWithConfig({ ...createDefaultAppShellState().config, listReminderProfile: { enabled: true } }))
-
-    expect(reloaded.config.listReminderProfile).toEqual({ ...defaultListReminderProfile, enabled: true })
-  })
-
-  it("rejects malformed present list reminder profile values when loading persisted state", () => {
-    const malformedProfiles = [
-      { ...defaultListReminderProfile, enabled: true, routingMode: "routeBareLists" },
-      { ...defaultListReminderProfile, enabled: true, defaultDueTime: "24:00" }
-    ] as const
-
-    for (const listReminderProfile of malformedProfiles) {
-      expect(() => loadAppShellState(storageWithConfig({ ...createDefaultAppShellState().config, listReminderProfile }))).toThrow()
-    }
   })
 
   it("loads persisted null error messages as absent", () => {

@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { DEFAULT_LIST_REMINDER_PROFILE } from "./domain/appConfig"
 
 const tauriMock = vi.hoisted(() => ({
   invoke: vi.fn(async (): Promise<unknown> => ({
@@ -42,7 +41,7 @@ describe("messagesTauriCommands scan result parsing", () => {
       feedbackTextSnapshotsEnabled: true,
       localDiagnosticsEnabled: true,
       localDiagnosticsRetentionDays: 45,
-      listReminderProfile: DEFAULT_LIST_REMINDER_PROFILE,
+      listIntakeProfiles: [],
       capPolicy: { mode: "refillForPending", maxVisible: 10, pendingCount: 0 }
     } as const
 

@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { DEFAULT_LIST_REMINDER_PROFILE } from "./domain/appConfig"
 import type { NativeAppShellState } from "./domain/appShell"
 
 const tauriMock = vi.hoisted(() => ({
@@ -110,7 +109,7 @@ describe("createNativeShellBridge runtime identity", () => {
       automaticSyncDetail: "Automatic sync is off."
     }
     const selectedChat = { id: "messages-chat-11111111111111111111111111111111", label: "Team planning", participantCount: 1, participantIds: ["messages-participant-11111111111111111111111111111111"], latestActivityTimestamp: 1 } as const
-    const scanRequest = { selectedChatIds: [selectedChat.id], selectedChats: [selectedChat], referenceTimezone: "Asia/Seoul", referenceUnixSeconds: 1, backfillPromptChatIds: [selectedChat.id], sourceExcerptsEnabled: false, feedbackTextSnapshotsEnabled: false, localDiagnosticsEnabled: false, localDiagnosticsRetentionDays: 30, listReminderProfile: DEFAULT_LIST_REMINDER_PROFILE, capPolicy: { mode: "refillForPending", maxVisible: 1, pendingCount: 0 } } as const
+    const scanRequest = { selectedChatIds: [selectedChat.id], selectedChats: [selectedChat], referenceTimezone: "Asia/Seoul", referenceUnixSeconds: 1, backfillPromptChatIds: [selectedChat.id], sourceExcerptsEnabled: false, feedbackTextSnapshotsEnabled: false, localDiagnosticsEnabled: false, localDiagnosticsRetentionDays: 30, listIntakeProfiles: [], capPolicy: { mode: "refillForPending", maxVisible: 1, pendingCount: 0 } } as const
     const previewRequest = { chatIds: [selectedChat.id] } as const
     const tokenLookup = { service: MORROW_KEYCHAIN_SERVICE, tokenKind: MORROW_PROVIDER_TOKEN_KIND } as const
     const deleteDataRequest = { confirmation: "DELETE MORROW DATA", cleanupProposedItems: true, deleteEmptyProposalContainers: true, revokeProviderOAuth: true } as const
@@ -162,7 +161,7 @@ describe("createNativeShellBridge runtime identity", () => {
     const { createNativeShellBridge } = await import("./tauriBridge")
     const bridge = createNativeShellBridge()
     const malformedSelectedChat = { id: "+15555550103", label: "Team planning", participantCount: 1, participantIds: ["messages-participant-11111111111111111111111111111111"], latestActivityTimestamp: 1 } as const
-    const malformedScanRequest = { selectedChatIds: [malformedSelectedChat.id], selectedChats: [malformedSelectedChat], referenceTimezone: "Asia/Seoul", referenceUnixSeconds: 1, backfillPromptChatIds: [malformedSelectedChat.id], sourceExcerptsEnabled: false, feedbackTextSnapshotsEnabled: false, localDiagnosticsEnabled: false, localDiagnosticsRetentionDays: 30, listReminderProfile: DEFAULT_LIST_REMINDER_PROFILE, capPolicy: { mode: "refillForPending", maxVisible: 1, pendingCount: 0 } } as const
+    const malformedScanRequest = { selectedChatIds: [malformedSelectedChat.id], selectedChats: [malformedSelectedChat], referenceTimezone: "Asia/Seoul", referenceUnixSeconds: 1, backfillPromptChatIds: [malformedSelectedChat.id], sourceExcerptsEnabled: false, feedbackTextSnapshotsEnabled: false, localDiagnosticsEnabled: false, localDiagnosticsRetentionDays: 30, listIntakeProfiles: [], capPolicy: { mode: "refillForPending", maxVisible: 1, pendingCount: 0 } } as const
     const malformedPreviewRequest = { chatIds: [malformedSelectedChat.id] } as const
 
     // When / Then

@@ -1,4 +1,4 @@
-import { ChartColumnIncreasing, Settings, SlidersHorizontal } from "lucide-react"
+import { ChartColumnIncreasing, ClipboardList, Settings, SlidersHorizontal } from "lucide-react"
 import type { Route } from "./appRuntime"
 
 type ShellNavigationProps = {
@@ -27,6 +27,14 @@ export function ShellNavigation({ route }: ShellNavigationProps): JSX.Element {
       >
         <ChartColumnIncreasing aria-hidden="true" size={17} />
         Usage
+      </a>
+      <a
+        aria-current={route === "list-intake" ? "page" : undefined}
+        className={route === "list-intake" ? "nav-link active" : "nav-link"}
+        href="#list-intake"
+      >
+        <ClipboardList aria-hidden="true" size={17} />
+        List intake
       </a>
       <a
         aria-current={route === "settings" ? "page" : undefined}

@@ -1,5 +1,6 @@
 import { vi } from "vitest"
 import { APP_SHELL_STATE_KEY, createDefaultAppShellState } from "./domain/appShell"
+import type { ListIntakeDecisionRequest, ListIntakeReviewReport } from "./domain/listIntakeReview"
 import type { ProviderUsageLoadRequest, ProviderUsageReport } from "./domain/providerUsage"
 
 type NativeStateForTest = {
@@ -85,6 +86,7 @@ const hoistedBridgeMock = vi.hoisted(() => {
     updated_at: 1_783_000_000
   }
   let providerUsageReport: ProviderUsageReport | undefined
+  let listIntakeReviewReport: ListIntakeReviewReport | undefined
   const syncCalls: string[] = []
   return {
     getState: vi.fn(async () => undefined),
@@ -121,6 +123,8 @@ const hoistedBridgeMock = vi.hoisted(() => {
       latestEvalStatus: "never_run"
     })),
     loadProviderUsage: vi.fn(async (_request?: ProviderUsageLoadRequest) => providerUsageReport),
+    loadListIntakeReview: vi.fn(async () => listIntakeReviewReport),
+    decideListIntakeProposal: vi.fn(async (_request: ListIntakeDecisionRequest) => listIntakeReviewReport),
     getSyncSchedulerState: vi.fn(async () => schedulerState),
     setSyncSchedulerState: vi.fn(async (state: NativeSyncSchedulerStateForTest) => {
       schedulerState = state
@@ -158,16 +162,12 @@ const hoistedBridgeMock = vi.hoisted(() => {
     },
     getSyncCalls: (): readonly string[] => syncCalls,
     getSchedulerState: (): NativeSyncSchedulerStateForTest | undefined => schedulerState,
-    setSchedulerState: (state: NativeSyncSchedulerStateForTest | undefined): void => {
-      schedulerState = state
-    },
-    setProviderUsageReport: (report: ProviderUsageReport | undefined): void => {
-      providerUsageReport = report
-    },
+    setSchedulerState: (state: NativeSyncSchedulerStateForTest | undefined): void => { schedulerState = state },
+    setProviderUsageReport: (report: ProviderUsageReport | undefined): void => { providerUsageReport = report },
     getProviderUsageReport: (): ProviderUsageReport | undefined => providerUsageReport,
-    resetSyncCalls: (): void => {
-      syncCalls.length = 0
-    },
+    setListIntakeReviewReport: (report: ListIntakeReviewReport | undefined): void => { listIntakeReviewReport = report },
+    getListIntakeReviewReport: (): ListIntakeReviewReport | undefined => listIntakeReviewReport,
+    resetSyncCalls: (): void => { syncCalls.length = 0 },
     resetSchedulerState: (): void => {
       schedulerState = {
         enabled: false,
@@ -177,6 +177,7 @@ const hoistedBridgeMock = vi.hoisted(() => {
         updated_at: 1_783_000_000
       }
       providerUsageReport = undefined
+      listIntakeReviewReport = undefined
     }
   }
 })
@@ -197,6 +198,12 @@ export const resetAppShellBridgeTestHarness = (): void => {
   bridgeMock.loadProviderUsage.mockClear()
   bridgeMock.loadProviderUsage.mockImplementation(
     async (_request?: ProviderUsageLoadRequest) => bridgeMock.getProviderUsageReport()
+  )
+  bridgeMock.loadListIntakeReview.mockClear()
+  bridgeMock.loadListIntakeReview.mockImplementation(async () => bridgeMock.getListIntakeReviewReport())
+  bridgeMock.decideListIntakeProposal.mockClear()
+  bridgeMock.decideListIntakeProposal.mockImplementation(
+    async (_request: ListIntakeDecisionRequest) => bridgeMock.getListIntakeReviewReport()
   )
   bridgeMock.getSyncSchedulerState.mockClear()
   bridgeMock.setSyncSchedulerState.mockClear()
@@ -222,6 +229,8 @@ vi.mock("./tauriBridge", () => ({
     scanSelectedChats: bridgeMock.scanSelectedChats,
     loadDecisionEvidence: bridgeMock.loadDecisionEvidence,
     loadProviderUsage: bridgeMock.loadProviderUsage,
+    loadListIntakeReview: bridgeMock.loadListIntakeReview,
+    decideListIntakeProposal: bridgeMock.decideListIntakeProposal,
     getSyncSchedulerState: bridgeMock.getSyncSchedulerState,
     setSyncSchedulerState: bridgeMock.setSyncSchedulerState,
     checkProviderAuth: bridgeMock.checkProviderAuth,

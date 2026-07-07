@@ -35,7 +35,9 @@ import {
   type PrivacySettingsRequest
 } from "./nativePrivacyBridge"
 import type { ProviderUsageLoadRequest, ProviderUsageReport, ProviderUsageWindowKey } from "./domain/providerUsage"
+import type { ListIntakeDecisionRequest, ListIntakeReviewReport } from "./domain/listIntakeReview"
 import { loadProviderUsageInTauri } from "./nativeProviderUsageBridge"
+import { decideListIntakeProposalInTauri, loadListIntakeReviewInTauri } from "./nativeListIntakeReviewBridge"
 import type { CodexProviderAuthReadiness } from "./providerAuthBridge"
 import type { CodexCliInstallReceipt, CodexLoginLaunchReceipt } from "./providerSetupBridge"
 import {
@@ -74,6 +76,7 @@ export type {
   ProviderUsageReport,
   ProviderUsageWindowKey
 } from "./domain/providerUsage"
+export type { ListIntakeDecisionRequest, ListIntakeReviewReport } from "./domain/listIntakeReview"
 export type {
   CrashLogReceipt,
   CrashLogRequest,
@@ -114,31 +117,21 @@ export type NativeShellBridge = {
   readonly scanSelectedChats: (request: SyncScanRequest) => Promise<SyncScanResult | undefined>
   readonly loadDecisionEvidence: (request: DecisionEvidenceLoadRequest) => Promise<DecisionEvidenceReport | undefined>
   readonly loadProviderUsage: (request?: ProviderUsageLoadRequest) => Promise<ProviderUsageReport | undefined>
+  readonly loadListIntakeReview: () => Promise<ListIntakeReviewReport | undefined>
+  readonly decideListIntakeProposal: (request: ListIntakeDecisionRequest) => Promise<ListIntakeReviewReport | undefined>
   readonly discoverMessagesChats: () => Promise<MessagesDiscoveryReport | undefined>
   readonly loadMessagesChatPreviews: (request: MessagesChatPreviewRequest) => Promise<MessagesChatPreviewReport | undefined>
   readonly getPermissionStatuses: () => Promise<readonly NativePermissionStatus[] | undefined>
-  readonly storeMorrowToken: (
-    request: MorrowTokenWriteRequest
-  ) => Promise<MorrowTokenCommandReceipt | undefined>
-  readonly readMorrowToken: (
-    request: MorrowTokenLookupRequest
-  ) => Promise<MorrowTokenReadResponse | undefined>
-  readonly deleteMorrowToken: (
-    request: MorrowTokenLookupRequest
-  ) => Promise<MorrowTokenCommandReceipt | undefined>
+  readonly storeMorrowToken: (request: MorrowTokenWriteRequest) => Promise<MorrowTokenCommandReceipt | undefined>
+  readonly readMorrowToken: (request: MorrowTokenLookupRequest) => Promise<MorrowTokenReadResponse | undefined>
+  readonly deleteMorrowToken: (request: MorrowTokenLookupRequest) => Promise<MorrowTokenCommandReceipt | undefined>
   readonly checkProviderAuth: () => Promise<CodexProviderAuthReadiness | undefined>
   readonly installCodexCli: () => Promise<CodexCliInstallReceipt | undefined>
   readonly startCodexLogin: () => Promise<CodexLoginLaunchReceipt | undefined>
   readonly getSyncSchedulerState: () => Promise<SyncSchedulerState | undefined>
-  readonly setSyncSchedulerState: (
-    state: SyncSchedulerState
-  ) => Promise<SyncSchedulerState | undefined>
-  readonly deleteMorrowData: (
-    request: MorrowDataDeleteRequest
-  ) => Promise<MorrowDataDeleteReceipt | undefined>
-  readonly openPrivacySettings: (
-    request: PrivacySettingsRequest
-  ) => Promise<PrivacySettingsReceipt | undefined>
+  readonly setSyncSchedulerState: (state: SyncSchedulerState) => Promise<SyncSchedulerState | undefined>
+  readonly deleteMorrowData: (request: MorrowDataDeleteRequest) => Promise<MorrowDataDeleteReceipt | undefined>
+  readonly openPrivacySettings: (request: PrivacySettingsRequest) => Promise<PrivacySettingsReceipt | undefined>
   readonly recordCrashLog: (request: CrashLogRequest) => Promise<CrashLogReceipt | undefined>
 }
 
@@ -184,6 +177,10 @@ export function createNativeShellBridge(): NativeShellBridge {
       isTauriRuntime() ? loadDecisionEvidenceInTauri(request) : Promise.resolve(undefined),
     loadProviderUsage: (request) =>
       isTauriRuntime() ? loadProviderUsageInTauri(request) : Promise.resolve(undefined),
+    loadListIntakeReview: () =>
+      isTauriRuntime() ? loadListIntakeReviewInTauri() : Promise.resolve(undefined),
+    decideListIntakeProposal: (request) =>
+      isTauriRuntime() ? decideListIntakeProposalInTauri(request) : Promise.resolve(undefined),
     discoverMessagesChats: () =>
       isTauriRuntime() ? discoverMessagesChatsInTauri() : Promise.resolve(undefined),
     loadMessagesChatPreviews: (request) =>

@@ -7,15 +7,22 @@ import type { ChatPreviewDisclosure } from "./ChatPreviewControls"
 import { createDefaultAppShellState, getMenuModel, getOnboardingWarnings, isSyncNowEnabled, reduceAppShellState, type AppShellState, type ChatId } from "./domain/appShell"
 import { createDefaultSyncSchedulerState, type SyncSchedulerIntervalSeconds } from "./domain/syncScheduler"
 import type { RuntimeIdentity } from "./tauriBridge"
-import { VisualProviderCredentialSetupHarness, isVisualProviderCredentialSetupState, type VisualProviderCredentialSetupState } from "./VisualProviderCredentialSetupHarness"
-import { VisualSyncSchedulerHarness, isVisualSyncSchedulerState, type VisualSyncSchedulerState } from "./VisualSyncSchedulerHarness"
+import { VisualListIntakeHarness } from "./VisualListIntakeHarness"
+import { VisualProviderCredentialSetupHarness } from "./VisualProviderCredentialSetupHarness"
+import { VisualSyncSchedulerHarness } from "./VisualSyncSchedulerHarness"
 import {
   selectedVisualChat,
   staleSelectedVisualChat,
   visualChatPreviews,
   visualDiscoveredChats
 } from "./visualQaChatFixtures"
-import { VisualProviderUsageHarness, isVisualProviderUsageState, type VisualProviderUsageState } from "./visualQaProviderUsageRoute"
+import { VisualProviderUsageHarness } from "./visualQaProviderUsageRoute"
+import {
+  getVisualQaState,
+  type VisualChatDiscoveryState,
+  type VisualFullDiskAccessRecoveryState,
+  type VisualQaState
+} from "./visualQaRoute"
 import { VisualQaShell } from "./visualQaShell"
 import "./styles.css"
 
@@ -29,28 +36,6 @@ const rootElement = document.getElementById("root")
 if (rootElement === null) {
   throw new Error("Morrow root element is missing")
 }
-
-const visualChatDiscoveryStates = {
-  loading: true, unverified: true, permissionDenied: true, unavailable: true, empty: true,
-  "ready-multiple": true, "ready-selected": true, "ready-previews-hidden": true,
-  "ready-previews-revealed": true, "provider-missing": true, "stale-selection": true
-} as const
-
-type VisualChatDiscoveryState = keyof typeof visualChatDiscoveryStates
-
-const visualFullDiskAccessRecoveryStates = {
-  "discovery-permission-denied-binary": true, "discovery-permission-denied-appBundle": true,
-  "discovery-unavailable-binary": true, "settings-privacy-binary": true,
-  "settings-privacy-appBundle": true
-} as const
-
-type VisualFullDiskAccessRecoveryState = keyof typeof visualFullDiskAccessRecoveryStates
-
-type VisualQaState = { readonly kind: "chatDiscovery"; readonly stateName: VisualChatDiscoveryState }
-  | { readonly kind: "fullDiskAccessRecovery"; readonly stateName: VisualFullDiskAccessRecoveryState }
-  | { readonly kind: "providerCredentialSetup"; readonly stateName: VisualProviderCredentialSetupState }
-  | { readonly kind: "providerUsage"; readonly stateName: VisualProviderUsageState }
-  | { readonly kind: "syncScheduler"; readonly stateName: VisualSyncSchedulerState }
 
 const visualQaState = import.meta.env.DEV ? getVisualQaState(window.location.search) : undefined
 const VISUAL_QA_NOW_UNIX_SECONDS = 1_783_000_000
@@ -66,6 +51,8 @@ function VisualQaHarness({ state }: { readonly state: VisualQaState }): JSX.Elem
       return <VisualFullDiskAccessRecoveryHarness stateName={state.stateName} />
     case "providerCredentialSetup":
       return <VisualQaShell stateName={state.stateName} lede="Codex provider setup visual QA"><VisualProviderCredentialSetupHarness stateName={state.stateName} /></VisualQaShell>
+    case "listIntake":
+      return <VisualQaShell stateName={state.stateName} lede="List intake visual QA"><VisualListIntakeHarness stateName={state.stateName} /></VisualQaShell>
     case "providerUsage":
       return <VisualProviderUsageHarness stateName={state.stateName} />
     case "syncScheduler":
@@ -139,51 +126,6 @@ function VisualStatusFixture({ state, previewDisclosure, runtimeIdentity }: {
     />
   )
 }
-
-function getVisualQaState(search: string): VisualQaState | undefined {
-  const params = new URLSearchParams(search)
-  const suite = params.get("visualQa")
-  if (suite === null) {
-    return undefined
-  }
-  const stateName = params.get("state")
-  if (stateName === null) {
-    throw new Error(`Visual QA state is required for ${suite}`)
-  }
-  switch (suite) {
-    case "chat-discovery":
-      if (!isVisualChatDiscoveryState(stateName)) {
-        throw new Error(`Unsupported visual QA chat discovery state: ${stateName}`)
-      }
-      return { kind: "chatDiscovery", stateName }
-    case "full-disk-access-recovery":
-      if (!isVisualFullDiskAccessRecoveryState(stateName)) {
-        throw new Error(`Unsupported visual QA Full Disk Access recovery state: ${stateName}`)
-      }
-      return { kind: "fullDiskAccessRecovery", stateName }
-    case "provider-credential-setup":
-      if (!isVisualProviderCredentialSetupState(stateName)) {
-        throw new Error(`Unsupported visual QA provider credential setup state: ${stateName}`)
-      }
-      return { kind: "providerCredentialSetup", stateName }
-    case "provider-usage":
-      if (!isVisualProviderUsageState(stateName)) {
-        throw new Error(`Unsupported visual QA provider usage state: ${stateName}`)
-      }
-      return { kind: "providerUsage", stateName }
-    case "sync-scheduler":
-      if (!isVisualSyncSchedulerState(stateName)) {
-        throw new Error(`Unsupported visual QA sync scheduler state: ${stateName}`)
-      }
-      return { kind: "syncScheduler", stateName }
-    default:
-      return undefined
-  }
-}
-
-function isVisualChatDiscoveryState(value: string): value is VisualChatDiscoveryState { return value in visualChatDiscoveryStates }
-
-function isVisualFullDiskAccessRecoveryState(value: string): value is VisualFullDiskAccessRecoveryState { return value in visualFullDiskAccessRecoveryStates }
 
 function visualChatDiscoveryAppState(stateName: VisualChatDiscoveryState): AppShellState {
   const baseState = createVisualBaseState()

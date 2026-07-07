@@ -10,7 +10,7 @@ import {
   type DiscoveredChat
 } from "./domain/chatDiscovery"
 import type { AppShellState } from "./domain/appShell"
-import { DEFAULT_LIST_REMINDER_PROFILE, type ListReminderProfile } from "./domain/appConfig"
+import { listIntakeProfilesSchema, type ListIntakeProfile } from "./domain/appConfig"
 import { resolveReferenceTimeZonePreference } from "./domain/timeZone"
 
 const chatIdSchema = z
@@ -85,19 +85,6 @@ const messagesChatPreviewReportSchema = z.object({
   chats: z.array(messagesChatPreviewRowSchema)
 }).strict()
 
-const syncScanListReminderProfileSchema = z
-  .object({
-    enabled: z.boolean(),
-    profileId: z.literal(DEFAULT_LIST_REMINDER_PROFILE.profileId),
-    profileVersion: z.literal(DEFAULT_LIST_REMINDER_PROFILE.profileVersion),
-    routingMode: z.union([z.literal("explicitOnly"), z.literal("profileBareQuantityLists")]),
-    defaultDueMode: z.union([z.literal("explicitOnly"), z.literal("nextLocalDayAtDefaultTime")]),
-    defaultDueTime: z.literal(DEFAULT_LIST_REMINDER_PROFILE.defaultDueTime),
-    recurrenceMode: z.literal(DEFAULT_LIST_REMINDER_PROFILE.recurrenceMode),
-    itemOutputMode: z.literal(DEFAULT_LIST_REMINDER_PROFILE.itemOutputMode)
-  })
-  .strict() satisfies z.ZodType<ListReminderProfile>
-
 const syncScanRequestSchema = z.object({
   selectedChatIds: z.array(chatIdSchema).min(1),
   selectedChats: z.array(discoveredChatSchema).min(1),
@@ -108,7 +95,7 @@ const syncScanRequestSchema = z.object({
   feedbackTextSnapshotsEnabled: z.boolean(),
   localDiagnosticsEnabled: z.boolean(),
   localDiagnosticsRetentionDays: z.number().int().min(1).max(365),
-  listReminderProfile: syncScanListReminderProfileSchema,
+  listIntakeProfiles: listIntakeProfilesSchema,
   capPolicy: z.object({
     mode: z.literal("refillForPending"),
     maxVisible: z.number().int().min(0),
@@ -126,7 +113,7 @@ export type SyncScanRequest = {
   readonly feedbackTextSnapshotsEnabled: boolean
   readonly localDiagnosticsEnabled: boolean
   readonly localDiagnosticsRetentionDays: number
-  readonly listReminderProfile: ListReminderProfile
+  readonly listIntakeProfiles: readonly ListIntakeProfile[]
   readonly capPolicy: {
     readonly mode: "refillForPending"
     readonly maxVisible: number
@@ -172,7 +159,7 @@ export function syncScanRequestFromState(
     feedbackTextSnapshotsEnabled: state.config.feedbackTextSnapshotsEnabled,
     localDiagnosticsEnabled: state.config.localDiagnosticsEnabled,
     localDiagnosticsRetentionDays: state.config.localDiagnosticsRetentionDays,
-    listReminderProfile: state.config.listReminderProfile,
+    listIntakeProfiles: state.config.listIntakeProfiles,
     capPolicy: {
       mode: "refillForPending",
       maxVisible: 10,
