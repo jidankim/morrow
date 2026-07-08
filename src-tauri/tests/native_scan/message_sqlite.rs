@@ -93,6 +93,16 @@ pub(super) fn provider_route_fingerprint_count(db_path: &Path) -> Result<i64, St
     )
 }
 
+pub(super) fn provider_route_candidate_normalized_times(db_path: &Path) -> Result<String, String> {
+    query_sqlite(
+        db_path,
+        "SELECT candidate_normalized_time
+         FROM provider_route_outcomes
+         WHERE outcome_kind = 'candidate'
+         ORDER BY route_fingerprint;",
+    )
+}
+
 pub(super) fn corrupt_provider_route_contract_version(db_path: &Path) -> Result<(), String> {
     run_sqlite(
         db_path,
@@ -118,6 +128,19 @@ pub(super) fn set_provider_route_prompt_version(
         &format!(
             "UPDATE provider_route_outcomes SET prompt_version = {};",
             sql_text(prompt_version)
+        ),
+    )
+}
+
+pub(super) fn set_provider_route_candidate_normalized_time(
+    db_path: &Path,
+    normalized_time: &str,
+) -> Result<(), String> {
+    run_sqlite(
+        db_path,
+        &format!(
+            "UPDATE provider_route_outcomes SET candidate_normalized_time = {};",
+            sql_text(normalized_time)
         ),
     )
 }

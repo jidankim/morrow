@@ -12,6 +12,8 @@ mod dependencies;
 mod discovery_cache;
 #[path = "native_scan/feedback.rs"]
 mod feedback;
+#[path = "native_scan/feedback_batching.rs"]
+mod feedback_batching;
 #[path = "native_scan/list_intake_profiles.rs"]
 mod list_intake_profiles;
 #[path = "native_scan/list_intake_profiles_digest.rs"]
@@ -24,6 +26,10 @@ mod list_reminder_profile;
 mod local_diagnostics;
 #[path = "native_scan/message_sqlite.rs"]
 mod message_sqlite;
+#[path = "native_scan/native_scan_budget_harness.rs"]
+mod native_scan_budget_harness;
+#[path = "native_scan/native_scan_performance_smoke.rs"]
+mod native_scan_performance_smoke;
 #[path = "native_scan/outcome_plan.rs"]
 mod outcome_plan;
 #[path = "native_scan/persistence.rs"]
@@ -50,8 +56,12 @@ mod provider_route_ledger_accounting;
 mod provider_route_ledger_invalidation;
 #[path = "native_scan/provider_route_ledger_privacy.rs"]
 mod provider_route_ledger_privacy;
+#[path = "native_scan/provider_route_same_scan.rs"]
+mod provider_route_same_scan;
 #[path = "native_scan/provider_route_support.rs"]
 mod provider_route_support;
+#[path = "native_scan/read_recent_window.rs"]
+mod read_recent_window;
 #[path = "native_scan/replay_selection.rs"]
 mod replay_selection;
 #[path = "native_scan/scheduling_intent_eventkit.rs"]
@@ -60,8 +70,6 @@ mod scheduling_intent_eventkit;
 mod scheduling_intent_live_receipt;
 #[path = "native_scan/scheduling_intent_provider_route.rs"]
 mod scheduling_intent_provider_route;
-#[path = "native_scan/read_recent_window.rs"]
-mod read_recent_window;
 #[path = "native_scan/scheduling_intent_support.rs"]
 mod scheduling_intent_support;
 #[path = "native_scan/semantic_provider_router.rs"]

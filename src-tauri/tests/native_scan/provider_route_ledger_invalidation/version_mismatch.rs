@@ -64,7 +64,7 @@ fn provider_route_ledger_contract_and_schema_mismatch_invalidates() -> Result<()
     assert_eq!(contract_provider.calls(), 2);
     assert!(
         provider_route_outcome_dump(&contract_fixture.store_path)?
-            .contains("provider-route-ledger-v1"),
+            .contains("provider-route-ledger-v2"),
         "contract version was not refreshed"
     );
 

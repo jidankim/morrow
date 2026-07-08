@@ -10,9 +10,12 @@ use morrow_messages::{
 use morrow_storage::{CandidateId, CandidateState, Store};
 use serde_json::{json, Value};
 
+#[path = "support/child_process.rs"]
+mod child_process;
 #[path = "support/sqlite.rs"]
 mod sqlite;
 
+pub(super) use child_process::{lock_storage_sqlite_run_log_env, run_current_test_in_child};
 pub(super) use sqlite::query_sqlite;
 
 pub(super) fn temp_db(name: &str) -> Result<(tempfile::TempDir, PathBuf), String> {

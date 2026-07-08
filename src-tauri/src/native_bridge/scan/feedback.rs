@@ -5,12 +5,11 @@ mod trace;
 use morrow_messages::MessageEvidence;
 use morrow_storage::{
     CandidateDraft, CandidateId, FeatureSnapshot, FeedbackEvent, FeedbackEventType,
-    FeedbackLabelSource, FeedbackLabelValue, FeedbackRecordMeta, FeedbackSubjectType, Label,
-    QuietLogDraft, Store,
+    FeedbackLabelSource, FeedbackLabelValue, FeedbackSubjectType, Label, QuietLogDraft, Store,
 };
 
 pub(super) use trace::FeedbackTraceRecorder;
-use trace::{candidate_route, CandidateRoute, TraceGroup};
+use trace::{candidate_route, TraceGroup};
 
 use super::{config::ScanConfig, storage_error, ScanSelectedChatsError};
 use meta::{feedback_meta, snapshot_excerpt, tapback_signal, CandidateSubject, MetaInput};
@@ -53,23 +52,44 @@ pub(super) fn record_candidate_feedback(
         trace,
         config: input.config,
     })?;
-    record_candidate_snapshot(CandidateSnapshot {
-        store: input.store,
-        candidate_id: input.candidate_id,
-        candidate: input.candidate,
-        message: input.message,
-        route,
-        trace,
-        meta: &meta,
-        config: input.config,
-    })?;
-    record_candidate_event(input.store, input.candidate_id, &meta)?;
-    record_candidate_label(CandidateLabel {
-        store: input.store,
-        candidate_id: input.candidate_id,
-        route,
-        meta,
-    })
+    input
+        .store
+        .record_candidate_feedback_batch(
+            FeatureSnapshot {
+                id: None,
+                snapshot_key: format!("scan:snapshot:candidate:{}", input.candidate_id.as_str()),
+                meta: meta.clone(),
+                route: Some(route.as_snapshot_route().to_owned()),
+                reason_code: trace
+                    .and_then(|record| record.span.reason_code.clone())
+                    .or_else(|| Some(route.as_reason_code().to_owned())),
+                confidence_millis: Some(input.candidate.confidence_millis),
+                participant_count: Some(i64::from(input.message.participant_count)),
+                tapback_signal: Some(tapback_signal(input.message.tapback_signal).to_owned()),
+                sender_signal_available: false,
+                context_window_available: false,
+                excerpt: Some(snapshot_excerpt(
+                    &input.candidate.evidence_excerpt,
+                    input.config,
+                )),
+            },
+            FeedbackEvent {
+                id: None,
+                event_key: format!(
+                    "scan:event:candidate_visible:{}",
+                    input.candidate_id.as_str()
+                ),
+                event_type: FeedbackEventType::CandidateVisible,
+                meta: meta.clone(),
+            },
+            Label {
+                id: None,
+                label_key: format!("scan:label:detection_route:{}", input.candidate_id.as_str()),
+                label_value: FeedbackLabelValue::DetectionRoute(route.as_detection_label()),
+                meta,
+            },
+        )
+        .map_err(storage_error)
 }
 
 pub(super) fn record_quiet_feedback(
@@ -93,175 +113,44 @@ pub(super) fn record_quiet_feedback(
         trace,
         config: input.config,
     })?;
-    record_quiet_snapshot(QuietSnapshot {
-        store: input.store,
-        quiet_log: input.quiet_log,
-        message: input.message,
-        route: mapping.snapshot_route,
-        trace,
-        meta: &meta,
-        config: input.config,
-    })?;
-    record_quiet_event(QuietEvent {
-        store: input.store,
-        quiet_log: input.quiet_log,
-        subject_id: &subject_id,
-        event_type: mapping.event_type,
-        meta: &meta,
-    })?;
-    for label in mapping.labels {
-        record_quiet_label(QuietLabel {
-            store: input.store,
-            subject_id: &subject_id,
-            label: *label,
-            meta: &meta,
-        })?;
-    }
-    Ok(())
-}
-
-struct CandidateSnapshot<'a> {
-    store: &'a Store,
-    candidate_id: &'a CandidateId,
-    candidate: &'a CandidateDraft,
-    message: &'a MessageEvidence,
-    route: CandidateRoute,
-    trace: Option<&'a morrow_diagnostics::TraceRecord>,
-    meta: &'a FeedbackRecordMeta,
-    config: &'a ScanConfig,
-}
-
-fn record_candidate_snapshot(input: CandidateSnapshot<'_>) -> Result<(), ScanSelectedChatsError> {
     input
         .store
-        .record_feature_snapshot(FeatureSnapshot {
-            id: None,
-            snapshot_key: format!("scan:snapshot:candidate:{}", input.candidate_id.as_str()),
-            meta: input.meta.clone(),
-            route: Some(input.route.as_snapshot_route().to_owned()),
-            reason_code: input
-                .trace
-                .and_then(|record| record.span.reason_code.clone())
-                .or_else(|| Some(input.route.as_reason_code().to_owned())),
-            confidence_millis: Some(input.candidate.confidence_millis),
-            participant_count: Some(i64::from(input.message.participant_count)),
-            tapback_signal: Some(tapback_signal(input.message.tapback_signal).to_owned()),
-            sender_signal_available: false,
-            context_window_available: false,
-            excerpt: Some(snapshot_excerpt(
-                &input.candidate.evidence_excerpt,
-                input.config,
-            )),
-        })
-        .map_err(storage_error)
-}
-
-fn record_candidate_event(
-    store: &Store,
-    candidate_id: &CandidateId,
-    meta: &FeedbackRecordMeta,
-) -> Result<(), ScanSelectedChatsError> {
-    store
-        .record_feedback_event(FeedbackEvent {
-            id: None,
-            event_key: format!("scan:event:candidate_visible:{}", candidate_id.as_str()),
-            event_type: FeedbackEventType::CandidateVisible,
-            meta: meta.clone(),
-        })
-        .map_err(storage_error)
-}
-
-struct CandidateLabel<'a> {
-    store: &'a Store,
-    candidate_id: &'a CandidateId,
-    route: CandidateRoute,
-    meta: FeedbackRecordMeta,
-}
-
-fn record_candidate_label(input: CandidateLabel<'_>) -> Result<(), ScanSelectedChatsError> {
-    input
-        .store
-        .record_label(Label {
-            id: None,
-            label_key: format!("scan:label:detection_route:{}", input.candidate_id.as_str()),
-            label_value: FeedbackLabelValue::DetectionRoute(input.route.as_detection_label()),
-            meta: input.meta,
-        })
-        .map_err(storage_error)
-}
-
-struct QuietSnapshot<'a> {
-    store: &'a Store,
-    quiet_log: &'a QuietLogDraft,
-    message: &'a MessageEvidence,
-    route: &'a str,
-    trace: Option<&'a morrow_diagnostics::TraceRecord>,
-    meta: &'a FeedbackRecordMeta,
-    config: &'a ScanConfig,
-}
-
-fn record_quiet_snapshot(input: QuietSnapshot<'_>) -> Result<(), ScanSelectedChatsError> {
-    let subject_id = quiet_subject_id(input.quiet_log);
-    input
-        .store
-        .record_feature_snapshot(FeatureSnapshot {
-            id: None,
-            snapshot_key: format!("scan:snapshot:{subject_id}"),
-            meta: input.meta.clone(),
-            route: Some(input.route.to_owned()),
-            reason_code: Some(input.quiet_log.reason.clone()),
-            confidence_millis: input
-                .trace
-                .and_then(|record| record.span.confidence_millis.map(i64::from)),
-            participant_count: Some(i64::from(input.message.participant_count)),
-            tapback_signal: Some(tapback_signal(input.message.tapback_signal).to_owned()),
-            sender_signal_available: false,
-            context_window_available: false,
-            excerpt: Some(snapshot_excerpt(&input.quiet_log.excerpt, input.config)),
-        })
-        .map_err(storage_error)
-}
-
-struct QuietEvent<'a> {
-    store: &'a Store,
-    quiet_log: &'a QuietLogDraft,
-    subject_id: &'a str,
-    event_type: FeedbackEventType,
-    meta: &'a FeedbackRecordMeta,
-}
-
-fn record_quiet_event(input: QuietEvent<'_>) -> Result<(), ScanSelectedChatsError> {
-    input
-        .store
-        .record_feedback_event(FeedbackEvent {
-            id: None,
-            event_key: format!("scan:event:{}:{}", input.subject_id, input.quiet_log.reason),
-            event_type: input.event_type,
-            meta: input.meta.clone(),
-        })
-        .map_err(storage_error)
-}
-
-struct QuietLabel<'a> {
-    store: &'a Store,
-    subject_id: &'a str,
-    label: FeedbackLabelValue,
-    meta: &'a FeedbackRecordMeta,
-}
-
-fn record_quiet_label(input: QuietLabel<'_>) -> Result<(), ScanSelectedChatsError> {
-    input
-        .store
-        .record_label(Label {
-            id: None,
-            label_key: format!(
-                "scan:label:{}:{}:{}",
-                input.label.label_type().as_str(),
-                input.label.as_str(),
-                input.subject_id
-            ),
-            label_value: input.label,
-            meta: input.meta.clone(),
-        })
+        .record_quiet_feedback_batch(
+            FeatureSnapshot {
+                id: None,
+                snapshot_key: format!("scan:snapshot:{subject_id}"),
+                meta: meta.clone(),
+                route: Some(mapping.snapshot_route.to_owned()),
+                reason_code: Some(input.quiet_log.reason.clone()),
+                confidence_millis: trace
+                    .and_then(|record| record.span.confidence_millis.map(i64::from)),
+                participant_count: Some(i64::from(input.message.participant_count)),
+                tapback_signal: Some(tapback_signal(input.message.tapback_signal).to_owned()),
+                sender_signal_available: false,
+                context_window_available: false,
+                excerpt: Some(snapshot_excerpt(&input.quiet_log.excerpt, input.config)),
+            },
+            FeedbackEvent {
+                id: None,
+                event_key: format!("scan:event:{subject_id}:{}", input.quiet_log.reason),
+                event_type: mapping.event_type,
+                meta: meta.clone(),
+            },
+            mapping
+                .labels
+                .iter()
+                .map(|label| Label {
+                    id: None,
+                    label_key: format!(
+                        "scan:label:{}:{}:{}",
+                        label.label_type().as_str(),
+                        label.as_str(),
+                        subject_id
+                    ),
+                    label_value: *label,
+                    meta: meta.clone(),
+                })
+                .collect(),
+        )
         .map_err(storage_error)
 }

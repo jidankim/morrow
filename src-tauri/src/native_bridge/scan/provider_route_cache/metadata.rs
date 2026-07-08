@@ -21,11 +21,8 @@ pub(super) fn route_metadata(
         .map_err(NativeProviderRouteCacheError::from_provider_contract)?;
     let evidence_payload_hash = hash_text(&evidence_text);
     let reference_timezone = request.config.reference.timezone.clone();
-    let reference_observed = request
-        .config
-        .reference
-        .observed
-        .normalized(&reference_timezone);
+    let reference_observed =
+        local_day_reference_scope(request.config.reference.observed, &reference_timezone);
     let parser_route = match request.parser_time {
         Some(parser_time) => format!(
             "parser_time:{}",
@@ -83,6 +80,13 @@ fn source_excerpt_policy(policy: SourceExcerptPolicy) -> &'static str {
         SourceExcerptPolicy::Include => "include",
         SourceExcerptPolicy::Hide => "hide",
     }
+}
+
+fn local_day_reference_scope(observed: morrow_detection::CivilDateTime, timezone: &str) -> String {
+    format!(
+        "{:04}-{:02}-{:02}[{}]",
+        observed.year, observed.month, observed.day, timezone
+    )
 }
 
 fn profile_schema_version(profile: &ListReminderProfile) -> &'static str {

@@ -5,9 +5,9 @@ mod tests;
 use std::collections::{btree_map::Entry, BTreeMap};
 
 use morrow_detection::{
-    CachedProviderOutcome, DetectionPipelineError, ProviderRouteCache, ProviderRouteDecision,
-    ProviderRouteOutcomeKind as DetectionProviderRouteOutcomeKind, ProviderRouteRequest,
-    ProviderRouteWriteIntent,
+    CachedProviderOutcome, CivilDateTime, DetectionPipelineError, ProviderRouteCache,
+    ProviderRouteDecision, ProviderRouteOutcomeKind as DetectionProviderRouteOutcomeKind,
+    ProviderRouteRequest, ProviderRouteWriteIntent,
 };
 use morrow_storage::{
     CandidateDraft, ProviderRouteCandidate, ProviderRouteLedgerRow, ProviderRouteOutcome,
@@ -23,7 +23,7 @@ use super::{
 };
 use metadata::{route_metadata, NativeProviderRouteCacheError};
 
-pub(super) const PROVIDER_ROUTE_LEDGER_CONTRACT_VERSION: &str = "provider-route-ledger-v1";
+pub(super) const PROVIDER_ROUTE_LEDGER_CONTRACT_VERSION: &str = "provider-route-ledger-v2";
 const PROVIDER_ROUTE_LEDGER_HIDDEN_EXCERPT: &str =
     "Source excerpt hidden by provider-route ledger.";
 const PROVIDER_ROUTE_NATIVE_CANDIDATE_TITLE: &str = "Messages event candidate";
@@ -50,7 +50,7 @@ impl ProviderRouteCache for NativeProviderRouteCache<'_> {
             .store
             .provider_route_outcome(&metadata.route_fingerprint)?
         {
-            Some(row) if row_matches_intent(&row, &metadata) => {
+            Some(row) if row_is_cache_hit(&row, &metadata, request.config.reference.observed) => {
                 Ok(ProviderRouteDecision::Hit(CachedProviderOutcome {
                     route_fingerprint: row.route_fingerprint,
                     outcome_kind: detection_outcome_kind(row.outcome),
@@ -241,4 +241,23 @@ fn row_matches_intent(row: &ProviderRouteLedgerRow, intent: &ProviderRouteWriteI
         && row.reference_timezone == intent.reference_timezone
         && row.threshold_millis == intent.threshold_millis
         && row.parser_route == intent.parser_route
+}
+
+fn row_is_cache_hit(
+    row: &ProviderRouteLedgerRow,
+    intent: &ProviderRouteWriteIntent,
+    reference_observed: CivilDateTime,
+) -> bool {
+    if !row_matches_intent(row, intent) {
+        return false;
+    }
+    match &row.outcome {
+        ProviderRouteStoredOutcome::Candidate(candidate) => {
+            match CivilDateTime::parse_normalized(&candidate.normalized_time) {
+                Ok(candidate_time) => candidate_time > reference_observed,
+                Err(_) => false,
+            }
+        }
+        ProviderRouteStoredOutcome::Quiet { .. } => true,
+    }
 }
