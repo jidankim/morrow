@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use morrow_diagnostics::{NoopTraceRecorder, TraceRecorder};
 use morrow_messages::MessageEvidence;
 
@@ -8,7 +10,7 @@ use crate::parser::{classify, GateDecision, ParsedCandidate};
 use crate::provider::AiProvider;
 use crate::provider_route_cache::{
     NoopProviderRouteCache, NoopProviderRouteCacheError, ProviderRouteCache,
-    ProviderRouteWriteIntent,
+    ProviderRouteOutcomeKind, ProviderRouteWriteIntent,
 };
 use crate::trace::MessageTrace;
 use crate::types::{CivilDateTime, DetectionConfig};
@@ -63,9 +65,18 @@ impl<'a, P: AiProvider> DetectionPipeline<'a, P> {
         C: ProviderRouteCache + ?Sized,
     {
         let mut report = DetectionReport::default();
+        let mut same_scan_provider_route_outcomes =
+            BTreeMap::<String, ProviderRouteOutcomeKind>::new();
         for message in messages {
             let trace = MessageTrace::new(message, recorder);
-            let step = self.detect_one(messages, message, config, &trace, cache)?;
+            let step = self.detect_one(
+                messages,
+                message,
+                config,
+                &trace,
+                cache,
+                &mut same_scan_provider_route_outcomes,
+            )?;
             report.outcomes.push(step.outcome);
             report
                 .provider_route_write_intents
@@ -81,6 +92,7 @@ impl<'a, P: AiProvider> DetectionPipeline<'a, P> {
         config: &DetectionConfig,
         trace: &MessageTrace<'_, R>,
         cache: &C,
+        same_scan_provider_route_outcomes: &mut BTreeMap<String, ProviderRouteOutcomeKind>,
     ) -> Result<DetectionStep, DetectionPipelineError<C::Error>>
     where
         R: TraceRecorder + ?Sized,
@@ -117,6 +129,7 @@ impl<'a, P: AiProvider> DetectionPipeline<'a, P> {
                     config,
                     trace,
                     cache,
+                    same_scan_provider_route_outcomes,
                 )
             }
         }

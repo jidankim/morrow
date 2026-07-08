@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use morrow_diagnostics::TraceRecorder;
 use morrow_messages::MessageEvidence;
 
@@ -8,8 +10,8 @@ use crate::outcome::{
 };
 use crate::provider::{AiProvider, ProviderError, ProviderRequest};
 use crate::provider_route_cache::{
-    ProviderRouteCache, ProviderRouteDecision, ProviderRouteRequest as CacheRequest,
-    ProviderRouteWriteIntent,
+    ProviderRouteCache, ProviderRouteDecision, ProviderRouteOutcomeKind,
+    ProviderRouteRequest as CacheRequest, ProviderRouteWriteIntent,
 };
 use crate::schema::parse_provider_candidate;
 use crate::trace::MessageTrace;
@@ -28,6 +30,7 @@ impl<'a, P: AiProvider> DetectionPipeline<'a, P> {
         config: &DetectionConfig,
         trace: &MessageTrace<'_, R>,
         cache: &C,
+        same_scan_provider_route_outcomes: &mut BTreeMap<String, ProviderRouteOutcomeKind>,
     ) -> Result<DetectionStep, DetectionPipelineError<C::Error>>
     where
         R: TraceRecorder + ?Sized,
@@ -53,14 +56,57 @@ impl<'a, P: AiProvider> DetectionPipeline<'a, P> {
                 trace.outcome_materialized(&outcome, config.source_excerpts);
                 Ok(DetectionStep::new(outcome, None))
             }
-            ProviderRouteDecision::Miss { write_intent } => Ok(self.detect_with_provider(
-                selected_evidence,
-                message,
-                route,
-                config,
-                trace,
-                write_intent.map(|intent| *intent),
-            )),
+            ProviderRouteDecision::Miss { write_intent } => {
+                let Some(write_intent) = write_intent.map(|intent| *intent) else {
+                    return Ok(self.detect_with_provider(
+                        selected_evidence,
+                        message,
+                        route,
+                        config,
+                        trace,
+                        None,
+                    ));
+                };
+                if let Some(outcome_kind) = same_scan_provider_route_outcomes
+                    .get(&write_intent.route_fingerprint)
+                    .copied()
+                {
+                    trace.provider_route_cache_hit(config);
+                    let outcome = DetectionOutcome::CachedProviderRoute {
+                        route_fingerprint: write_intent.route_fingerprint,
+                        outcome_kind,
+                    };
+                    trace.outcome_materialized(&outcome, config.source_excerpts);
+                    return Ok(DetectionStep::new(outcome, None));
+                }
+                let step = self.detect_with_provider(
+                    selected_evidence,
+                    message,
+                    route,
+                    config,
+                    trace,
+                    Some(write_intent),
+                );
+                match (&step.outcome, step.provider_route_write_intent.as_ref()) {
+                    (DetectionOutcome::Candidate(_), Some(intent)) => {
+                        same_scan_provider_route_outcomes.insert(
+                            intent.route_fingerprint.clone(),
+                            ProviderRouteOutcomeKind::Candidate,
+                        );
+                    }
+                    (DetectionOutcome::QuietLog(_), Some(intent)) => {
+                        same_scan_provider_route_outcomes.insert(
+                            intent.route_fingerprint.clone(),
+                            ProviderRouteOutcomeKind::QuietLog,
+                        );
+                    }
+                    (DetectionOutcome::CachedProviderRoute { .. }, Some(_)) => {}
+                    (DetectionOutcome::Candidate(_), None)
+                    | (DetectionOutcome::QuietLog(_), None)
+                    | (DetectionOutcome::CachedProviderRoute { .. }, None) => {}
+                }
+                Ok(step)
+            }
         }
     }
 

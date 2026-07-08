@@ -1,3 +1,5 @@
+#[path = "contracts/provider_route_cache_support.rs"]
+mod provider_route_cache_support;
 mod support;
 
 #[path = "contracts/coffee_sync.rs"]
@@ -12,6 +14,8 @@ mod pipeline;
 mod provider;
 #[path = "contracts/provider_route_cache.rs"]
 mod provider_route_cache;
+#[path = "contracts/provider_route_same_scan.rs"]
+mod provider_route_same_scan;
 #[path = "contracts/reminder_routing.rs"]
 mod reminder_routing;
 #[path = "contracts/scheduling_intent_parser.rs"]

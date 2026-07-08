@@ -6,10 +6,7 @@ use crate::support::{
     config, message, only_candidate, only_quiet, CollectingRecorder, FakeProvider,
 };
 
-#[path = "provider_route_cache_support.rs"]
-mod provider_route_cache_support;
-
-use provider_route_cache_support::{
+use crate::provider_route_cache_support::{
     trace_reasons, write_intent, CacheFailure, StaticProviderRouteCache, UnavailableProvider,
 };
 

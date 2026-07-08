@@ -505,8 +505,8 @@
         }
       ],
       "provider_response": "{\"kind\":\"event_cancellation\",\"title\":\"Cancel dinner Friday\",\"confidence_millis\":760,\"normalized_time\":\"2026-06-26T19:00:00[Asia/Seoul]\",\"anchor_message_guid\":\"msg-cancel-1\",\"evidence_message_guids\":[\"msg-cancel-1\"]}",
-      "expected_candidate_count": 1,
-      "expected_quiet_count": 0,
+      "expected_candidate_count": 0,
+      "expected_quiet_count": 1,
       "expected_provider_calls": 1,
       "expected_trace": [
         {
@@ -536,26 +536,18 @@
         {
           "component": "schema",
           "operation": "schema_validation",
-          "decision": "candidate",
-          "outcome": "noop",
-          "reason_code": "provider_schema_accepted",
-          "privacy_tier": "internal_metadata"
-        },
-        {
-          "component": "threshold",
-          "operation": "threshold_decision",
-          "decision": "confidence_accepted",
-          "outcome": "candidate_created",
-          "reason_code": "confidence_meets_threshold",
+          "decision": "schema_rejected",
+          "outcome": "rejected",
+          "reason_code": "provider_unsupported_lifecycle",
           "privacy_tier": "internal_metadata"
         },
         {
           "component": "outcome",
           "operation": "outcome_materialized",
-          "decision": "candidate",
-          "outcome": "candidate_created",
-          "reason_code": "candidate_materialized",
-          "privacy_tier": "hashed_identifier"
+          "decision": "stop",
+          "outcome": "quiet_logged",
+          "reason_code": "provider_unsupported_lifecycle",
+          "privacy_tier": "internal_metadata"
         },
         {
           "component": "outcome",

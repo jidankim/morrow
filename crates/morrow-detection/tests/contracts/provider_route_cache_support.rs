@@ -17,13 +17,13 @@ enum StaticDecision {
     Error(CacheFailure),
 }
 
-pub(super) struct StaticProviderRouteCache {
+pub(crate) struct StaticProviderRouteCache {
     decision: RefCell<StaticDecision>,
     calls: Cell<usize>,
 }
 
 impl StaticProviderRouteCache {
-    pub(super) fn hit(route_fingerprint: &str, outcome_kind: ProviderRouteOutcomeKind) -> Self {
+    pub(crate) fn hit(route_fingerprint: &str, outcome_kind: ProviderRouteOutcomeKind) -> Self {
         Self {
             decision: RefCell::new(StaticDecision::Hit(CachedProviderOutcome {
                 route_fingerprint: route_fingerprint.to_owned(),
@@ -33,21 +33,21 @@ impl StaticProviderRouteCache {
         }
     }
 
-    pub(super) fn miss(write_intent: Option<ProviderRouteWriteIntent>) -> Self {
+    pub(crate) fn miss(write_intent: Option<ProviderRouteWriteIntent>) -> Self {
         Self {
             decision: RefCell::new(StaticDecision::Miss(write_intent.map(Box::new))),
             calls: Cell::new(0),
         }
     }
 
-    pub(super) fn error(error: CacheFailure) -> Self {
+    pub(crate) fn error(error: CacheFailure) -> Self {
         Self {
             decision: RefCell::new(StaticDecision::Error(error)),
             calls: Cell::new(0),
         }
     }
 
-    pub(super) const fn calls(&self) -> usize {
+    pub(crate) const fn calls(&self) -> usize {
         self.calls.get()
     }
 }
@@ -71,7 +71,7 @@ impl ProviderRouteCache for StaticProviderRouteCache {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) struct CacheFailure;
+pub(crate) struct CacheFailure;
 
 impl Display for CacheFailure {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
@@ -82,12 +82,12 @@ impl Display for CacheFailure {
 impl Error for CacheFailure {}
 
 #[derive(Default)]
-pub(super) struct UnavailableProvider {
+pub(crate) struct UnavailableProvider {
     calls: Cell<usize>,
 }
 
 impl UnavailableProvider {
-    pub(super) const fn calls(&self) -> usize {
+    pub(crate) const fn calls(&self) -> usize {
         self.calls.get()
     }
 }
@@ -101,7 +101,7 @@ impl AiProvider for UnavailableProvider {
     }
 }
 
-pub(super) fn write_intent(
+pub(crate) fn write_intent(
     route_fingerprint: &str,
     evidence_payload_hash: &str,
     parser_route: &str,
@@ -126,7 +126,7 @@ pub(super) fn write_intent(
     }
 }
 
-pub(super) fn trace_reasons(recorder: &CollectingRecorder) -> Result<Vec<String>, Box<dyn Error>> {
+pub(crate) fn trace_reasons(recorder: &CollectingRecorder) -> Result<Vec<String>, Box<dyn Error>> {
     Ok(recorder
         .records()?
         .iter()
