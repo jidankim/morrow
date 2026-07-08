@@ -1,10 +1,9 @@
-use std::collections::BTreeSet;
+use std::{collections::BTreeSet, path::Path};
 
-use morrow_storage::Store;
-
+mod migration_budget;
 mod support;
 
-use support::{assert_feedback_eval_schema, sqlite_rows};
+use support::{assert_feedback_eval_schema, open_store, sqlite_rows};
 
 #[test]
 fn migrations_create_required_tables_when_opening_fresh_database() {
@@ -13,7 +12,7 @@ fn migrations_create_required_tables_when_opening_fresh_database() {
     let db_path = dir.path().join("schema.sqlite");
 
     // When: storage opens and runs migrations.
-    let store = Store::open(&db_path).expect("open store");
+    let store = open_store(&db_path);
     let tables = store.table_names().expect("table names");
 
     // Then: every MVP ledger table exists.
@@ -36,6 +35,11 @@ fn migrations_create_required_tables_when_opening_fresh_database() {
         "eval_results".to_owned(),
         "provider_route_outcomes".to_owned(),
         "sync_scheduler_state".to_owned(),
+        "list_intake_entries".to_owned(),
+        "list_intake_proposals".to_owned(),
+        "list_intake_proposal_items".to_owned(),
+        "list_intake_sender_labels".to_owned(),
+        "list_intake_provider_diagnostics".to_owned(),
         "_morrow_migrations".to_owned(),
     ]);
     assert_eq!(table_set, required);
@@ -48,7 +52,7 @@ fn migrations_record_versions_when_opening_fresh_database() {
     let db_path = dir.path().join("migration-version.sqlite");
 
     // When: storage opens and runs migrations in order.
-    let _store = Store::open(&db_path).expect("open store");
+    let _store = open_store(&db_path);
     let rows = sqlite_rows(
         &db_path,
         "SELECT version, name FROM _morrow_migrations ORDER BY version;",
@@ -65,6 +69,11 @@ fn migrations_record_versions_when_opening_fresh_database() {
             vec!["5".to_owned(), "sync_scheduler_custom_interval".to_owned(),],
             vec!["6".to_owned(), "quiet_log_provider_diagnostic".to_owned(),],
             vec!["7".to_owned(), "provider_route_profile_metadata".to_owned(),],
+            vec!["8".to_owned(), "list_intake_entries".to_owned(),],
+            vec![
+                "9".to_owned(),
+                "list_intake_provider_diagnostics".to_owned(),
+            ],
         ]
     );
 }
@@ -74,7 +83,7 @@ fn quiet_log_schema_accepts_nullable_provider_diagnostic_without_snapshot_column
     // Given: a fresh SQLite path opened through Store migrations.
     let dir = tempfile::tempdir().expect("tempdir");
     let db_path = dir.path().join("quiet-log-provider-diagnostic.sqlite");
-    let _store = Store::open(&db_path).expect("open store");
+    let _store = open_store(&db_path);
 
     // When: the quiet log and evidence-adjacent schemas are inspected.
     let quiet_log_columns = column_names(&db_path, "quiet_logs");
@@ -104,7 +113,7 @@ fn sync_scheduler_schema_requires_version_four_table_and_default_row() {
     // Given: a fresh SQLite path opened through Store migrations.
     let dir = tempfile::tempdir().expect("tempdir");
     let db_path = dir.path().join("sync-scheduler-schema.sqlite");
-    let _store = Store::open(&db_path).expect("open store");
+    let _store = open_store(&db_path);
 
     // When: the scheduler table metadata and default row are inspected.
     let columns = sqlite_rows(&db_path, "PRAGMA table_info(sync_scheduler_state);");
@@ -152,7 +161,7 @@ fn provider_route_schema_requires_version_three_table_and_constraints() {
     // Given: a fresh SQLite path opened through Store migrations.
     let dir = tempfile::tempdir().expect("tempdir");
     let db_path = dir.path().join("provider-route-schema.sqlite");
-    let _store = Store::open(&db_path).expect("open store");
+    let _store = open_store(&db_path);
 
     // When: the provider-route table metadata is inspected.
     let columns = sqlite_rows(&db_path, "PRAGMA table_info(provider_route_outcomes);");
@@ -268,8 +277,8 @@ fn feedback_eval_schema_requires_new_tables() -> Result<(), String> {
     // Given: a fresh SQLite path opened through Store migrations.
     let dir = tempfile::tempdir().expect("tempdir");
     let db_path = dir.path().join("feedback-eval-schema.sqlite");
-    let _store = Store::open(&db_path).expect("open store");
-    let reopened_store = Store::open(&db_path).expect("reopen store");
+    let _store = open_store(&db_path);
+    let reopened_store = open_store(&db_path);
 
     // When: the schema is introspected from SQLite metadata.
     let table_set = reopened_store
@@ -282,7 +291,7 @@ fn feedback_eval_schema_requires_new_tables() -> Result<(), String> {
     assert_feedback_eval_schema(&db_path, &table_set)
 }
 
-fn column_names(db_path: &std::path::Path, table: &str) -> BTreeSet<String> {
+fn column_names(db_path: &Path, table: &str) -> BTreeSet<String> {
     sqlite_rows(db_path, &format!("PRAGMA table_info({table});"))
         .into_iter()
         .filter_map(|row| row.get(1).cloned())

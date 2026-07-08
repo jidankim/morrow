@@ -7,6 +7,7 @@ use crate::StorageError;
 
 const FIELD_SEPARATOR: &str = "\u{1f}";
 const ROW_SEPARATOR: &str = "\u{1e}";
+const SQLITE_RUN_LOG_ENV: &str = "MORROW_STORAGE_SQLITE_RUN_LOG";
 
 #[derive(Debug, Clone)]
 pub(crate) struct Sqlite {
@@ -119,6 +120,7 @@ impl Sqlite {
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()?;
+        record_sqlite_run();
         let mut stdin = child.stdin.take().ok_or_else(|| StorageError::Sqlite {
             message: "failed to open sqlite stdin".to_owned(),
         })?;
@@ -126,6 +128,19 @@ impl Sqlite {
         stdin.write_all(sql.as_bytes())?;
         drop(stdin);
         child.wait_with_output().map_err(StorageError::from)
+    }
+}
+
+fn record_sqlite_run() {
+    let Some(path) = std::env::var_os(SQLITE_RUN_LOG_ENV) else {
+        return;
+    };
+    if let Ok(mut log) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(path)
+    {
+        let _ = writeln!(log, "run");
     }
 }
 

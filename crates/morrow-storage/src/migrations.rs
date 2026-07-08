@@ -1,4 +1,4 @@
-use std::{fs, path::Path};
+use std::{collections::BTreeSet, fs, path::Path};
 
 use crate::sqlite_cli::{sql_text, Sqlite};
 use crate::store::Store;
@@ -8,16 +8,6 @@ pub(crate) struct Migration {
     pub(crate) version: i64,
     pub(crate) name: &'static str,
     pub(crate) sql: &'static str,
-}
-
-impl Migration {
-    pub(crate) fn recorded(&self, sqlite: &Sqlite) -> Result<bool, StorageError> {
-        let sql = format!(
-            "SELECT COUNT(*) FROM _morrow_migrations WHERE version = {};",
-            self.version
-        );
-        sqlite.query_scalar_i64(&sql).map(|count| count > 0)
-    }
 }
 
 pub(crate) const MIGRATIONS: &[Migration] = &[
@@ -86,13 +76,39 @@ impl Store {
             sqlite: Sqlite::new(db_path),
             db_path: db_path.to_path_buf(),
         };
-        for migration in MIGRATIONS {
-            if migration.version != 1 && migration.recorded(&store.sqlite)? {
-                continue;
-            }
-            store.sqlite.execute(migration.sql)?;
-            store.sqlite.execute(&record_migration_sql(migration)?)?;
+        let applied_versions = applied_migration_versions(&store.sqlite)?;
+        let mut script = String::new();
+        for migration in MIGRATIONS
+            .iter()
+            .filter(|migration| !applied_versions.contains(&migration.version))
+        {
+            script.push_str(migration.sql);
+            script.push('\n');
+            script.push_str(&record_migration_sql(migration)?);
+            script.push('\n');
+        }
+        if !script.is_empty() {
+            store.sqlite.execute(&script)?;
         }
         Ok(store)
     }
+}
+
+fn applied_migration_versions(sqlite: &Sqlite) -> Result<BTreeSet<i64>, StorageError> {
+    sqlite
+        .query_first_column(
+            "CREATE TABLE IF NOT EXISTS _morrow_migrations (
+                 version INTEGER PRIMARY KEY,
+                 name TEXT NOT NULL UNIQUE,
+                 applied_at INTEGER NOT NULL
+             );
+             SELECT version FROM _morrow_migrations ORDER BY version;",
+        )?
+        .into_iter()
+        .map(|version| {
+            version.parse::<i64>().map_err(|err| StorageError::Sqlite {
+                message: format!("expected migration version integer: {err}"),
+            })
+        })
+        .collect()
 }

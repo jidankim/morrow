@@ -11,6 +11,8 @@ use crate::store::feedback_eval_validation::{
 };
 use crate::{StorageError, Store};
 
+mod batch;
+
 impl Store {
     pub fn record_feedback_event(&self, event: crate::FeedbackEvent) -> Result<(), StorageError> {
         validate_key("event_key", &event.event_key)?;

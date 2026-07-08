@@ -1,6 +1,9 @@
 use std::collections::BTreeSet;
 use std::path::Path;
 use std::process::Command;
+use std::sync::{Mutex, MutexGuard};
+
+use morrow_storage::Store;
 
 use self::schema_assertions::{
     assert_eval_result_columns, assert_eval_run_columns, assert_feedback_event_columns,
@@ -11,6 +14,17 @@ use self::schema_assertions::{
 mod schema_assertions;
 
 const FIELD_SEPARATOR: &str = "\u{1f}";
+
+static STORE_OPEN_ENV_LOCK: Mutex<()> = Mutex::new(());
+
+pub fn lock_store_open_env() -> MutexGuard<'static, ()> {
+    STORE_OPEN_ENV_LOCK.lock().expect("store open env lock")
+}
+
+pub fn open_store(db_path: &Path) -> Store {
+    let _store_open_guard = lock_store_open_env();
+    Store::open(db_path).expect("open store")
+}
 
 pub fn sqlite_rows(db_path: &Path, sql: &str) -> Vec<Vec<String>> {
     let output = Command::new("sqlite3")
@@ -68,6 +82,11 @@ pub fn assert_feedback_eval_schema(
             vec!["5".to_owned(), "sync_scheduler_custom_interval".to_owned(),],
             vec!["6".to_owned(), "quiet_log_provider_diagnostic".to_owned(),],
             vec!["7".to_owned(), "provider_route_profile_metadata".to_owned(),],
+            vec!["8".to_owned(), "list_intake_entries".to_owned(),],
+            vec![
+                "9".to_owned(),
+                "list_intake_provider_diagnostics".to_owned(),
+            ],
         ]
     );
 
