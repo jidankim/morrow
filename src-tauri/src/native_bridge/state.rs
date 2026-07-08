@@ -1,16 +1,21 @@
+mod chat_id_cache;
+mod production;
+
 use std::path::Path;
 
 use morrow_messages::{MessagesDiscoveryDataSource, MessagesDiscoveryReport, MessagesError};
 
 use super::{
-    delete_all, eventkit_cleanup, map_permission_status, messages_sqlite, production_scan, scan,
-    scheduler, CodexExecRunner, DeleteMorrowDataError, DeleteMorrowDataRequest, FakeNativeBridge,
+    delete_all, eventkit_cleanup, map_permission_status, production_scan, scan, scheduler,
+    CodexExecRunner, DeleteMorrowDataError, DeleteMorrowDataRequest, FakeNativeBridge,
     KeychainBridgeError, MessagesPreviewCommandReport, MessagesPreviewRequest,
-    MorrowDataDeleteReceipt, MorrowTokenVault, PermissionKind, PermissionState, PermissionStatus,
+    MorrowDataDeleteReceipt, PermissionKind, PermissionState, PermissionStatus,
     ProductionScanCodexDependencies, ProposalReplayAdapter, ScanSelectedChatsError,
     ScanSelectedChatsRequest, ScanSelectedChatsResult, SyncSchedulerStateCommand,
     TokenCommandReceipt, TokenLookupRequest, TokenReadResponse, TokenWriteRequest,
 };
+pub(in crate::native_bridge) use chat_id_cache::SelectedChatIdResolutionCache;
+use production::ProductionNativeBridge;
 
 #[derive(Debug)]
 pub struct NativeBridgeState {
@@ -21,11 +26,6 @@ pub struct NativeBridgeState {
 enum NativeBridgeBackend {
     Production(ProductionNativeBridge),
     Fake(FakeNativeBridge),
-}
-
-#[derive(Debug, Default)]
-struct ProductionNativeBridge {
-    token_vault: MorrowTokenVault,
 }
 
 impl Default for NativeBridgeState {
@@ -135,9 +135,12 @@ impl NativeBridgeState {
         messages_db_path: &Path,
     ) -> Result<ScanSelectedChatsResult, ScanSelectedChatsError> {
         match &self.bridge {
-            NativeBridgeBackend::Production(_) => {
-                production_scan::scan_selected_chats_at(request, store_path, messages_db_path)
-            }
+            NativeBridgeBackend::Production(bridge) => production_scan::scan_selected_chats_at(
+                request,
+                store_path,
+                messages_db_path,
+                &bridge.selected_chat_id_cache,
+            ),
             NativeBridgeBackend::Fake(bridge) => {
                 scan::scan_selected_chats_with_source(request, store_path, bridge)
             }
@@ -152,12 +155,13 @@ impl NativeBridgeState {
         app_data_dir: &Path,
     ) -> Result<ScanSelectedChatsResult, ScanSelectedChatsError> {
         match &self.bridge {
-            NativeBridgeBackend::Production(_) => {
+            NativeBridgeBackend::Production(bridge) => {
                 production_scan::scan_selected_chats_at_with_app_data_dir(
                     request,
                     store_path,
                     messages_db_path,
                     app_data_dir,
+                    &bridge.selected_chat_id_cache,
                 )
             }
             NativeBridgeBackend::Fake(bridge) => {
@@ -193,11 +197,12 @@ impl NativeBridgeState {
         A: ProposalReplayAdapter,
     {
         match &self.bridge {
-            NativeBridgeBackend::Production(_) => {
+            NativeBridgeBackend::Production(bridge) => {
                 production_scan::scan_selected_chats_at_with_codex_dependencies(
                     request,
                     store_path,
                     messages_db_path,
+                    &bridge.selected_chat_id_cache,
                     dependencies,
                 )
             }
@@ -220,12 +225,13 @@ impl NativeBridgeState {
         A: ProposalReplayAdapter,
     {
         match &self.bridge {
-            NativeBridgeBackend::Production(_) => {
+            NativeBridgeBackend::Production(bridge) => {
                 production_scan::scan_selected_chats_at_with_codex_dependencies_and_app_data_dir(
                     request,
                     store_path,
                     messages_db_path,
                     app_data_dir,
+                    &bridge.selected_chat_id_cache,
                     dependencies,
                 )
             }
@@ -240,9 +246,7 @@ impl NativeBridgeState {
         db_path: &Path,
     ) -> Result<MessagesDiscoveryReport, MessagesError> {
         match &self.bridge {
-            NativeBridgeBackend::Production(_) => {
-                messages_sqlite::MessagesSqliteAdapter::new(db_path.to_path_buf()).discover_chats()
-            }
+            NativeBridgeBackend::Production(bridge) => bridge.discover_messages_chats_at(db_path),
             NativeBridgeBackend::Fake(bridge) => bridge.discover_chats(),
         }
     }
@@ -253,9 +257,8 @@ impl NativeBridgeState {
         request: &MessagesPreviewRequest,
     ) -> Result<MessagesPreviewCommandReport, MessagesError> {
         match &self.bridge {
-            NativeBridgeBackend::Production(_) => {
-                messages_sqlite::MessagesSqliteAdapter::new(db_path.to_path_buf())
-                    .load_messages_chat_previews(request)
+            NativeBridgeBackend::Production(bridge) => {
+                bridge.load_messages_chat_previews_at(db_path, request)
             }
             NativeBridgeBackend::Fake(bridge) => bridge.load_messages_chat_previews(request),
         }

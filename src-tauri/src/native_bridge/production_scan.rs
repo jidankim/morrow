@@ -1,5 +1,6 @@
 use std::path::Path;
 
+use super::state::SelectedChatIdResolutionCache;
 use super::{
     codex_auth, eventkit_proposal, scan, CodexExecRunner, CodexProvider,
     CodexProviderAuthReadiness, ProcessCodexExecRunner, ProposalReplayAdapter,
@@ -16,6 +17,7 @@ pub fn scan_selected_chats_at(
     request: ScanSelectedChatsRequest,
     store_path: &Path,
     messages_db_path: &Path,
+    selected_chat_id_cache: &SelectedChatIdResolutionCache,
 ) -> Result<ScanSelectedChatsResult, ScanSelectedChatsError> {
     request.validate_local_diagnostics_retention()?;
     let proposal_adapter = eventkit_proposal::EventKitProposalBridge;
@@ -24,6 +26,7 @@ pub fn scan_selected_chats_at(
         request,
         store_path,
         messages_db_path,
+        selected_chat_id_cache,
         ProductionScanCodexDependencies {
             auth_readiness: codex_auth::probe_codex_provider_auth(),
             codex_runner: &codex_runner,
@@ -37,6 +40,7 @@ pub fn scan_selected_chats_at_with_app_data_dir(
     store_path: &Path,
     messages_db_path: &Path,
     app_data_dir: &Path,
+    selected_chat_id_cache: &SelectedChatIdResolutionCache,
 ) -> Result<ScanSelectedChatsResult, ScanSelectedChatsError> {
     request.validate_local_diagnostics_retention()?;
     let proposal_adapter = eventkit_proposal::EventKitProposalBridge;
@@ -46,6 +50,7 @@ pub fn scan_selected_chats_at_with_app_data_dir(
         store_path,
         messages_db_path,
         app_data_dir,
+        selected_chat_id_cache,
         ProductionScanCodexDependencies {
             auth_readiness: codex_auth::probe_codex_provider_auth(),
             codex_runner: &codex_runner,
@@ -58,6 +63,7 @@ pub fn scan_selected_chats_at_with_codex_dependencies<R, A>(
     request: ScanSelectedChatsRequest,
     store_path: &Path,
     messages_db_path: &Path,
+    selected_chat_id_cache: &SelectedChatIdResolutionCache,
     dependencies: ProductionScanCodexDependencies<'_, R, A>,
 ) -> Result<ScanSelectedChatsResult, ScanSelectedChatsError>
 where
@@ -70,6 +76,7 @@ where
         store_path,
         messages_db_path,
         None,
+        selected_chat_id_cache,
         dependencies,
     )
 }
@@ -79,6 +86,7 @@ pub fn scan_selected_chats_at_with_codex_dependencies_and_app_data_dir<R, A>(
     store_path: &Path,
     messages_db_path: &Path,
     app_data_dir: &Path,
+    selected_chat_id_cache: &SelectedChatIdResolutionCache,
     dependencies: ProductionScanCodexDependencies<'_, R, A>,
 ) -> Result<ScanSelectedChatsResult, ScanSelectedChatsError>
 where
@@ -91,6 +99,7 @@ where
         store_path,
         messages_db_path,
         Some(app_data_dir),
+        selected_chat_id_cache,
         dependencies,
     )
 }
@@ -100,6 +109,7 @@ fn scan_selected_chats_at_with_provider_mode<R, A>(
     store_path: &Path,
     messages_db_path: &Path,
     app_data_dir: Option<&Path>,
+    selected_chat_id_cache: &SelectedChatIdResolutionCache,
     dependencies: ProductionScanCodexDependencies<'_, R, A>,
 ) -> Result<ScanSelectedChatsResult, ScanSelectedChatsError>
 where
@@ -113,6 +123,7 @@ where
             store_path,
             messages_db_path,
             app_data_dir,
+            selected_chat_id_cache,
             &provider,
             dependencies.proposal_adapter,
         )
@@ -122,6 +133,7 @@ where
             store_path,
             messages_db_path,
             app_data_dir,
+            selected_chat_id_cache,
             dependencies.proposal_adapter,
         )
     }
@@ -132,6 +144,7 @@ fn scan_selected_chats_with_provider<P, A>(
     store_path: &Path,
     messages_db_path: &Path,
     app_data_dir: Option<&Path>,
+    selected_chat_id_cache: &SelectedChatIdResolutionCache,
     provider: &P,
     proposal_adapter: &A,
 ) -> Result<ScanSelectedChatsResult, ScanSelectedChatsError>
@@ -145,6 +158,7 @@ where
             store_path,
             messages_db_path,
             app_data_dir,
+            selected_chat_id_cache,
             provider,
             proposal_adapter,
         ),
@@ -152,6 +166,7 @@ where
             request,
             store_path,
             messages_db_path,
+            selected_chat_id_cache,
             provider,
             proposal_adapter,
         ),
@@ -163,6 +178,7 @@ fn scan_selected_chats_with_unavailable_provider<A>(
     store_path: &Path,
     messages_db_path: &Path,
     app_data_dir: Option<&Path>,
+    selected_chat_id_cache: &SelectedChatIdResolutionCache,
     proposal_adapter: &A,
 ) -> Result<ScanSelectedChatsResult, ScanSelectedChatsError>
 where
@@ -175,6 +191,7 @@ where
                 store_path,
                 messages_db_path,
                 app_data_dir,
+                selected_chat_id_cache,
                 proposal_adapter,
             )
         }
@@ -182,6 +199,7 @@ where
             request,
             store_path,
             messages_db_path,
+            selected_chat_id_cache,
             proposal_adapter,
         ),
     }

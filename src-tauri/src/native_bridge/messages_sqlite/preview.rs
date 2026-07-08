@@ -18,6 +18,16 @@ impl MessagesSqliteAdapter {
             return Ok(MessagesPreviewCommandReport::empty());
         }
         let chat_guids = self.resolve_public_chat_ids(&request.chat_ids)?;
+        self.load_messages_chat_previews_for_chat_guids(&chat_guids)
+    }
+
+    pub(in crate::native_bridge) fn load_messages_chat_previews_for_chat_guids(
+        &self,
+        chat_guids: &[ChatGuid],
+    ) -> Result<MessagesPreviewCommandReport, MessagesError> {
+        if chat_guids.is_empty() {
+            return Ok(MessagesPreviewCommandReport::empty());
+        }
         let rows = self.query_rows(&latest_previews_sql(&chat_guids)?)?;
         preview_rows_to_report(&rows)
     }

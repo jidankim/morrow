@@ -8,6 +8,8 @@ mod consent;
 mod contract;
 #[path = "native_scan/dependencies.rs"]
 mod dependencies;
+#[path = "native_scan/discovery_cache.rs"]
+mod discovery_cache;
 #[path = "native_scan/feedback.rs"]
 mod feedback;
 #[path = "native_scan/list_intake_profiles.rs"]
@@ -58,6 +60,8 @@ mod scheduling_intent_eventkit;
 mod scheduling_intent_live_receipt;
 #[path = "native_scan/scheduling_intent_provider_route.rs"]
 mod scheduling_intent_provider_route;
+#[path = "native_scan/read_recent_window.rs"]
+mod read_recent_window;
 #[path = "native_scan/scheduling_intent_support.rs"]
 mod scheduling_intent_support;
 #[path = "native_scan/semantic_provider_router.rs"]

@@ -1,7 +1,10 @@
 use std::{
+    collections::HashMap,
     io::Write,
     path::PathBuf,
     process::{Command, Stdio},
+    sync::{Mutex, OnceLock},
+    thread::{self, ThreadId},
 };
 
 use morrow_messages::MessagesError;
@@ -15,6 +18,51 @@ const SQLITE_ARGS: &[&str] = &[
     FIELD_SEPARATOR,
 ];
 const STARTUP_SQL: &str = "PRAGMA query_only = ON;\nPRAGMA trusted_schema = OFF;\n";
+const ALL_CHAT_GUIDS_SQL: &str = "SELECT guid FROM chat ORDER BY guid ASC;";
+
+static SQLITE_QUERY_AUDIT: OnceLock<Mutex<HashMap<ThreadId, SqliteQueryAudit>>> = OnceLock::new();
+
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+pub struct SqliteQueryAudit {
+    pub total_query_count: usize,
+    pub all_chat_guids_sql_count: usize,
+}
+
+#[derive(Debug)]
+pub struct SqliteQueryAuditGuard {
+    owner: ThreadId,
+}
+
+fn sqlite_query_audit() -> &'static Mutex<HashMap<ThreadId, SqliteQueryAudit>> {
+    SQLITE_QUERY_AUDIT.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+#[doc(hidden)]
+pub fn begin_sqlite_query_audit() -> SqliteQueryAuditGuard {
+    let owner = thread::current().id();
+    if let Ok(mut audit) = sqlite_query_audit().lock() {
+        audit.insert(owner, SqliteQueryAudit::default());
+    }
+    SqliteQueryAuditGuard { owner }
+}
+
+#[doc(hidden)]
+pub fn sqlite_query_audit_snapshot() -> SqliteQueryAudit {
+    let owner = thread::current().id();
+    sqlite_query_audit()
+        .lock()
+        .ok()
+        .and_then(|audit| audit.get(&owner).cloned())
+        .unwrap_or_default()
+}
+
+impl Drop for SqliteQueryAuditGuard {
+    fn drop(&mut self) {
+        if let Ok(mut audit) = sqlite_query_audit().lock() {
+            audit.remove(&self.owner);
+        }
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SqliteReadProtections {
@@ -40,6 +88,7 @@ impl Sqlite {
     }
 
     pub fn query_rows(&self, sql: &str) -> Result<Vec<Vec<String>>, MessagesError> {
+        record_sqlite_query(sql);
         let output = self.run(sql)?;
         if !output.status.success() {
             return Err(sqlite_error_from_stderr(&output.stderr));
@@ -78,6 +127,18 @@ impl Sqlite {
     }
 }
 
+fn record_sqlite_query(sql: &str) {
+    let owner = thread::current().id();
+    if let Ok(mut audit) = sqlite_query_audit().lock() {
+        if let Some(snapshot) = audit.get_mut(&owner) {
+            snapshot.total_query_count += 1;
+            if sql.trim() == ALL_CHAT_GUIDS_SQL {
+                snapshot.all_chat_guids_sql_count += 1;
+            }
+        }
+    }
+}
+
 pub(crate) fn sqlite_error_from_stderr(stderr: &[u8]) -> MessagesError {
     let message = String::from_utf8_lossy(stderr).to_ascii_lowercase();
     if message.contains("permission denied")
@@ -99,9 +160,17 @@ fn unavailable(reason: impl Into<String>) -> MessagesError {
 
 #[cfg(test)]
 mod tests {
-    use std::{path::Path, process::Command};
+    use std::{
+        path::Path,
+        process::Command,
+        sync::{Arc, Barrier},
+        thread,
+    };
 
-    use super::Sqlite;
+    use super::{
+        begin_sqlite_query_audit, record_sqlite_query, sqlite_query_audit_snapshot, Sqlite,
+        ALL_CHAT_GUIDS_SQL,
+    };
 
     #[test]
     fn protected_query_blocks_write_attempts() -> Result<(), String> {
@@ -121,6 +190,59 @@ mod tests {
         // Then
         assert!(write_result.is_err());
         assert_eq!(rows, vec![vec!["1".to_owned()]]);
+        Ok(())
+    }
+
+    #[test]
+    fn sqlite_query_audits_are_thread_isolated() -> Result<(), String> {
+        // Given
+        let _main_audit = begin_sqlite_query_audit();
+        let child_started = Arc::new(Barrier::new(2));
+        let queries_recorded = Arc::new(Barrier::new(2));
+        let snapshots_captured = Arc::new(Barrier::new(2));
+        let child_handle = {
+            let child_started = Arc::clone(&child_started);
+            let queries_recorded = Arc::clone(&queries_recorded);
+            let snapshots_captured = Arc::clone(&snapshots_captured);
+            thread::spawn(move || {
+                let _child_audit = begin_sqlite_query_audit();
+                child_started.wait();
+
+                // When
+                record_sqlite_query(ALL_CHAT_GUIDS_SQL);
+                queries_recorded.wait();
+                let child_snapshot = sqlite_query_audit_snapshot();
+                snapshots_captured.wait();
+
+                child_snapshot
+            })
+        };
+        child_started.wait();
+
+        // When
+        record_sqlite_query("SELECT 1;");
+        queries_recorded.wait();
+        let main_snapshot = sqlite_query_audit_snapshot();
+        snapshots_captured.wait();
+        let child_snapshot = child_handle
+            .join()
+            .map_err(|_| "child audit thread panicked".to_owned())?;
+
+        // Then
+        assert_eq!(
+            main_snapshot,
+            super::SqliteQueryAudit {
+                total_query_count: 1,
+                all_chat_guids_sql_count: 0,
+            }
+        );
+        assert_eq!(
+            child_snapshot,
+            super::SqliteQueryAudit {
+                total_query_count: 1,
+                all_chat_guids_sql_count: 1,
+            }
+        );
         Ok(())
     }
 

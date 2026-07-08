@@ -1,4 +1,6 @@
-use morrow_messages::{ChatGuid, MessagesError};
+use morrow_messages::{ChatGuid, MessageTimestamp, MessagesError};
+
+use super::timestamp::unix_seconds_to_apple_date_units;
 
 pub fn discovery_sql(limit: u16) -> String {
     format!(
@@ -33,12 +35,19 @@ LIMIT {limit};
     )
 }
 
-pub fn read_recent_sql(chat_guids: &[ChatGuid], limit: u16) -> Result<String, MessagesError> {
+pub fn read_recent_sql(
+    chat_guids: &[ChatGuid],
+    since: MessageTimestamp,
+    until: MessageTimestamp,
+    limit: u16,
+) -> Result<String, MessagesError> {
     let selected_values = chat_guids
         .iter()
         .map(|guid| Ok(format!("({})", sql_text(guid.as_str())?)))
         .collect::<Result<Vec<_>, MessagesError>>()?
         .join(",");
+    let since_units = unix_seconds_to_apple_date_units(since)?;
+    let until_units = unix_seconds_to_apple_date_units(until)?;
     Ok(format!(
         r#"
 WITH selected(guid) AS (VALUES {selected_values}),
@@ -74,12 +83,18 @@ selected_messages AS (
   JOIN chat_message_join cmj ON cmj.chat_id = c.ROWID
   JOIN message m ON m.ROWID = cmj.message_id
   LEFT JOIN handle sender_handle ON sender_handle.ROWID = m.handle_id
+  WHERE (m.date BETWEEN {since_seconds} AND {until_seconds})
+     OR (m.date BETWEEN {since_nanoseconds} AND {until_nanoseconds})
 )
 SELECT chat_guid, participant_count, participant_handles, message_guid, message_date, text_hex, attributed_body_hex, sender_handle_id, sender_handle_hex
 FROM selected_messages
 WHERE row_number <= {limit}
 ORDER BY chat_guid ASC, message_date ASC, message_guid ASC;
-"#
+"#,
+        since_seconds = since_units.seconds,
+        until_seconds = until_units.seconds,
+        since_nanoseconds = since_units.nanoseconds,
+        until_nanoseconds = until_units.nanoseconds,
     ))
 }
 

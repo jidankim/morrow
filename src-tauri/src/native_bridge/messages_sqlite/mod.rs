@@ -22,7 +22,9 @@ use hex::text as hex_text;
 use queries::{all_chat_guids_sql, discovery_sql, read_recent_sql};
 use sender_identity::{SenderIdentityCache, SenderIdentitySalt};
 use sender_read_recent::rows_to_batch;
-pub use sqlite_cli::SqliteReadProtections;
+pub use sqlite_cli::{
+    begin_sqlite_query_audit, sqlite_query_audit_snapshot, SqliteReadProtections,
+};
 use sqlite_cli::{sqlite_error_from_stderr, Sqlite};
 use timestamp::apple_timestamp_to_unix_seconds;
 
@@ -172,7 +174,12 @@ impl MessagesDataSource for MessagesSqliteAdapter {
         if request.chat_guids.is_empty() {
             return Ok(NativeBatch::default());
         }
-        let sql = read_recent_sql(&request.chat_guids, self.limits.read_message_limit)?;
+        let sql = read_recent_sql(
+            &request.chat_guids,
+            request.since,
+            request.until,
+            self.limits.read_message_limit,
+        )?;
         let rows = self.query_rows(&sql)?;
         let read_rows = rows_to_batch(&rows, request, &self.sender_salt)?;
         self.sender_identities

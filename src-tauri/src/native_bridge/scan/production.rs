@@ -6,7 +6,9 @@ use super::{
     ProposalReplayAdapter, ScanSelectedChatsDependencies, ScanSelectedChatsError,
     ScanSelectedChatsRequest, ScanSelectedChatsResult,
 };
-use crate::native_bridge::messages_sqlite::MessagesSqliteAdapter;
+use crate::native_bridge::{
+    messages_sqlite::MessagesSqliteAdapter, state::SelectedChatIdResolutionCache,
+};
 use morrow_detection::AiProvider;
 use morrow_diagnostics::{
     JsonlTraceSink, JsonlTraceSinkConfig, NoopTraceRecorder, TraceRecord, TraceRecorder,
@@ -42,6 +44,7 @@ pub fn scan_selected_chats_at_with_unavailable_provider<A>(
     request: ScanSelectedChatsRequest,
     store_path: &Path,
     messages_db_path: &Path,
+    selected_chat_id_cache: &SelectedChatIdResolutionCache,
     proposal_adapter: &A,
 ) -> Result<ScanSelectedChatsResult, ScanSelectedChatsError>
 where
@@ -52,6 +55,7 @@ where
         request,
         store_path,
         messages_db_path,
+        selected_chat_id_cache,
         &provider,
         proposal_adapter,
     )
@@ -62,6 +66,7 @@ pub fn scan_selected_chats_at_with_unavailable_provider_and_app_data_dir<A>(
     store_path: &Path,
     messages_db_path: &Path,
     app_data_dir: &Path,
+    selected_chat_id_cache: &SelectedChatIdResolutionCache,
     proposal_adapter: &A,
 ) -> Result<ScanSelectedChatsResult, ScanSelectedChatsError>
 where
@@ -73,6 +78,7 @@ where
         store_path,
         messages_db_path,
         app_data_dir,
+        selected_chat_id_cache,
         &provider,
         proposal_adapter,
     )
@@ -82,6 +88,7 @@ pub fn scan_selected_chats_at_with_dependencies<P, A>(
     request: ScanSelectedChatsRequest,
     store_path: &Path,
     messages_db_path: &Path,
+    selected_chat_id_cache: &SelectedChatIdResolutionCache,
     provider: &P,
     proposal_adapter: &A,
 ) -> Result<ScanSelectedChatsResult, ScanSelectedChatsError>
@@ -95,6 +102,7 @@ where
         request,
         store_path,
         messages_db_path,
+        selected_chat_id_cache,
         provider,
         proposal_adapter,
         &recorder,
@@ -106,6 +114,7 @@ pub fn scan_selected_chats_at_with_dependencies_and_app_data_dir<P, A>(
     store_path: &Path,
     messages_db_path: &Path,
     app_data_dir: &Path,
+    selected_chat_id_cache: &SelectedChatIdResolutionCache,
     provider: &P,
     proposal_adapter: &A,
 ) -> Result<ScanSelectedChatsResult, ScanSelectedChatsError>
@@ -119,6 +128,7 @@ where
         request,
         store_path,
         messages_db_path,
+        selected_chat_id_cache,
         provider,
         proposal_adapter,
         &recorder,
@@ -129,6 +139,7 @@ fn scan_selected_chats_at_with_recorder<P, A, R>(
     request: ScanSelectedChatsRequest,
     store_path: &Path,
     messages_db_path: &Path,
+    selected_chat_id_cache: &SelectedChatIdResolutionCache,
     provider: &P,
     proposal_adapter: &A,
     trace_recorder: &R,
@@ -142,7 +153,8 @@ where
     let source = MessagesSqliteAdapter::with_local_store(messages_db_path.to_path_buf(), &store)
         .map_err(messages_error)?;
     let resolved_request =
-        resolve_production_scan_request(request, &source).map_err(messages_error)?;
+        resolve_production_scan_request(request, messages_db_path, &source, selected_chat_id_cache)
+            .map_err(messages_error)?;
     scan_selected_chats_with_dependencies(
         resolved_request,
         store_path,
@@ -189,9 +201,15 @@ fn select_production_trace_recorder(
 
 fn resolve_production_scan_request(
     request: ScanSelectedChatsRequest,
+    messages_db_path: &Path,
     source: &MessagesSqliteAdapter,
+    selected_chat_id_cache: &SelectedChatIdResolutionCache,
 ) -> Result<ScanSelectedChatsRequest, morrow_messages::MessagesError> {
-    let chat_guids = source.resolve_public_chat_ids(&request.selected_chat_ids)?;
+    let chat_guids =
+        match selected_chat_id_cache.resolve(messages_db_path, &request.selected_chat_ids)? {
+            Some(chat_guids) => chat_guids,
+            None => source.resolve_public_chat_ids(&request.selected_chat_ids)?,
+        };
     Ok(request.with_native_chat_guids(&chat_guids))
 }
 
